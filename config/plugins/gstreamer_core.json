@@ -1,0 +1,11 @@
+{
+    "is_scoreboard": true,
+    "scoreboard_device": 0,
+    "debug": true,
+    "network_ip": "192.168.0.",
+    "camera_ips": [
+        "192.168.0.11"
+    ],
+    "enable_external_screen": false,
+    "shm_base_dir": "/tmp"
+}

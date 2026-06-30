@@ -1,0 +1,79 @@
+{
+    "bouts": [
+        {
+            "bout": 1,
+            "category": "U17 Men -63kg",
+            "red": {
+                "name": "MIKE HAYDEN",
+                "country": "USA",
+                "flag": "us"
+            },
+            "blue": {
+                "name": "CARLOS VEGA",
+                "country": "MEX",
+                "flag": "mx"
+            },
+            "clock": 180
+        },
+        {
+            "bout": 2,
+            "category": "Welterweight",
+            "red": {
+                "name": "JAKE RIVERS",
+                "country": "GBR",
+                "flag": "gb"
+            },
+            "blue": {
+                "name": "DION WATTS",
+                "country": "USA",
+                "flag": "us"
+            },
+            "clock": 120
+        },
+        {
+            "bout": 3,
+            "category": "Light Heavyweight",
+            "red": {
+                "name": "TOM BRIGGS",
+                "country": "AUS",
+                "flag": "as"
+            },
+            "blue": {
+                "name": "ALEX STORM",
+                "country": "CAN",
+                "flag": "cn"
+            },
+            "clock": 90
+        },
+        {
+            "bout": 4,
+            "category": "Featherweight",
+            "red": {
+                "name": "DANNY CRUZ",
+                "country": "PUR",
+                "flag": "pu"
+            },
+            "blue": {
+                "name": "LEON BANKS",
+                "country": "USA",
+                "flag": "us"
+            },
+            "clock": 180
+        },
+        {
+            "bout": 5,
+            "category": "Heavyweight",
+            "red": {
+                "name": "PAUL CRANE",
+                "country": "USA",
+                "flag": "us"
+            },
+            "blue": {
+                "name": "RICO JAMES",
+                "country": "JAM",
+                "flag": "jm"
+            },
+            "clock": 120
+        }
+    ]
+}

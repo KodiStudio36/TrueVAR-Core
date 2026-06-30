@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>TrueVAR - Authentication</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-900 text-white h-screen flex items-center justify-center">
+
+    <!-- Auto-connect overlay (hidden until needed) -->
+    <div id="autoConnectOverlay"
+        class="hidden fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-50">
+        <div class="text-blue-400 text-2xl font-bold animate-pulse mb-4">TrueVAR Core</div>
+        <p id="autoConnectMsg" class="text-gray-300 text-sm">Checking saved session...</p>
+    </div>
+
+    <!-- Login form -->
+    <div id="loginForm" class="hidden bg-gray-800 p-8 rounded-lg shadow-lg w-96">
+        <h2 class="text-2xl font-bold mb-6 text-center text-blue-400">TrueVAR Core</h2>
+        <div class="mb-4">
+            <label class="block text-sm mb-2">Device License Key</label>
+            <input type="text" id="licenseKey"
+                class="w-full p-2 bg-gray-700 rounded border border-gray-600 focus:outline-none focus:border-blue-500"
+                placeholder="Enter key...">
+        </div>
+        <button onclick="authenticate()"
+            class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded mb-4">
+            Connect to Cloud
+        </button>
+        <div class="flex items-center justify-center mb-4">
+            <span class="text-gray-500 text-sm">OR</span>
+        </div>
+        <button onclick="bootOffline()"
+            class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded">
+            Boot Offline Mode
+        </button>
+        <p id="errorMsg" class="text-red-500 text-sm mt-4 hidden"></p>
+    </div>
+
+    <script>
+        // ── helpers ──────────────────────────────────────────────────────────────────
+
+        function showAutoConnect(msg) {
+            document.getElementById("autoConnectMsg").innerText = msg;
+            document.getElementById("autoConnectOverlay").classList.remove("hidden");
+        }
+
+        function showForm(errorText) {
+            document.getElementById("autoConnectOverlay").classList.add("hidden");
+            document.getElementById("loginForm").classList.remove("hidden");
+            if (errorText) {
+                const el = document.getElementById("errorMsg");
+                el.innerText = errorText;
+                el.classList.remove("hidden");
+            }
+        }
+
+        async function bootWithBinding(key, tournamentId, courtId) {
+            showAutoConnect("Resuming previous session…");
+            const res = await fetch("/api/system/boot", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    mode: "online",
+                    tournament_id: tournamentId,
+                    court_id: courtId,
+                    license_key: key,
+                }),
+            });
+            if (res.ok) {
+                window.location.href = "/dashboard";
+            } else {
+                showForm("Auto-boot failed. Please reconnect manually.");
+            }
+        }
+
+        // ── startup sequence ─────────────────────────────────────────────────────────
+
+        async function init() {
+            showAutoConnect("Checking saved session…");
+
+            // 1. If the system is already running (e.g. user hit back from dashboard), skip straight in.
+            try {
+                const statusRes = await fetch("/api/system/status");
+                const status = await statusRes.json();
+                if (status.is_booted) {
+                    window.location.href = "/dashboard";
+                    return;
+                }
+            } catch (_) { /* network error — fall through to form */ }
+
+            // 2. No running system. Do we have a saved key?
+            const key = localStorage.getItem("truevar_license");
+            if (!key) {
+                showForm();
+                return;
+            }
+
+            document.getElementById("licenseKey").value = key;
+
+            // 3. Run preflight to see if this device has an existing binding.
+            try {
+                const res = await fetch("/api/system/preflight", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ license_key: key }),
+                });
+
+                if (!res.ok) {
+                    localStorage.removeItem("truevar_license");
+                    showForm("Saved key is no longer valid.");
+                    return;
+                }
+
+                const data = await res.json();
+                const { tournamentId, courtId } = data.case ?? {};
+
+                if (tournamentId && courtId) {
+                    // Device was already bound — boot immediately, no selection needed.
+                    await bootWithBinding(key, tournamentId, courtId);
+                } else {
+                    // Licensed but never bound (or binding was cleared) — go pick a tournament.
+                    window.location.href = "/tournaments";
+                }
+            } catch (_) {
+                showForm("Network error. Check connection and try again.");
+            }
+        }
+
+        // ── manual actions ────────────────────────────────────────────────────────────
+
+        async function authenticate() {
+            const key = document.getElementById("licenseKey").value.trim();
+            if (!key) return;
+
+            const res = await fetch("/api/system/preflight", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ license_key: key }),
+            });
+
+            if (!res.ok) {
+                document.getElementById("errorMsg").innerText = "Invalid license key.";
+                document.getElementById("errorMsg").classList.remove("hidden");
+                return;
+            }
+
+            localStorage.setItem("truevar_license", key);
+            const data = await res.json();
+            const { tournamentId, courtId } = data.case ?? {};
+
+            if (tournamentId && courtId) {
+                await bootWithBinding(key, tournamentId, courtId);
+            } else {
+                window.location.href = "/tournaments";
+            }
+        }
+
+        async function bootOffline() {
+            await fetch("/api/system/boot", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mode: "offline" }),
+            });
+            window.location.href = "/dashboard";
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

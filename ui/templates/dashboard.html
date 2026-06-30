@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>TrueVAR - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-900 text-white p-8">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
+            <h1 class="text-3xl font-bold">System Status</h1>
+            <div id="modeBadge" class="px-4 py-1 rounded-full text-sm font-bold bg-gray-700 text-gray-300">Loading...
+            </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-6">
+            <div class="bg-gray-800 p-6 rounded-lg col-span-1">
+                <h3 class="text-xl font-bold mb-4 text-green-400">Active Plugins</h3>
+                <ul id="pluginList" class="space-y-2">
+                    <li class="text-gray-400 italic">Polling engine...</li>
+                </ul>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-lg col-span-2">
+                <h3 class="text-xl font-bold mb-4 text-blue-400">Live System Logs</h3>
+                <div id="logConsole" class="bg-black p-4 rounded h-64 overflow-y-auto font-mono text-sm text-green-500">
+                    System initialized. Waiting for stream...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchStatus() {
+            const res = await fetch("/api/system/status");
+            const data = await res.json();
+
+            // Set Badge
+            const badge = document.getElementById("modeBadge");
+            if (data.is_offline_mode) {
+                badge.innerText = "OFFLINE MODE";
+                badge.className = "px-4 py-1 rounded-full text-sm font-bold bg-yellow-600 text-white";
+            } else {
+                badge.innerText = "ONLINE - " + data.active_tournament_id;
+                badge.className = "px-4 py-1 rounded-full text-sm font-bold bg-green-600 text-white";
+            }
+
+            // Set Plugins
+            const list = document.getElementById("pluginList");
+            list.innerHTML = "";
+            data.loaded_plugins.forEach(p => {
+                list.innerHTML += `<li class="flex items-center"><span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span> ${p}</li>`;
+            });
+        }
+
+        fetchStatus();
+        // setInterval(fetchStatus, 5000); // Poll every 5 seconds
+    </script>
+</body>
+
+</html>

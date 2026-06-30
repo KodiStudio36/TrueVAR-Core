@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Livestream Match Results Graphic</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/script.js" defer></script>
+</head>
+
+<body>
+
+    <!-- Show Next Fight -->
+    <div class="top-left hidden" id="widget-next-round">
+        <div class="scoreboard-content">
+
+            <div class="header-grid">
+                <div class="header-round" id="nr-match-id">103</div>
+                <div class="header-text">Next Round</div>
+            </div>
+
+            <div class="row-wrapper with-color">
+                <div class="color-bar bg-green"></div>
+                <div class="data-row name-grid">
+                    <div class="res-name" id="nr-blue-name">Park Taejoon</div>
+                    <div class="res-round">vs</div>
+                    <div class="res-name" id="nr-red-name">Park Taejoon</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Scoreboard -->
+    <div class="top-left hidden" id="widget-scoreboard-system">
+        <div class="scoreboard-content">
+
+            <div class="header-grid">
+                <div class="header-round" id="sb-match-id">003</div>
+                <div class="header-text" id="sb-category">Schoolboys -68kg</div>
+            </div>
+
+            <div class="row-wrapper with-color">
+                <div class="color-bar bg-red"></div>
+                <div class="fighter-content">
+                    <div class="res-country" id="sb-red-country">KOR</div>
+                    <img class="flag-sm" id="sb-red-flag" src="https://flagcdn.com/w40/sk.png" alt="Flag">
+                    <div class="res-name" id="sb-red-name" style="font-weight: bold;">PARK TAEJOON</div>
+                </div>
+                <div class="color-bar bg-blue"></div>
+                <div class="fighter-content">
+                    <div class="res-country" id="sb-blue-country">KOR</div>
+                    <img class="flag-sm" id="sb-blue-flag" src="https://flagcdn.com/w40/hu.png" alt="Flag">
+                    <div class="res-name" id="sb-blue-name" style="font-weight: bold;">PARK TAEJOON</div>
+                </div>
+                <div class="header-grid">
+                    <div class="header-text" id="sb-clock">1:30</div>
+                    <div class="header-round" id="sb-round">3nd</div>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+
+    <!-- Fighter Introduction -->
+    <div class="widget-center hidden" id="widget-fighter-bars">
+        <div class="fighter-bars-layout">
+            <div class="fighter-bar">
+                <div class="color-bar bg-red"></div>
+                <div class="fighter-content">
+                    <div class="res-country" id="fb-red-country">AZE</div>
+                    <img class="flag-sm" id="fb-red-flag" src="https://flagcdn.com/w40/az.png" alt="Azerbaijan">
+                    <div class="res-name" id="fb-red-name" style="font-weight: bold;">GASHIM MAGOMEDOV</div>
+                </div>
+            </div>
+            <div class="fighter-bar">
+                <div class="color-bar bg-blue"></div>
+                <div class="fighter-content">
+                    <div class="res-country" id="fb-blue-country">KOR</div>
+                    <img class="flag-sm" id="fb-blue-flag" src="https://flagcdn.com/w40/kr.png" alt="South Korea">
+                    <div class="res-name" id="fb-blue-name" style="font-weight: bold;">PARK TAEJOON</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Show Winner -->
+    <div class="widget-container hidden" id="widget-winner">
+        <div class="header-label" id="win-header">101 Man's -58kg</div>
+
+        <div class="header-grid">
+            <div class="header-content">
+                <div class="header-name">Winner</div>
+                <div class="header-seed" id="win-title"></div>
+                <img class="header-logo" src="../static/wattermark.png" alt="Logo">
+            </div>
+        </div>
+
+        <div class="results-container">
+            <div class="row-wrapper with-color">
+                <div class="color-bar bg-blue" id="win-color"></div>
+                <div class="data-row result-grid">
+                    <div class="res-country" id="win-country">KOR</div>
+                    <img class="flag-sm" id="win-flag" src="https://flagcdn.com/w40/kr.png" alt="South Korea">
+                    <div class="res-name" id="win-name">Park Taejoon</div>
+                    <div class="res-round">WINNER</div>
+                    <div class="res-score"></div>
+                    <div class="res-outcome">101</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="yt-widget hidden" id="widget-yt">
+        <div class="yt-header-grid">
+            <div class="yt-color-bar"></div>
+            <div class="yt-header-content">
+                <div class="yt-logo-block">
+                    <svg class="yt-logo-svg" viewBox="0 0 90 63" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M88.1 9.9C87.1 6.3 84.3 3.5 80.7 2.5C73.6 0.6 45 0.6 45 0.6C45 0.6 16.4 0.6 9.3 2.5C5.7 3.5 2.9 6.3 1.9 9.9C0 17 0 31.5 0 31.5C0 31.5 0 46 1.9 53.1C2.9 56.7 5.7 59.5 9.3 60.5C16.4 62.4 45 62.4 45 62.4C45 62.4 73.6 62.4 80.7 60.5C84.3 59.5 87.1 56.7 88.1 53.1C90 46 90 31.5 90 31.5C90 31.5 90 17 88.1 9.9Z"
+                            fill="#FF0000" />
+                        <path d="M36 45L59.4 31.5L36 18V45Z" fill="white" />
+                    </svg>
+                </div>
+                <div class="yt-header-text">
+                    <div class="yt-channel-name">Like & Subscribe</div>
+                    <!-- <div class="yt-channel-sub">youtube.com/@yourchannel</div> -->
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>TrueVAR - Select Tournament</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-900 text-white p-8">
+    <div class="max-w-4xl mx-auto">
+        <h2 class="text-3xl font-bold mb-8 text-blue-400">Today's Tournaments</h2>
+        <div id="loading" class="text-gray-400">Scanning Firebase...</div>
+        <div id="tournamentGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </div>
+    <script>
+        async function loadTournaments() {
+            const key = localStorage.getItem("truevar_license");
+            if (!key) { window.location.href = "/"; return; }
+
+            const res = await fetch("/api/system/preflight", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ license_key: key }),
+            });
+            if (!res.ok) { window.location.href = "/"; return; }
+
+            const data = await res.json();
+            document.getElementById("loading").style.display = "none";
+
+            const grid = document.getElementById("tournamentGrid");
+
+            if (data.tournaments.length === 0) {
+                grid.innerHTML = "<p class='text-gray-400'>No tournaments scheduled for today.</p>";
+                return;
+            }
+
+            data.tournaments.forEach(t => {
+                const card = document.createElement("div");
+                card.className =
+                    "bg-gray-800 p-6 rounded-lg cursor-pointer hover:bg-gray-700 border border-gray-700 hover:border-blue-500 transition";
+                card.innerHTML = `
+        <h3 class="text-xl font-bold">${t.title}</h3>
+        <p class="text-gray-400 text-sm mt-2">${t.discipline}</p>
+        <p class="text-gray-500 text-xs mt-1">ID: ${t.id}</p>
+        <p class="text-blue-400 text-sm mt-3">Select → choose court →</p>
+      `;
+                // ← go to court selection, NOT directly to boot
+                card.onclick = () => {
+                    const params = new URLSearchParams({
+                        tournament_id: t.id,
+                        title: t.title,
+                    });
+                    window.location.href = `/court-selection?${params}`;
+                };
+                grid.appendChild(card);
+            });
+        }
+
+        loadTournaments();
+    </script>
+</body>
+
+</html>

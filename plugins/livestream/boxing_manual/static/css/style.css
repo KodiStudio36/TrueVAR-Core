@@ -1,0 +1,1293 @@
+/* =========================================
+           1. DESIGN SYSTEM (Variables)
+           ========================================= */
+:root {
+    /* Colors */
+    --bg-row: #DDECF0;
+    --bg-label: #043640;
+    --bg-sketch-block: #02102A;
+    /* Dark background for sketch style blocks */
+    --bg-sketch-timeout: #800000;
+    /* Dark red for timeout block */
+
+    --text-primary: #083344;
+    --text-light: #A1C6CC;
+    --text-white: #ffffff;
+    --text-muted: #8da1b5;
+    --text-seed: #638B95;
+    --text-round: #124B5A;
+
+    /* Accents */
+    --color-blue: #006eff;
+    --color-red: #ff0000;
+    --color-green: #043640;
+
+    /* Gradients & Borders */
+    --grad-header: linear-gradient(100deg, #02102A 85%, #0B6B67 85.2%);
+    --grad-round-results: linear-gradient(180deg, #02102A 70%, #0B6B67 100%);
+    --border-flag: 1px solid rgba(0, 0, 0, 0.1);
+
+    /* Layout */
+    --default-offset: 2vw;
+    --bottom-offset: var(--default-offset);
+    --top-offset: var(--default-offset);
+    --left-offset: var(--default-offset);
+    --side-padding: 16vw;
+
+    --ticker-height: 40px;
+    --ticker-bg: linear-gradient(to top, rgba(0, 0, 0, .7) 0%, rgba(0, 0, 0, 0.0) 100%);
+    --ticker-speed: 15s;
+}
+
+/* =========================================
+           2. BASE STYLES & UTILITIES
+           ========================================= */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: transparent;
+    /* For OBS */
+    height: 100vh;
+    overflow: hidden;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Color Bar Utilities */
+.color-bar {
+    height: 100%;
+}
+
+.bg-blue {
+    background-color: var(--color-blue);
+}
+
+.bg-red {
+    background-color: var(--color-red);
+}
+
+.bg-green {
+    background-color: var(--color-green);
+}
+
+/* Flag Styles */
+.flag-lg {
+    height: 46px;
+    width: 70px;
+    object-fit: cover;
+    margin-right: 15px;
+    border: var(--border-flag);
+    background: white;
+}
+
+.flag-sm {
+    width: 32px;
+    height: 22px;
+    object-fit: cover;
+    border: var(--border-flag);
+}
+
+/* =========================================
+           3. GENERIC WIDGET LAYOUTS
+           ========================================= */
+
+/* Container for bottom-centered widgets (Match Results) */
+.widget-container {
+    position: absolute;
+    bottom: var(--bottom-offset);
+    width: 100vw;
+    max-width: 1300px;
+    left: 50%;
+    transform: translate(-50%, 0%);
+    padding: 0 var(--side-padding);
+}
+
+.widget-center {
+    position: absolute;
+    bottom: var(--bottom-offset);
+    width: 100vw;
+    left: 50%;
+    transform: translate(-50%, 0%);
+}
+
+/* Generic top-left absolute positioning (e.g., Scoreboard, IVR) */
+.top-left {
+    position: absolute;
+    top: var(--top-offset);
+    left: var(--left-offset);
+    width: auto;
+    /* max-width: 100vw; */
+}
+
+/* Full width footer-style widget (original IVR) */
+.widget-full {
+    position: absolute;
+    bottom: var(--bottom-offset);
+    left: var(--left-offset);
+    width: 96vw;
+    height: 36px;
+    display: grid;
+    grid-template-columns: 14px auto 1fr;
+    gap: 2px;
+}
+
+/* =========================================
+           4. WIDGET COMPONENTS
+           ========================================= */
+
+/* The header title above widgets */
+.header-label {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--bg-label);
+    color: var(--text-light);
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 6px 10px;
+    margin-bottom: 2px;
+}
+
+/* Standard Main Header Grid (Color bar + gradient info block) */
+.header-grid {
+    position: relative;
+    height: 62px;
+    gap: 2px;
+}
+
+.header-grid.with-color {
+    display: grid;
+    grid-template-columns: 16px 1fr;
+}
+
+.scoreboard-content .header-grid {
+    display: grid;
+    height: 36px;
+    grid-template-columns: auto auto 1fr;
+}
+
+.round-results .header-grid {
+    position: relative;
+    height: calc(62px + 16px);
+}
+
+/* Gradient Info Block content */
+.header-content {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    background: var(--grad-header);
+    color: var(--text-white);
+    padding: 8px 15px;
+    position: relative;
+}
+
+.round-results .header-content {
+    flex-direction: column;
+    align-items: start;
+    background: var(--bg-sketch-block);
+    color: var(--text-white);
+    padding: 12px 15px;
+    position: relative;
+}
+
+/* Existing component header detail classes */
+.header-country {
+    font-size: 26px;
+    margin-right: 12px;
+    font-weight: 400;
+}
+
+.header-name {
+    font-size: 28px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.header-seed {
+    font-size: 20px;
+    color: var(--text-muted);
+    margin-left: 8px;
+    margin-top: 7px;
+    flex-grow: 1;
+}
+
+.round-results .header-seed {
+    font-size: 20px;
+    color: var(--text-muted);
+    margin-left: 0px;
+    margin-top: -2px;
+    flex-grow: 1;
+}
+
+.header-logo {
+    height: 44px;
+    width: 50px;
+}
+
+.header-legend {
+    position: absolute;
+    display: grid;
+    grid-template-columns: 1fr 38px 38px 38px 38px 38px;
+    gap: 2px;
+    width: 200px;
+    height: 30px;
+    right: 0px;
+    bottom: 1px;
+}
+
+.legend-box {
+    position: relative;
+    display: flex;
+    height: 100%;
+    width: 38px;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-size: 19px;
+    font-weight: 600;
+}
+
+/* =========================================
+        5. ICON MASK SYSTEM
+        ========================================= */
+.icon {
+    display: inline-block;
+    width: 22px;
+    /* Adjust size to fit nicely in your 38px boxes */
+    height: 22px;
+
+    /* 1. This variable dictates the color of your white PNG! */
+    background-color: var(--text-white);
+
+    /* 2. Standard mask setup */
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+/* 3. Link your individual PNG files here */
+.icon-points {
+    -webkit-mask-image: url('icons/points.png');
+    mask-image: url('icons/points.png');
+}
+
+.icon-trunk {
+    width: 20px;
+    height: 20px;
+    -webkit-mask-image: url('../static/vest-icon.png');
+    mask-image: url('../static/vest-icon.png');
+}
+
+.icon-head {
+    width: 21px;
+    height: 21px;
+    -webkit-mask-image: url('../static/helm-icon.png');
+    mask-image: url('../static/helm-icon.png');
+}
+
+.icon-punch {
+    width: 20px;
+    height: 20px;
+    -webkit-mask-image: url('../static/punch-icon.png');
+    mask-image: url('../static/punch-icon.png');
+}
+
+/* Example of changing a specific icon's color independently */
+.icon-penalty {
+    width: 21px;
+    height: 21px;
+    background-color: #ffcc00;
+    /* Makes just the penalty icon yellow/gold */
+    -webkit-mask-image: url('../static/penalty-icon.png');
+    mask-image: url('../static/penalty-icon.png');
+}
+
+.scoreboard-content .header-round {
+    font-size: 19px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-label);
+    color: var(--text-white);
+    padding: 0px 14px;
+    font-weight: bold;
+}
+
+.scoreboard-content .header-text {
+    font-size: 19px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-row);
+    color: var(--text-primary);
+    padding: 0px 16px;
+    font-weight: bold;
+}
+
+/* A universal data row layout */
+.data-row {
+    position: relative;
+    height: 38px;
+    background-color: var(--bg-row);
+    align-items: center;
+    padding: 8px 16px;
+    color: var(--text-primary);
+    font-size: 19px;
+    font-weight: 600;
+}
+
+/* Specific grid structure within a data row (Results) */
+.result-grid {
+    display: grid;
+    grid-template-columns: 34px auto 1fr auto auto auto;
+    gap: 16px;
+}
+
+.name-grid {
+    display: grid;
+    grid-template-columns: auto auto auto;
+    gap: 16px;
+    padding: 8px 12px;
+}
+
+.round-grid {
+    display: grid;
+    grid-template-columns: 34px auto 1fr auto auto auto;
+    gap: 16px;
+}
+
+.point-box {
+    position: relative;
+    display: block;
+    height: 38px;
+    width: 38px;
+    background-color: var(--bg-row);
+    align-items: center;
+    justify-content: center;
+    color: var(--text-primary);
+    font-size: 19px;
+    font-weight: 600;
+}
+
+.point-box.penalty {
+    background-color: #fff47e;
+}
+
+.point-box.winner {
+    background-color: var(--bg-label);
+    color: var(--text-white);
+}
+
+.point-box .main {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.point-box.composed .main {
+    position: absolute;
+    top: 50%;
+    left: 40%;
+    transform: translate(-50%, -50%);
+}
+
+.point-box .small {
+    font-size: 16px;
+    position: absolute;
+    top: 65%;
+    left: 70%;
+    transform: translate(-50%, -50%);
+}
+
+.data-row .main {
+    position: absolute;
+    top: 50%;
+    right: 19px;
+    text-align: end;
+    transform: translate(0%, -50%);
+}
+
+.data-row .small {
+    font-size: 16px;
+    position: absolute;
+    top: 65%;
+    right: 9px;
+    transform: translate(0%, -50%);
+}
+
+/* Wrapper that adds a color bar to a data row */
+.row-wrapper.with-color {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 12px 1fr;
+    gap: 2px;
+    margin-top: 2px;
+}
+
+.row-wrapper.standard {
+    margin-top: 2px;
+}
+
+.row-wrapper.results {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 12px 1fr auto auto auto auto;
+    gap: 2px;
+    margin-top: 2px;
+}
+
+/* Specific data element classes within a row */
+.res-country {
+    font-weight: 500;
+}
+
+.res-name {
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* padding-right: 15px; */
+}
+
+.res-round {
+    font-weight: 500;
+    color: var(--text-round);
+}
+
+.res-score {
+    text-align: center;
+    letter-spacing: 1px;
+}
+
+.res-outcome {
+    text-align: right;
+    font-weight: bold;
+}
+
+.res-seed {
+    font-size: 13px;
+    color: var(--text-seed);
+}
+
+/* Fighter Bars Layout (Bottom overlay) */
+.fighter-bars-layout {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+}
+
+.fighter-bar {
+    width: auto;
+    min-width: 380px;
+    display: grid;
+    grid-template-columns: 12px 1fr;
+    /* Thin accent line */
+    gap: 2px;
+}
+
+.fighter-content {
+    display: flex;
+    align-items: center;
+    background-color: var(--bg-row);
+    height: 38px;
+    padding: 8px 16px;
+    color: var(--text-primary);
+    font-size: 19px;
+    gap: 12px;
+}
+
+.fighter-content .res-seed {
+    margin-left: -4px;
+    /* Pulls the seed slightly closer to the name */
+}
+
+#widget-ticker {
+    position: absolute;
+    bottom: -60px;
+    /* Start hidden below screen */
+    left: 0;
+    width: 100%;
+    height: var(--ticker-height);
+    background: var(--ticker-bg);
+    display: flex;
+    align-items: end;
+    overflow: hidden;
+    transition: bottom 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    z-index: 9999;
+    /* border-top: 2px solid var(--bg-label); */
+}
+
+#widget-ticker.active {
+    bottom: 0;
+    /* Rise up */
+}
+
+.ticker-content {
+    margin-bottom: 2px;
+    white-space: nowrap;
+    display: inline-block;
+    padding-left: 100%;
+    /* Start off-screen to the right */
+    will-change: transform;
+}
+
+.ticker-text {
+    color: white;
+    font-size: 20px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+@keyframes ticker-scroll {
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(-100%);
+    }
+}
+
+.scrolling {
+    animation: ticker-scroll var(--ticker-speed) linear;
+}
+
+.yt-widget {
+    position: absolute;
+    bottom: 140px;
+    right: 0;
+    width: 320px;
+    transform: translateX(6px);
+    opacity: 1;
+    transition:
+        transform 0.5s cubic-bezier(0.18, 0.9, 0.3, 1.1),
+        opacity 0.4s ease;
+
+    pointer-events: auto;
+}
+
+.yt-widget.hidden {
+    display: block !important;
+    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.yt-header-grid {
+    display: grid;
+    grid-template-columns: 12px 1fr;
+    gap: 2px;
+    margin-bottom: 2px;
+}
+
+.yt-color-bar {
+    background: var(--color-red);
+}
+
+.yt-header-content {
+    background: var(--grad-header);
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    gap: 10px;
+}
+
+.yt-logo-block {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.yt-logo-svg {
+    width: 32px;
+    height: 20px;
+}
+
+.yt-header-text {
+    flex: 1;
+}
+
+.yt-channel-name {
+    color: var(--text-white);
+    font-size: 19px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    line-height: 1.1;
+}
+
+.yt-channel-sub {
+    color: var(--text-light);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    margin-top: 1px;
+}
+
+.vr-container {
+    position: absolute;
+    display: inline-flex;
+    height: 60px;
+    /* box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); */
+    user-select: none;
+    gap: 2px;
+
+    bottom: 70px;
+    left: 50%;
+    transform: translate(-50%, 0%);
+}
+
+.vr-badge {
+    position: relative;
+    background-color: #FFA000;
+    width: 65px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.badge-text {
+    color: #FFFFFF;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.vr-content {
+    display: flex;
+    flex-direction: column;
+    min-width: 280px;
+    gap: 2px;
+}
+
+.content-header {
+    background-color: var(--bg-sketch-block);
+    color: #FFFFFF;
+    font-size: 19px;
+    font-weight: 700;
+    padding: 2px 16px 0 16px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+}
+
+.content-sub {
+    position: relative;
+    background-color: var(--bg-row);
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    padding: 0 16px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+}
+
+/* Keep display:none from firing during animation */
+.vr-container.vr-animating {
+    display: inline-flex !important;
+}
+
+/* Add overflow:hidden to your existing .vr-content rule */
+.vr-content {
+    overflow: hidden;
+    /* ...rest of your existing props */
+}
+
+@keyframes vr-rise {
+    0% {
+        transform: translate(0%, 140px);
+        opacity: 0;
+    }
+
+    20% {
+        transform: translate(0%, 0);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+}
+
+@keyframes vr-content-expand {
+    from {
+        max-width: 0;
+    }
+
+    to {
+        max-width: 400px;
+    }
+}
+
+@keyframes vr-header-slide {
+    from {
+        opacity: 0;
+        transform: translateX(-16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes vr-sub-slide {
+    from {
+        opacity: 0;
+        transform: translateX(-16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes vr-fade-out {
+    from {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translate(-50%, 16px);
+    }
+}
+
+.vr-container.vr-entering {
+    animation: vr-rise 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.vr-container.vr-entering .vr-content {
+    animation: vr-content-expand 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.42s both;
+    max-width: 0;
+}
+
+.vr-container.vr-entering .content-header {
+    animation: vr-header-slide 0.35s ease-out 0.60s both;
+}
+
+.vr-container.vr-entering .content-sub {
+    animation: vr-sub-slide 0.35s ease-out 0.72s both;
+}
+
+.vr-container.vr-exiting {
+    animation: vr-fade-out 0.35s ease forwards;
+}
+
+
+/* Keep widget visible during animation */
+.round-results.rr-animating {
+    display: block !important;
+}
+
+/* Set up the 3D stacking context so elements slide from "behind" the header */
+.round-results .header-grid {
+    position: relative;
+    z-index: 10;
+}
+
+.round-results .header-label {
+    position: relative;
+    z-index: 1;
+}
+
+.round-results .results-container {
+    position: relative;
+    z-index: 1;
+}
+
+/* Hide surrounding elements initially */
+.round-results.rr-entering .header-content,
+.round-results.rr-entering .header-label,
+.round-results.rr-entering .results-container {
+    opacity: 0;
+}
+
+/* 1. THE DARK RECTANGLE 
+   Targeting ONLY the header-grid. Rises up, expands, then fades out. 
+*/
+.round-results.rr-entering .header-grid::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    background-color: var(--bg-sketch-block);
+    z-index: 20;
+    /* Covers the header text initially */
+    animation: rr-rect-header 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes rr-rect-header {
+    0% {
+        transform: translate(-50%, 250px);
+        /* Shoots up from bottom of screen */
+        width: 8px;
+        height: 100%;
+        opacity: 1;
+    }
+
+    25% {
+        transform: translate(-50%, 0);
+        /* Settles perfectly in the header grid */
+        width: 8px;
+        height: 100%;
+        opacity: 1;
+    }
+
+    50% {
+        transform: translate(-50%, 0);
+        width: 100%;
+        /* Spreads to full width of the header */
+        height: 100%;
+        opacity: 1;
+    }
+
+    80% {
+        transform: translate(-50%, 0);
+        width: 100%;
+        height: 100%;
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, 0);
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        /* Fades out to reveal actual header underneath */
+    }
+}
+
+/* 2. REVEAL HEADER TEXT */
+.round-results.rr-entering .header-content {
+    /* Snaps to full opacity right as the rectangle finishes expanding, 
+       so it's ready when the rect fades out */
+    animation: rr-fade-in 0.1s linear 0.45s forwards;
+}
+
+@keyframes rr-fade-in {
+    to {
+        opacity: 1;
+    }
+}
+
+/* 3. LABEL POPS UP FROM HEADER */
+.round-results.rr-entering .header-label {
+    animation: rr-pop-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.55s forwards;
+}
+
+@keyframes rr-pop-up {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+        /* Starts hidden behind the header */
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        /* Pops up into resting place */
+    }
+}
+
+/* 4. ROWS FADE AND SLIDE SLIGHTLY FROM TOP */
+.round-results.rr-entering .results-container {
+    animation: rr-fade-slide-down 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.60s forwards;
+}
+
+@keyframes rr-fade-slide-down {
+    0% {
+        opacity: 0;
+        transform: translateY(-20px);
+        /* A much slighter movement from the top */
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 5. OVERALL EXIT ANIMATION */
+.round-results.rr-exiting {
+    animation: rr-fade-out 0.35s ease forwards;
+}
+
+@keyframes rr-fade-out {
+    from {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translate(-50%, 30px);
+    }
+}
+
+/* Keep widget visible during animation */
+#widget-winner.win-animating {
+    display: block !important;
+}
+
+/* Set up the 3D stacking context so elements slide from "behind" the header */
+#widget-winner .header-grid {
+    position: relative;
+    z-index: 10;
+}
+
+#widget-winner .header-label {
+    position: relative;
+    z-index: 1;
+}
+
+#widget-winner .results-container {
+    position: relative;
+    z-index: 1;
+}
+
+/* Hide surrounding elements initially */
+#widget-winner.win-entering .header-content,
+#widget-winner.win-entering .header-label,
+#widget-winner.win-entering .results-container {
+    opacity: 0;
+}
+
+/* 1. THE DARK RECTANGLE 
+   Targeting ONLY the header-grid. Rises up, expands, then fades out. 
+*/
+#widget-winner.win-entering .header-grid::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    background-color: var(--bg-sketch-block);
+    z-index: 20;
+    /* Covers the header text initially */
+    animation: win-rect-header 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes win-rect-header {
+    0% {
+        transform: translate(-50%, 250px);
+        width: 8px;
+        height: 100%;
+        opacity: 1;
+    }
+
+    25% {
+        transform: translate(-50%, 0);
+        width: 8px;
+        height: 100%;
+        opacity: 1;
+    }
+
+    50% {
+        transform: translate(-50%, 0);
+        width: 100%;
+        height: 100%;
+        opacity: 1;
+    }
+
+    80% {
+        transform: translate(-50%, 0);
+        width: 100%;
+        height: 100%;
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, 0);
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+    }
+}
+
+/* 2. REVEAL HEADER TEXT */
+#widget-winner.win-entering .header-content {
+    animation: win-fade-in 0.1s linear 0.45s forwards;
+}
+
+@keyframes win-fade-in {
+    to {
+        opacity: 1;
+    }
+}
+
+/* 3. LABEL POPS UP FROM HEADER */
+#widget-winner.win-entering .header-label {
+    animation: win-pop-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.55s forwards;
+}
+
+@keyframes win-pop-up {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 4. ROWS FADE AND SLIDE SLIGHTLY FROM TOP */
+#widget-winner.win-entering .results-container {
+    /* Since there is only one row in the winner widget, we don't need nth-child stagger */
+    animation: win-fade-slide-down 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.60s forwards;
+}
+
+@keyframes win-fade-slide-down {
+    0% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 5. OVERALL EXIT ANIMATION */
+#widget-winner.win-exiting {
+    animation: win-fade-out 0.35s ease forwards;
+}
+
+@keyframes win-fade-out {
+    from {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translate(-50%, 30px);
+    }
+}
+
+/* Keep widget visible during animation */
+#widget-fighter-bars.fb-animating {
+    display: block !important;
+}
+
+/* Hide elements initially during the enter sequence */
+#widget-fighter-bars.fb-entering .color-bar {
+    z-index: 10;
+    transform: scaleY(0);
+    transform-origin: bottom;
+    /* Forces the bar to grow from the bottom up */
+}
+
+#widget-fighter-bars.fb-entering .fighter-content {
+    z-index: 5;
+    opacity: 0;
+    transform: translateX(-30px);
+    /* Starts slightly to the left */
+}
+
+/* 1. THE COLOR BARS RISE TOGETHER
+   Both bars trigger immediately and grow upwards. 
+*/
+#widget-fighter-bars.fb-entering .color-bar {
+    animation: fb-bar-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes fb-bar-rise {
+    0% {
+        transform: scaleY(0);
+    }
+
+    100% {
+        transform: scaleY(1);
+    }
+}
+
+/* 2. THE CONTENT FADES AND SLIDES FROM LEFT TO RIGHT
+   Starts at 0.35s, right as the color bars are finishing their rise.
+*/
+#widget-fighter-bars.fb-entering .fighter-content {
+    animation: fb-content-slide 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.35s forwards;
+}
+
+@keyframes fb-content-slide {
+    0% {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 3. OVERALL EXIT ANIMATION
+   Fades out and drops the entire widget slightly.
+*/
+#widget-fighter-bars.fb-exiting {
+    animation: fb-fade-out 0.35s ease forwards;
+}
+
+@keyframes fb-fade-out {
+    from {
+        opacity: 1;
+        transform: translate(-50%, 0);
+        /* Preserves your .widget-center transform */
+    }
+
+    to {
+        opacity: 0;
+        transform: translate(-50%, 30px);
+    }
+}
+
+/* Keep widget visible during animation */
+#widget-next-round.sb-animating,
+#widget-scoreboard-system.sb-animating {
+    display: block !important;
+}
+
+/* Stacking context: ensures elements slide out from BEHIND the item to their left/top */
+#widget-next-round .header-round,
+#widget-scoreboard-system .header-round {
+    position: relative;
+    z-index: 10;
+}
+
+#widget-next-round .header-text,
+#widget-scoreboard-system .header-text {
+    position: relative;
+    z-index: 5;
+}
+
+#widget-next-round .row-wrapper,
+#widget-scoreboard-system .row-wrapper {
+    position: relative;
+    z-index: 1;
+}
+
+/* Hide everything initially during the enter sequence */
+#widget-next-round.sb-entering .header-round,
+#widget-next-round.sb-entering .header-text,
+#widget-next-round.sb-entering .data-row,
+#widget-scoreboard-system.sb-entering .header-round,
+#widget-scoreboard-system.sb-entering .header-text,
+#widget-scoreboard-system.sb-entering .fighter-content {
+    opacity: 0;
+}
+
+#widget-next-round.sb-entering .color-bar,
+#widget-scoreboard-system.sb-entering .color-bar {
+    transform: scaleY(0);
+    transform-origin: top;
+    /* Ensures the bar drops DOWN from the header */
+}
+
+/* 1. MATCH ID (HEADER ROUND) SLIDES IN FROM FAR LEFT */
+#widget-next-round.sb-entering .header-round,
+#widget-scoreboard-system.sb-entering .header-round {
+    animation: sb-slide-in-left 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes sb-slide-in-left {
+    from {
+        transform: translateX(-100px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* 2. HEADER TEXT SLIDES OUT FROM BEHIND THE MATCH ID */
+#widget-next-round.sb-entering .header-text,
+#widget-scoreboard-system.sb-entering .header-text {
+    /* Starts at 0.2s so it begins right as the Match ID is finishing its entrance */
+    animation: sb-slide-out-right 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
+}
+
+@keyframes sb-slide-out-right {
+    from {
+        transform: translateX(-60px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* 3. COLOR BAR DROPS DOWN FROM THE HEADER */
+#widget-next-round.sb-entering .color-bar,
+#widget-scoreboard-system.sb-entering .color-bar {
+    z-index: 10;
+    /* Starts at 0.45s as the header text settles */
+    animation: sb-drop-down 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.45s forwards;
+}
+
+@keyframes sb-drop-down {
+    to {
+        transform: scaleY(1);
+    }
+}
+
+/* 4. DATA ROW SLIDES/FADES OUT FROM THE LEFT */
+#widget-next-round.sb-entering .data-row,
+#widget-scoreboard-system.sb-entering .fighter-content {
+    z-index: 5;
+    /* Starts at 0.6s, right after the color bar finishes dropping */
+    animation: sb-fade-slide-right 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.6s forwards;
+}
+
+@keyframes sb-fade-slide-right {
+    from {
+        transform: translateX(-30px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* 5. OVERALL EXIT ANIMATION (RETRACT) */
+#widget-next-round.sb-exiting,
+#widget-scoreboard-system.sb-exiting {
+    /* Snaps everything back to the left smoothly */
+    animation: sb-retract 0.4s cubic-bezier(0.8, 0, 0.2, 1) forwards;
+}
+
+@keyframes sb-retract {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateX(-100px);
+        opacity: 0;
+    }
+}

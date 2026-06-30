@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BoutCtrl — Boxing Match Controller</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=Rajdhani:wght@500;600;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        /* ─── TOKENS ─────────────────────────────────────────── */
+        :root {
+            --bg: #07070f;
+            --bg-panel: #0c0c18;
+            --bg-card: #11111e;
+            --bg-card-h: #181828;
+            --bg-active: #14142a;
+
+            --red: #e03030;
+            --red-dim: #9b1f1f;
+            --red-glow: rgba(224, 48, 48, .35);
+
+            --blue: #2368e0;
+            --blue-dim: #1645a3;
+            --blue-glow: rgba(35, 104, 224, .35);
+
+            --gold: #c8a840;
+            --gold-glow: rgba(200, 168, 64, .3);
+
+            --white: #ededf5;
+            --muted: #52526e;
+            --border: #1c1c2e;
+            --border-hi: #32324a;
+
+            --font-d: 'Bebas Neue', sans-serif;
+            --font-m: 'IBM Plex Mono', monospace;
+            --font-h: 'Rajdhani', sans-serif;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg);
+            color: var(--white);
+            font-family: var(--font-m);
+            font-size: 13px;
+        }
+
+        /* ─── LAYOUT ──────────────────────────────────────────── */
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-header {
+            flex-shrink: 0;
+            height: 52px;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        .logo {
+            font-family: var(--font-d);
+            font-size: 26px;
+            letter-spacing: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            font-size: 20px;
+        }
+
+        .logo em {
+            color: var(--red);
+            font-style: normal;
+        }
+
+        .event-tag {
+            font-family: var(--font-h);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ─── SIDEBAR ─────────────────────────────────────────── */
+        .sidebar {
+            width: 300px;
+            flex-shrink: 0;
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sb-head {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sb-title {
+            font-family: var(--font-h);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .btn-load-json {
+            background: var(--bg-card);
+            border: 1px solid var(--border-hi);
+            color: var(--white);
+            font-family: var(--font-m);
+            font-size: 10px;
+            letter-spacing: 1px;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: .15s;
+            text-transform: uppercase;
+        }
+
+        .btn-load-json:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+            background: var(--bg-card-h);
+        }
+
+        .bout-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 6px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-hi) transparent;
+        }
+
+        .bout-list::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .bout-list::-webkit-scrollbar-thumb {
+            background: var(--border-hi);
+        }
+
+        .empty-list {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: var(--muted);
+            text-align: center;
+            padding: 32px;
+        }
+
+        .empty-list-icon {
+            font-size: 36px;
+            opacity: .2;
+        }
+
+        .empty-list-txt {
+            font-family: var(--font-h);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .empty-list-sub {
+            font-size: 10px;
+            color: var(--border-hi);
+            line-height: 1.9;
+        }
+
+        /* Bout Card */
+        .bout-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            margin-bottom: 4px;
+            padding: 11px 12px 11px 14px;
+            cursor: pointer;
+            transition: background .12s, border-color .12s;
+            position: relative;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .bout-card:hover {
+            background: var(--bg-card-h);
+            border-color: var(--border-hi);
+        }
+
+        .bout-card.is-active {
+            background: var(--bg-active);
+            border-color: var(--gold);
+        }
+
+        .bout-card.is-active::before {
+            content: '';
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 3px;
+            background: var(--gold);
+        }
+
+        .bout-card.is-dragging {
+            opacity: .4;
+            border-style: dashed;
+        }
+
+        .bout-card.drag-target {
+            border-color: var(--gold);
+            border-style: dashed;
+        }
+
+        .drag-grip {
+            color: var(--border-hi);
+            font-size: 15px;
+            cursor: grab;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .drag-grip:active {
+            cursor: grabbing;
+        }
+
+        .bout-card-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .bc-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .bc-num {
+            font-family: var(--font-d);
+            font-size: 13px;
+            letter-spacing: 1px;
+            color: var(--muted);
+        }
+
+        .is-active .bc-num {
+            color: var(--gold);
+        }
+
+        .bc-badge {
+            font-family: var(--font-h);
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border: 1px solid var(--border);
+            color: var(--muted);
+        }
+
+        .bc-badge.main-event {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        .bc-badge.win-red {
+            border-color: var(--red);
+            color: var(--red);
+        }
+
+        .bc-badge.win-blue {
+            border-color: var(--blue);
+            color: var(--blue);
+        }
+
+        .bc-names {
+            font-family: var(--font-h);
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .bc-r {
+            color: var(--red);
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .bc-b {
+            color: var(--blue);
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .bc-vs {
+            color: var(--muted);
+            font-size: 9px;
+            letter-spacing: 2px;
+            flex-shrink: 0;
+        }
+
+        .bc-meta {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 3px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* ─── CONTROLLER ──────────────────────────────────────── */
+        .ctrl-wrap {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-hi) transparent;
+        }
+
+        .ctrl-wrap::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .ctrl-wrap::-webkit-scrollbar-thumb {
+            background: var(--border-hi);
+        }
+
+        .ctrl-empty {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .ctrl-empty-icon {
+            font-size: 52px;
+            opacity: .15;
+        }
+
+        .ctrl-empty-h {
+            font-family: var(--font-h);
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        .ctrl-empty-s {
+            font-size: 11px;
+            color: var(--border-hi);
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        .ctrl-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Fighter Banner */
+        .fighter-banner {
+            display: grid;
+            grid-template-columns: 1fr 100px 1fr;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .fc {
+            padding: 18px 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .fc-red {
+            background: linear-gradient(120deg, rgba(224, 48, 48, .1) 0%, transparent 70%);
+            border-right: 1px solid var(--border);
+        }
+
+        .fc-blue {
+            background: linear-gradient(240deg, rgba(35, 104, 224, .1) 0%, transparent 70%);
+            border-left: 1px solid var(--border);
+            align-items: flex-end;
+            text-align: right;
+        }
+
+        .fc-corner-lbl {
+            font-family: var(--font-h);
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+
+        .fc-red .fc-corner-lbl {
+            color: var(--red);
+        }
+
+        .fc-blue .fc-corner-lbl {
+            color: var(--blue);
+        }
+
+        .fc-name {
+            font-family: var(--font-d);
+            font-size: 24px;
+            letter-spacing: 1px;
+            line-height: 1;
+        }
+
+        .fc-sub {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 3px;
+            letter-spacing: 1px;
+        }
+
+        .fc-vs-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 8px;
+            gap: 4px;
+        }
+
+        .fc-vs {
+            font-family: var(--font-d);
+            font-size: 26px;
+            letter-spacing: 3px;
+            color: var(--muted);
+        }
+
+        .fc-wc {
+            font-size: 8px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            padding: 10px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .status-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .s-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--muted);
+            flex-shrink: 0;
+        }
+
+        .s-dot.dot-live {
+            background: var(--red);
+            box-shadow: 0 0 8px var(--red-glow);
+            animation: blink 1s infinite;
+        }
+
+        .s-dot.dot-walkin {
+            background: var(--gold);
+            box-shadow: 0 0 8px var(--gold-glow);
+            animation: blink 1.4s infinite;
+        }
+
+        .s-dot.dot-done {
+            background: var(--muted);
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .25
+            }
+        }
+
+        .s-label {
+            font-family: var(--font-h);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        .s-sub {
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-family: var(--font-h);
+            font-weight: 600;
+        }
+
+        /* Clock Section */
+        .clock-section {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            padding: 24px 28px;
+            text-align: center;
+        }
+
+        .round-badge {
+            font-family: var(--font-h);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
+        .clock-display {
+            font-family: var(--font-d);
+            font-size: 88px;
+            letter-spacing: 10px;
+            line-height: 1;
+            color: var(--white);
+            transition: color .4s, text-shadow .4s;
+        }
+
+        .clock-display.clk-run {
+            color: var(--gold);
+            text-shadow: 0 0 40px var(--gold-glow);
+        }
+
+        .clock-display.clk-warn {
+            color: var(--red);
+            text-shadow: 0 0 40px var(--red-glow);
+            animation: warn-flash .5s infinite alternate;
+        }
+
+        .clock-display.clk-done {
+            color: var(--muted);
+            letter-spacing: 6px;
+            font-size: 40px;
+            padding: 24px 0;
+        }
+
+        @keyframes warn-flash {
+            from {
+                opacity: 1
+            }
+
+            to {
+                opacity: .6
+            }
+        }
+
+        .clock-btns {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 18px;
+        }
+
+        /* Round pips */
+        .round-pips {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 14px;
+        }
+
+        .pip {
+            width: 44px;
+            height: 5px;
+            background: var(--border);
+            transition: .3s;
+        }
+
+        .pip.pip-done {
+            background: var(--muted);
+        }
+
+        .pip.pip-current {
+            background: var(--gold);
+            box-shadow: 0 0 8px var(--gold-glow);
+        }
+
+        /* Generic panel */
+        .ctrl-panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            padding: 14px 16px;
+        }
+
+        .panel-label {
+            font-family: var(--font-h);
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        /* Buttons */
+        .btn {
+            font-family: var(--font-h);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            padding: 11px 18px;
+            border: 1px solid;
+            cursor: pointer;
+            transition: .14s;
+            background: transparent;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn:disabled {
+            opacity: .28;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .btn-ghost {
+            border-color: var(--border-hi);
+            color: var(--muted);
+            background: var(--bg-card);
+        }
+
+        .btn-ghost:hover {
+            border-color: var(--white);
+            color: var(--white);
+            background: var(--bg-card-h);
+        }
+
+        .btn-start {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        .btn-start:hover {
+            background: rgba(200, 168, 64, .12);
+        }
+
+        .btn-stop {
+            border-color: var(--red);
+            color: var(--red);
+        }
+
+        .btn-stop:hover {
+            background: rgba(224, 48, 48, .12);
+        }
+
+        .btn-walkin {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        .btn-walkin:hover {
+            background: rgba(200, 168, 64, .1);
+        }
+
+        .btn-walkin.is-on {
+            background: rgba(200, 168, 64, .18);
+            box-shadow: 0 0 14px var(--gold-glow);
+        }
+
+        .btn-red {
+            border-color: var(--red);
+            background: var(--red);
+            color: #fff;
+            flex: 1;
+            padding: 16px;
+            font-size: 13px;
+        }
+
+        .btn-red:hover {
+            background: var(--red-dim);
+            box-shadow: 0 0 20px var(--red-glow);
+        }
+
+        .btn-blue {
+            border-color: var(--blue);
+            background: var(--blue);
+            color: #fff;
+            flex: 1;
+            padding: 16px;
+            font-size: 13px;
+        }
+
+        .btn-blue:hover {
+            background: var(--blue-dim);
+            box-shadow: 0 0 20px var(--blue-glow);
+        }
+
+        .btn-clear {
+            border-color: var(--border-hi);
+            color: var(--muted);
+            background: var(--bg-card);
+            flex: 1;
+        }
+
+        .btn-clear:hover {
+            border-color: var(--white);
+            color: var(--white);
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .row .btn {
+            flex: 1;
+        }
+
+        /* Winner display */
+        .winner-display {
+            text-align: center;
+            padding: 14px 10px;
+        }
+
+        .winner-name {
+            font-family: var(--font-d);
+            font-size: 30px;
+            letter-spacing: 3px;
+        }
+
+        .winner-name.c-red {
+            color: var(--red);
+            text-shadow: 0 0 20px var(--red-glow);
+        }
+
+        .winner-name.c-blue {
+            color: var(--blue);
+            text-shadow: 0 0 20px var(--blue-glow);
+        }
+
+        .winner-sub {
+            font-family: var(--font-h);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 4px;
+            color: var(--muted);
+            margin-top: 4px;
+            text-transform: uppercase;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-hi);
+            padding: 10px 18px;
+            font-size: 11px;
+            letter-spacing: 1px;
+            animation: toast-in .25s ease;
+            z-index: 999;
+            font-family: var(--font-m);
+            color: var(--white);
+        }
+
+        @keyframes toast-in {
+            from {
+                transform: translateX(30px);
+                opacity: 0
+            }
+
+            to {
+                transform: none;
+                opacity: 1
+            }
+        }
+
+        #file-input {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header class="app-header">
+        <div class="logo"><span class="logo-icon">🥊</span>BOUT<em>CTRL</em></div>
+        <span class="event-tag" id="event-name">No event loaded · Load a JSON file</span>
+    </header>
+
+    <div class="main">
+        <aside class="sidebar">
+            <div class="sb-head">
+                <span class="sb-title">Fight Card</span>
+                <button class="btn-load-json" onclick="document.getElementById('file-input').click()">↑ Load
+                    JSON</button>
+            </div>
+            <div class="bout-list" id="bout-list"></div>
+        </aside>
+
+        <div class="ctrl-wrap" id="ctrl-wrap">
+            <div class="ctrl-empty">
+                <div class="ctrl-empty-icon">🥊</div>
+                <div class="ctrl-empty-h">Select a bout</div>
+                <div class="ctrl-empty-s">Load a JSON file · then click any bout on the left</div>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="file-input" accept=".json">
+
+    <script>
+        let bouts = [];
+        let activeIdx = -1;
+        let currentRound = 1;
+        const ROUNDS = 3;
+        const ROUND_SECS = 3 * 60;
+
+        let clockSecs = ROUND_SECS;
+        let clockRunning = false;
+        let clockTimer = null;
+        let hasTriggeredFightStart = false;
+
+        // ═══════════════════════════════════════════════════════════
+        //  CORE SYSTEM EVENT BUS BRIDGE PIPELINE
+        // ═══════════════════════════════════════════════════════════
+        async function emitSystemEvent(eventName, payload = {}) {
+            try {
+                await fetch('/api/bout-control/publish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ event_name: eventName, payload: payload })
+                });
+            } catch (err) {
+                console.error(`Telemetry transmission loss on target [${eventName}]:`, err);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  JSON PARSING INTERACTION
+        // ═══════════════════════════════════════════════════════════
+        document.getElementById('file-input').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    const raw = JSON.parse(ev.target.result);
+                    const processedBouts = Array.isArray(raw) ? raw : (raw.bouts || []);
+
+                    bouts = processedBouts.map(b => ({
+                        red: { name: b.red?.name || b.redName || "Red Fighter", country: b.red?.country || "", flag: b.red?.flag || "" },
+                        blue: { name: b.blue?.name || b.blueName || "Blue Fighter", country: b.blue?.country || "", flag: b.blue?.flag || "" },
+                        category: b.category || b.weightClass || "Open Division",
+                        clock: parseInt(b.clock || b.roundDuration || ROUND_SECS),
+                        winner: null
+                    }));
+
+                    activeIdx = -1;
+                    selectBout(0);
+                    document.getElementById('event-name').textContent = raw.eventName || file.name;
+                    renderList();
+                    renderCtrl();
+                    toast(`Loaded ${bouts.length} bouts successfully.`);
+                } catch (err) {
+                    console.error(err);
+                    toast('⚠ Invalid JSON layout configuration');
+                }
+            };
+            reader.readAsText(file);
+            this.value = '';
+        });
+
+        function resetBoutState() {
+            stopClock();
+            currentRound = 1;
+            clockSecs = bouts[activeIdx] ? bouts[activeIdx].clock : ROUND_SECS;
+            clockRunning = false;
+            hasTriggeredFightStart = false;
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  BOUT MANIPULATION NAVIGATION
+        // ═══════════════════════════════════════════════════════════
+        function selectBout(idx) {
+            if (idx === activeIdx) return;
+            activeIdx = idx;
+            resetBoutState();
+            renderList();
+            renderCtrl();
+
+            const b = bouts[activeIdx];
+            emitSystemEvent("scoreboard.NEW_FIGHT", {
+                id: activeIdx + 1,
+                category: b.category,
+                blue_name: b.blue.name,
+                blue_flag3: b.blue.country,
+                blue_flag2: b.blue.flag,
+                red_name: b.red.name,
+                red_flag3: b.red.country,
+                red_flag2: b.red.flag,
+                clk: fmtTime(b.clock),
+                round: currentRound,
+                win: null,
+            });
+        }
+
+        function prevBout() { if (activeIdx > 0) selectBout(activeIdx - 1); }
+        function nextBout() { if (activeIdx < bouts.length - 1) selectBout(activeIdx + 1); }
+
+        // ═══════════════════════════════════════════════════════════
+        //  ROUND LIFE ACTIONS
+        // ═══════════════════════════════════════════════════════════
+        function prevRound() {
+            if (currentRound <= 1) return;
+            stopClock();
+            currentRound--;
+            clockSecs = bouts[activeIdx].clock;
+            renderCtrl();
+
+            const b = bouts[activeIdx];
+            emitSystemEvent("scoreboard.START_ROUND", {
+                id: activeIdx + 1,
+                category: b.category,
+                blue_name: b.blue.name,
+                blue_flag3: b.blue.country,
+                blue_flag2: b.blue.flag,
+                red_name: b.red.name,
+                red_flag3: b.red.country,
+                red_flag2: b.red.flag,
+                clk: fmtTime(b.clock),
+                round: currentRound,
+                win: null,
+            });
+        }
+
+        function nextRound() {
+            stopClock();
+            currentRound++;
+            clockSecs = bouts[activeIdx].clock;
+            renderCtrl();
+
+            if (currentRound <= ROUNDS + 1) {
+                const b = bouts[activeIdx];
+                emitSystemEvent("scoreboard.START_ROUND", {
+                    id: activeIdx + 1,
+                    category: b.category,
+                    blue_name: b.blue.name,
+                    blue_flag3: b.blue.country,
+                    blue_flag2: b.blue.flag,
+                    red_name: b.red.name,
+                    red_flag3: b.red.country,
+                    red_flag2: b.red.flag,
+                    clk: fmtTime(b.clock),
+                    round: currentRound,
+                    win: null,
+                });
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  WALK IN CONTROLS
+        // ═══════════════════════════════════════════════════════════
+        function toggleWalkIn() {
+            emitSystemEvent("scoreboard.WALKIN");
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  ENGINE RUNTIME TIMERS
+        // ═══════════════════════════════════════════════════════════
+        function toggleClock() {
+            clockRunning ? stopClock() : startClock();
+        }
+
+        function startClock() {
+            if (clockRunning) return;
+            clockRunning = true;
+
+            // Trigger structural life benchmarks on activation
+            if (!hasTriggeredFightStart) {
+                emitSystemEvent("scoreboard.START_FIGHT");
+                hasTriggeredFightStart = true;
+            }
+            // emitSystemEvent("scoreboard.START_ROUND", { round: currentRound });
+
+            clockTimer = setInterval(() => {
+                if (clockSecs > 0) {
+                    clockSecs--;
+                    updateClockDisplay();
+                    updateStatus();
+                    emitSystemEvent("scoreboard.clock_update", { clk: fmtTime(clockSecs) });
+                } else {
+                    stopClock();
+                    toast('⏱ Round completed!');
+                    emitSystemEvent("scoreboard.START_BREAK");
+                }
+            }, 1000);
+
+            updateClockDisplay();
+            updateStatus();
+            const btn = document.getElementById('btn-clock-toggle');
+            if (btn) { btn.textContent = '⏸  PAUSE'; btn.className = 'btn btn-stop'; }
+        }
+
+        function stopClock() {
+            if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+            clockRunning = false;
+            const btn = document.getElementById('btn-clock-toggle');
+            if (btn) { btn.innerHTML = '▶&nbsp; START'; btn.className = 'btn btn-start'; }
+            updateStatus();
+            updateClockDisplay();
+        }
+
+        function resetClock() {
+            stopClock();
+            clockSecs = bouts[activeIdx].clock;
+            updateClockDisplay();
+            emitSystemEvent("scoreboard.clock_update", { clk: fmtTime(clockSecs) });
+        }
+
+        function updateClockDisplay() {
+            const el = document.getElementById('clock-display');
+            if (!el) return;
+            if (currentRound > ROUNDS) return;
+            el.textContent = fmtTime(clockSecs);
+            el.className = 'clock-display';
+            if (clockRunning) el.classList.add(clockSecs <= 30 ? 'clk-warn' : 'clk-run');
+        }
+
+        function updateStatus() {
+            const dot = document.getElementById('s-dot');
+            const label = document.getElementById('s-label');
+            if (!dot || !label) return;
+            const finished = currentRound > ROUNDS;
+            if (finished) {
+                dot.className = 's-dot dot-done'; label.textContent = 'FINISHED';
+            } else if (clockRunning) {
+                dot.className = 's-dot dot-live'; label.textContent = 'LIVE';
+            } else {
+                dot.className = 's-dot'; label.textContent = 'STANDBY';
+            }
+        }
+
+        function fmtTime(s) {
+            const m = String(Math.floor(s / 60)).padStart(2, '0');
+            const sec = String(s % 60).padStart(2, '0');
+            return `${m}:${sec}`;
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  JUDGEMENT WINNER TARGETS
+        // ═══════════════════════════════════════════════════════════
+        function declareWinner(corner) {
+            const b = bouts[activeIdx];
+            if (!b) return;
+            b.winner = corner;
+            const name = corner === 'red' ? b.red.name : b.blue.name;
+            renderList();
+            renderCtrl();
+            toast(`🏆 Winner: ${name}`);
+
+            emitSystemEvent("scoreboard.WIN", {
+                id: activeIdx + 1,
+                category: b.category,
+                blue_name: b.blue.name,
+                blue_flag3: b.blue.country,
+                blue_flag2: b.blue.flag,
+                red_name: b.red.name,
+                red_flag3: b.red.country,
+                red_flag2: b.red.flag,
+                clk: fmtTime(b.clock),
+                round: currentRound,
+                win: corner,
+            });
+        }
+
+        function clearWinner() {
+            const b = bouts[activeIdx];
+            if (b) b.winner = null;
+            renderList();
+            renderCtrl();
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  RENDER MATRIX PIPELINES
+        // ═══════════════════════════════════════════════════════════
+        function renderList() {
+            const el = document.getElementById('bout-list');
+            if (!bouts.length) {
+                el.innerHTML = `<div class="empty-list"><div class="empty-list-icon">📋</div><div class="empty-list-txt">No bouts loaded</div></div>`;
+                return;
+            }
+
+            el.innerHTML = bouts.map((b, i) => {
+                const act = i === activeIdx;
+                return `<div class="bout-card ${act ? 'is-active' : ''}" draggable="true" data-i="${i}" onclick="selectBout(${i})" ondragstart="dStart(event,${i})" ondragover="dOver(event)" ondragleave="dLeave(event)" ondrop="dDrop(event,${i})" ondragend="dEnd(event)">
+                    <span class="drag-grip" draggable="false">⠿</span>
+                    <div class="bout-card-body">
+                        <div class="bc-top">
+                            <span class="bc-num">BOUT ${i + 1}</span>
+                            ${b.winner ? `<span class="bc-badge ${b.winner === 'red' ? 'win-red' : 'win-blue'}">WIN: ${b.winner.toUpperCase()}</span>` : ''}
+                        </div>
+                        <div class="bc-names">
+                            <span class="bc-r">${b.red.name}</span><span class="bc-vs">VS</span><span class="bc-b">${b.blue.name}</span>
+                        </div>
+                        <div class="bc-meta">${b.category || ''}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderCtrl() {
+            const wrap = document.getElementById('ctrl-wrap');
+            const bout = bouts[activeIdx];
+
+            if (!bout) {
+                wrap.innerHTML = `<div class="ctrl-empty"><div class="ctrl-empty-icon">🥊</div><div class="ctrl-empty-h">Select a bout</div></div>`;
+                return;
+            }
+
+            const finished = currentRound > ROUNDS;
+            const roundLbl = finished ? 'BOUT FINISHED' : `ROUND ${currentRound} OF ${ROUNDS}`;
+
+            let clockHTML = finished
+                ? `<div class="clock-display clk-done" id="clock-display">FINAL</div>`
+                : `<div class="clock-display ${clockRunning ? (clockSecs <= 30 ? 'clk-warn' : 'clk-run') : ''}" id="clock-display">${fmtTime(clockSecs)}</div>`;
+
+            let dotCls = '', statusLbl = 'STANDBY';
+            if (finished) { dotCls = 'dot-done'; statusLbl = 'FINISHED'; }
+            else if (clockRunning) { dotCls = 'dot-live'; statusLbl = 'LIVE'; }
+
+            let winnerHTML = bout.winner
+                ? `<div class="winner-display">
+                    <div class="winner-name c-${bout.winner}">🏆 ${bout.winner === 'red' ? bout.red.name : bout.blue.name}</div>
+                    <div class="winner-sub">${bout.winner.toUpperCase()} Corner Victory</div>
+                   </div>
+                   <div class="row"><button class="btn btn-clear" onclick="clearWinner()">✕ Reset Result Status</button></div>`
+                : `<div class="row">
+                    <button class="btn btn-red" onclick="declareWinner('red')">🔴 ${bout.red.name}</button>
+                    <button class="btn btn-blue" onclick="declareWinner('blue')">🔵 ${bout.blue.name}</button>
+                   </div>`;
+
+            wrap.innerHTML = `<div class="ctrl-body">
+                <div class="fighter-banner">
+                    <div class="fc fc-red"><div class="fc-corner-lbl">Red Corner</div><div class="fc-name">${bout.red.name}</div></div>
+                    <div class="fc-vs-col"><div class="fc-vs">VS</div><div class="fc-wc">${bout.category}</div></div>
+                    <div class="fc fc-blue"><div class="fc-corner-lbl">Blue Corner</div><div class="fc-name">${bout.blue.name}</div></div>
+                </div>
+
+                <div class="status-bar">
+                    <div class="status-left"><div class="s-dot ${dotCls}" id="s-dot"></div><span class="s-label" id="s-label">${statusLbl}</span></div>
+                    <span class="s-sub">Bout ${activeIdx + 1} of ${bouts.length}</span>
+                </div>
+
+                <div class="ctrl-panel">
+                    <div class="panel-label">Event Control</div>
+                    <div class="row">
+                        <button class="btn btn-walkin" id="btn-walkin" onclick="toggleWalkIn()" ${finished ? 'disabled' : ''}>🚶&nbsp; Walk In</button>
+                    </div>
+                </div>
+
+                <div class="clock-section">
+                    <div class="round-badge">${roundLbl}</div>
+                    ${clockHTML}
+                    ${!finished ? `<div class="clock-btns">
+                        <button class="btn ${clockRunning ? 'btn-stop' : 'btn-start'}" id="btn-clock-toggle" onclick="toggleClock()">${clockRunning ? '⏸&nbsp; PAUSE' : '▶&nbsp; START'}</button>
+                        <button class="btn btn-ghost" onclick="resetClock()">↺&nbsp; Reset</button>
+                    </div>` : ''}
+                </div>
+
+                <div class="ctrl-panel">
+                    <div class="panel-label">Round Control</div>
+                    <div class="round-pips">
+                        ${[1, 2, 3].map(r => `<div class="pip ${!finished && r === currentRound ? 'pip-current' : (r < currentRound ? 'pip-done' : '')}"></div>`).join('')}
+                    </div>
+                    <div class="row">
+                        <button class="btn btn-ghost" onclick="prevRound()" ${currentRound <= 1 ? 'disabled' : ''}>← Prev Round</button>
+                        <button class="btn btn-ghost" onclick="nextRound()" ${finished ? 'disabled' : ''}>${currentRound >= ROUNDS && !finished ? '🏁&nbsp; Finish' : 'Next Round →'}</button>
+                    </div>
+                </div>
+
+                <div class="ctrl-panel"><div class="panel-label">Declare Winner</div>${winnerHTML}</div>
+                <div class="ctrl-panel">
+                    <div class="panel-label">Bout Navigation</div>
+                    <div class="row">
+                        <button class="btn btn-ghost" onclick="prevBout()" ${activeIdx <= 0 ? 'disabled' : ''}>← Prev Bout</button>
+                        <button class="btn btn-ghost" onclick="nextBout()" ${activeIdx >= bouts.length - 1 ? 'disabled' : ''}>Next Bout →</button>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  DRAG AND DROP REORDER LISTENER METRICS
+        // ═══════════════════════════════════════════════════════════
+        let dragFrom = null;
+        function dStart(e, i) { dragFrom = i; e.currentTarget.classList.add('is-dragging'); }
+        function dOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-target'); }
+        function dLeave(e) { e.currentTarget.classList.remove('drag-target'); }
+        function dEnd(e) { e.currentTarget.classList.remove('is-dragging'); dragFrom = null; }
+        function dDrop(e, dropIdx) {
+            e.preventDefault(); e.currentTarget.classList.remove('drag-target');
+            if (dragFrom === null || dragFrom === dropIdx) return;
+            const arr = [...bouts];
+            const [item] = arr.splice(dragFrom, 1);
+            arr.splice(dropIdx, 0, item);
+            if (activeIdx === dragFrom) activeIdx = dropIdx;
+            else if (dragFrom < activeIdx && dropIdx >= activeIdx) activeIdx--;
+            else if (dragFrom > activeIdx && dropIdx <= activeIdx) activeIdx++;
+            bouts = arr; dragFrom = null; renderList();
+        }
+
+        let _toastTimer = null;
+        function toast(msg) {
+            document.querySelectorAll('.toast').forEach(t => t.remove());
+            const el = Object.assign(document.createElement('div'), { className: 'toast', textContent: msg });
+            document.body.appendChild(el); clearTimeout(_toastTimer);
+            _toastTimer = setTimeout(() => el.remove(), 2800);
+        }
+    </script>
+</body>
+
+</html>

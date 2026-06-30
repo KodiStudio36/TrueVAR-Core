@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Livestream Match Results Graphic</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/script.js" defer></script>
+</head>
+
+<body>
+
+    <!-- Show Next Fight -->
+    <div class="top-left hidden" id="widget-scoreboard-system">
+        <div class="scoreboard-content">
+
+            <div class="header-grid">
+                <div class="header-round" id="nr-match-id">103</div>
+                <div class="header-text">Next Round</div>
+            </div>
+
+            <div class="row-wrapper with-color">
+                <div class="color-bar bg-green"></div>
+                <div class="data-row name-grid">
+                    <div class="res-name" id="nr-blue-name">Park Taejoon</div>
+                    <div class="res-round">vs</div>
+                    <div class="res-name" id="nr-red-name">Park Taejoon</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Previous Fights Results -->
+    <div class="widget-container hidden" id="widget-previous-results">
+        <div class="header-label">Previous Results</div>
+
+        <div class="header-grid with-color">
+            <div class="color-bar bg-blue"></div>
+            <div class="header-content">
+                <div class="header-country">KOR</div>
+                <img class="flag-lg" src="https://flagcdn.com/w80/kr.png" alt="South Korea">
+                <div class="header-name">PARK Taejoon</div>
+                <div class="header-seed"></div>
+                <img class="header-logo" src="../static/wattermark.png" alt="Logo">
+            </div>
+        </div>
+
+        <div class="results-container">
+            <div class="row-wrapper standard">
+                <div class="data-row result-grid">
+                    <div class="res-country">VEN</div>
+                    <img class="flag-sm" src="https://flagcdn.com/w40/ve.png" alt="Venezuela">
+                    <div class="res-name">YOHANDRI GRANADO</div>
+                    <div class="res-round">RD OF 16</div>
+                    <div class="res-score">2-0</div>
+                    <div class="res-outcome">101</div>
+                </div>
+            </div>
+
+            <div class="row-wrapper standard">
+                <div class="data-row result-grid">
+                    <div class="res-country">FRA</div>
+                    <img class="flag-sm" src="https://flagcdn.com/w40/fr.png" alt="France">
+                    <div class="res-name">CYRIAN RAVET</div>
+                    <div class="res-round">QF</div>
+                    <div class="res-score">2-1</div>
+                    <div class="res-outcome">221</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fighter Introduction -->
+    <div class="widget-center hidden" id="widget-fighter-bars">
+        <div class="fighter-bars-layout">
+            <div class="fighter-bar">
+                <div class="color-bar bg-blue"></div>
+                <div class="fighter-content">
+                    <div class="res-country" id="fb-blue-country">KOR</div>
+                    <img class="flag-sm" id="fb-blue-flag" src="https://flagcdn.com/w40/kr.png" alt="South Korea">
+                    <div class="res-name" id="fb-blue-name" style="font-weight: bold;">PARK TAEJOON</div>
+                </div>
+            </div>
+
+            <div class="fighter-bar">
+                <div class="color-bar bg-red"></div>
+                <div class="fighter-content">
+                    <div class="res-country" id="fb-red-country">AZE</div>
+                    <img class="flag-sm" id="fb-red-flag" src="https://flagcdn.com/w40/az.png" alt="Azerbaijan">
+                    <div class="res-name" id="fb-red-name" style="font-weight: bold;">GASHIM MAGOMEDOV</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Round Results -->
+    <div class="widget-container round-results hidden" id="widget-round-results">
+        <div class="header-label" id="rr-header">Result Round 3</div>
+
+        <div class="header-grid">
+            <div class="header-content">
+                <div class="header-name" id="rr-category">Man's -58KG</div>
+                <div class="header-seed" id="rr-title">Quarterfinals</div>
+                <div class="header-legend">
+                    <i></i>
+                    <div class="legend-box" title="Points"><span class="icon icon-points"></span></div>
+                    <div class="legend-box" title="Trunk"><span class="icon icon-trunk"></span></div>
+                    <div class="legend-box" title="Head"><span class="icon icon-head"></span></div>
+                    <div class="legend-box" title="Punch"><span class="icon icon-punch"></span></div>
+                    <div class="legend-box" title="Penalty"><span class="icon icon-penalty"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="results-container">
+            <div class="row-wrapper results">
+                <div class="color-bar bg-blue"></div>
+                <div class="data-row round-grid">
+                    <div class="res-country" id="rr-blue-country">KOR</div>
+                    <img class="flag-sm" id="rr-blue-flag" src="https://flagcdn.com/w40/gr.png" alt="South Korea">
+                    <div class="res-name" id="rr-blue-name">Andrej Hornak</div>
+                    <i class="main" id="rr-blue-points">8</i>
+                    <i class="small" id="rr-blue-hits">5</i>
+                </div>
+                <div class="point-box composed">
+                    <i class="main" id="rr-blue-trunk">2</i>
+                    <i class="small" id="rr-blue-rotation-trunk">0</i>
+                </div>
+                <div class="point-box composed">
+                    <i class="main" id="rr-blue-head">0</i>
+                    <i class="small" id="rr-blue-rotation-head">0</i>
+                </div>
+                <div class="point-box"><i class="main" id="rr-blue-punch">2</i></div>
+                <div class="point-box penalty"><i class="main" id="rr-blue-penalties">0</i></div>
+            </div>
+        </div>
+        <div class="results-container">
+            <div class="row-wrapper results">
+                <div class="color-bar bg-red"></div>
+                <div class="data-row round-grid">
+                    <div class="res-country" id="rr-red-country">KOR</div>
+                    <img class="flag-sm" id="rr-red-flag" src="https://flagcdn.com/w40/sk.png" alt="South Korea">
+                    <div class="res-name" id="rr-red-name">Matúš Matejka</div>
+                    <i class="main" id="rr-red-points">16</i>
+                    <i class="small" id="rr-red-hits">2</i>
+                </div>
+                <div class="point-box composed">
+                    <i class="main" id="rr-red-trunk">2</i>
+                    <i class="small" id="rr-red-rotation-trunk">0</i>
+                </div>
+                <div class="point-box composed">
+                    <i class="main" id="rr-red-head">3</i>
+                    <i class="small" id="rr-red-rotation-head">2</i>
+                </div>
+                <div class="point-box"><i class="main" id="rr-red-punch">1</i></div>
+                <div class="point-box penalty"><i class="main" id="rr-red-penalties">2</i></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Show Winner -->
+    <div class="widget-container hidden" id="widget-winner">
+        <div class="header-label" id="win-header">101 Man's -58kg</div>
+
+        <div class="header-grid">
+            <div class="header-content">
+                <div class="header-name">Winner</div>
+                <div class="header-seed" id="win-title">Quarterfinals</div>
+                <img class="header-logo" src="../static/wattermark.png" alt="Logo">
+            </div>
+        </div>
+
+        <div class="results-container">
+            <div class="row-wrapper with-color">
+                <div class="color-bar bg-blue" id="win-color"></div>
+                <div class="data-row result-grid">
+                    <div class="res-country" id="win-country">KOR</div>
+                    <img class="flag-sm" id="win-flag" src="https://flagcdn.com/w40/kr.png" alt="South Korea">
+                    <div class="res-name" id="win-name">Park Taejoon</div>
+                    <div class="res-round">WINNER</div>
+                    <div class="res-score">2-0</div>
+                    <div class="res-outcome">101</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="widget-ticker" class="">
+        <div class="ticker-content" id="ticker-wrapper">
+            <span class="ticker-text" id="ticker-msg">
+                BREAKING NEWS: MATCH DELAYED DUE TO TECHNICAL DIFFICULTIES...
+            </span>
+        </div>
+    </div>
+
+    <div class="vr-container hidden" id="widget-ivr">
+
+        <div class="vr-badge">
+            <span class="badge-text">VR</span>
+        </div>
+
+        <div class="vr-content">
+            <div class="content-header">
+                VIDEO REPLAY REQUESTED
+            </div>
+            <div class="content-sub">
+                PENDING OFFICIAL DECISION
+            </div>
+        </div>
+
+    </div>
+
+    <div class="yt-widget hidden" id="widget-yt">
+        <div class="yt-header-grid">
+            <div class="yt-color-bar"></div>
+            <div class="yt-header-content">
+                <div class="yt-logo-block">
+                    <svg class="yt-logo-svg" viewBox="0 0 90 63" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M88.1 9.9C87.1 6.3 84.3 3.5 80.7 2.5C73.6 0.6 45 0.6 45 0.6C45 0.6 16.4 0.6 9.3 2.5C5.7 3.5 2.9 6.3 1.9 9.9C0 17 0 31.5 0 31.5C0 31.5 0 46 1.9 53.1C2.9 56.7 5.7 59.5 9.3 60.5C16.4 62.4 45 62.4 45 62.4C45 62.4 73.6 62.4 80.7 60.5C84.3 59.5 87.1 56.7 88.1 53.1C90 46 90 31.5 90 31.5C90 31.5 90 17 88.1 9.9Z"
+                            fill="#FF0000" />
+                        <path d="M36 45L59.4 31.5L36 18V45Z" fill="white" />
+                    </svg>
+                </div>
+                <div class="yt-header-text">
+                    <div class="yt-channel-name">Like & Subscribe</div>
+                    <!-- <div class="yt-channel-sub">youtube.com/@yourchannel</div> -->
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
