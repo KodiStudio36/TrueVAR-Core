@@ -48,12 +48,17 @@ class BaseLivestreamExtension(BasePlugin):
             return
         
         # 6. Push the stream key into OBS
-        broadcast = self.core_context["scheduled_broadcast"]
-        self.obs.set_stream_key(broadcast["stream_key"])
-        self.logger.info(
-            f"Stream key applied  |  broadcast='{broadcast['title']}'  "
-            f"court={broadcast["court_number"]}  url={broadcast['youtube_url']}"
-        )
+        try:
+            broadcast = self.core_context["scheduled_broadcast"]
+            self.obs.set_stream_key(broadcast["stream_key"])
+            self.logger.info(
+                f"Stream key applied  |  broadcast='{broadcast['title']}'  "
+                f"court={broadcast["court_number"]}  url={broadcast['youtube_url']}"
+            )
+        except:
+            self.logger.error(
+                f"Stream key applied can not be loaded"
+            )
 
         # 3. Trigger the child class's specific setup logic
         await self.setup_discipline()

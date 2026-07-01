@@ -6,6 +6,7 @@ import socketio
 import time
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from threading import Thread
 
 # Domain & Adapters
 from core.adapters.firebase_adapter import FirebaseAdapter
@@ -45,7 +46,8 @@ async def lifespan(app: FastAPI):
     app.state.orchestrator = orchestrator
     app.state.sio = sio
 
-    # threading.Thread(target=open_browser, daemon=True).start()
+    Thread(target=open_browser, daemon=True).start()
+    
     yield 
     print("[Lifespan] Shutting down Web Server...")
     # await orchestrator.shutdown_system()
