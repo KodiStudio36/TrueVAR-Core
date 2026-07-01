@@ -1,6 +1,5 @@
 from abc import abstractmethod
 
-from numpy import broadcast
 from plugins.base_plugin import BasePlugin
 
 class BaseLivestreamExtension(BasePlugin):
