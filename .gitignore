@@ -1,0 +1,3 @@
+.venv
+*google_creds.json
+*__pycache__

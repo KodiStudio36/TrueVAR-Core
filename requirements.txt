@@ -2,3 +2,14 @@ fastapi
 uvicorn
 structlog
 websockets
+pygobject
+firebase-admin
+google-cloud-firestore
+pydantic
+jinja2
+obs-websocket-py
+python-socketio
+google-api-python-client 
+google-auth
+httpx
+python-multipar
