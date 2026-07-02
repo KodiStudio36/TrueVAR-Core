@@ -1,6 +1,6 @@
 {
-    "current_scene": "Main View \\w scoreboard - Tool",
-    "current_program_scene": "Main View \\w scoreboard - Tool",
+    "current_scene": "Main Scene",
+    "current_program_scene": "Main Scene",
     "scene_order": [
         {
             "name": "Main Scene"
@@ -42,14 +42,6 @@
     ],
     "transitions": [
         {
-            "name": "TrueVAR Stinger",
-            "id": "obs_stinger_transition",
-            "settings": {
-                "transition_point": 350,
-                "path": "/home/kodi/Documents/programs/var/TrueVAR/obs/truevar-stinger.webm"
-            }
-        },
-        {
             "name": "Move",
             "id": "move_transition",
             "settings": {
@@ -67,6 +59,14 @@
                 "position_out": 0,
                 "curve_in": 0.0,
                 "switch_percentage": 50
+            }
+        },
+        {
+            "name": "TrueVAR Stinger",
+            "id": "obs_stinger_transition",
+            "settings": {
+                "transition_point": 350,
+                "path": "/home/kodi/Documents/programs/var/TrueVAR/obs/truevar-stinger.webm"
             }
         }
     ],
@@ -173,61 +173,6 @@
                             "duration": 0
                         },
                         "private_settings": {}
-                    },
-                    {
-                        "name": "Scoreboard audio",
-                        "source_uuid": "a47a257b-09a6-4ab3-b0f1-6d549293e97f",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0.0,
-                        "scale_ref": {
-                            "x": 1920.0,
-                            "y": 1080.0
-                        },
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 1,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 0.0,
-                            "y": 0.0
-                        },
-                        "pos_rel": {
-                            "x": -1.7777777910232544,
-                            "y": -1.0
-                        },
-                        "scale": {
-                            "x": 0.6666666865348816,
-                            "y": 0.6666666865348816
-                        },
-                        "scale_rel": {
-                            "x": 1.0,
-                            "y": 1.0
-                        },
-                        "bounds": {
-                            "x": 0.0,
-                            "y": 0.0
-                        },
-                        "bounds_rel": {
-                            "x": 0.0,
-                            "y": 0.0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
                     }
                 ]
             },
@@ -245,9 +190,7 @@
             "hotkeys": {
                 "OBSBasic.SelectScene": [],
                 "libobs.show_scene_item.5": [],
-                "libobs.hide_scene_item.5": [],
-                "libobs.show_scene_item.1": [],
-                "libobs.hide_scene_item.1": []
+                "libobs.hide_scene_item.5": []
             },
             "deinterlace_mode": 0,
             "deinterlace_field_order": 0,
@@ -820,43 +763,12 @@
             "id": "pulse_input_capture",
             "versioned_id": "pulse_input_capture",
             "settings": {
-                "device_id": "alsa_input.usb-KTMicro_KT_USB_Audio_2024-05-20-0000-0000-0000--00.mono-fallback"
+                "device_id": "default"
             },
             "mixers": 255,
             "sync": 0,
             "flags": 0,
             "volume": 0.1281130462884903,
-            "balance": 0.5,
-            "enabled": true,
-            "muted": false,
-            "push-to-mute": false,
-            "push-to-mute-delay": 0,
-            "push-to-talk": false,
-            "push-to-talk-delay": 0,
-            "hotkeys": {
-                "libobs.mute": [],
-                "libobs.unmute": [],
-                "libobs.push-to-mute": [],
-                "libobs.push-to-talk": []
-            },
-            "deinterlace_mode": 0,
-            "deinterlace_field_order": 0,
-            "monitoring_type": 0,
-            "private_settings": {}
-        },
-        {
-            "prev_ver": 536870916,
-            "name": "Scoreboard audio",
-            "uuid": "a47a257b-09a6-4ab3-b0f1-6d549293e97f",
-            "id": "pulse_input_capture",
-            "versioned_id": "pulse_input_capture",
-            "settings": {
-                "device_id": "alsa_input.usb-MACROSILICON_USB_Video-02.analog-stereo"
-            },
-            "mixers": 255,
-            "sync": 1500000000,
-            "flags": 0,
-            "volume": 0.3134102523326874,
             "balance": 0.5,
             "enabled": true,
             "muted": false,
@@ -908,7 +820,61 @@
             "deinterlace_mode": 0,
             "deinterlace_field_order": 0,
             "monitoring_type": 0,
-            "private_settings": {}
+            "private_settings": {},
+            "filters": [
+                {
+                    "prev_ver": 536870916,
+                    "name": "Render Delay",
+                    "uuid": "b7662d15-ed71-4452-bd83-bb42c3f82734",
+                    "id": "gpu_delay",
+                    "versioned_id": "gpu_delay",
+                    "settings": {
+                        "delay_ms": 500
+                    },
+                    "mixers": 0,
+                    "sync": 0,
+                    "flags": 0,
+                    "volume": 1.0,
+                    "balance": 0.5,
+                    "enabled": true,
+                    "muted": false,
+                    "push-to-mute": false,
+                    "push-to-mute-delay": 0,
+                    "push-to-talk": false,
+                    "push-to-talk-delay": 0,
+                    "hotkeys": {},
+                    "deinterlace_mode": 0,
+                    "deinterlace_field_order": 0,
+                    "monitoring_type": 0,
+                    "private_settings": {}
+                },
+                {
+                    "prev_ver": 536870916,
+                    "name": "Render Delay 2",
+                    "uuid": "13a9d925-c287-4c5e-b488-3088d99f27a0",
+                    "id": "gpu_delay",
+                    "versioned_id": "gpu_delay",
+                    "settings": {
+                        "delay_ms": 500
+                    },
+                    "mixers": 0,
+                    "sync": 0,
+                    "flags": 0,
+                    "volume": 1.0,
+                    "balance": 0.5,
+                    "enabled": true,
+                    "muted": false,
+                    "push-to-mute": false,
+                    "push-to-mute-delay": 0,
+                    "push-to-talk": false,
+                    "push-to-talk-delay": 0,
+                    "hotkeys": {},
+                    "deinterlace_mode": 0,
+                    "deinterlace_field_order": 0,
+                    "monitoring_type": 0,
+                    "private_settings": {}
+                }
+            ]
         },
         {
             "prev_ver": 536870916,

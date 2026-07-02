@@ -230,6 +230,7 @@ function updateNextRoundWidget(data) {
 function updateWinnerWidget(data) {
     // Example: Combining ID and Category for the header
     updateText("win-header", `${fmtId(data.id)} ${data.category}`);
+    updateText("win-id", fmtId(data.id));
 
     // Note: You'll need logic to determine IF blue or red won.
     // For now, let's assume we are just filling in placeholders.
