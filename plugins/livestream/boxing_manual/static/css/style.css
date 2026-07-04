@@ -1189,8 +1189,8 @@ body {
 #widget-next-round.sb-entering .header-round,
 #widget-next-round.sb-entering .header-text,
 #widget-next-round.sb-entering .data-row,
-#widget-scoreboard-system.sb-entering .header-round,
-#widget-scoreboard-system.sb-entering .header-text,
+#widget-scoreboard-system.sb-entering .header-grid:not(.sb-time-grid) .header-round,
+#widget-scoreboard-system.sb-entering .header-grid:not(.sb-time-grid) .header-text,
 #widget-scoreboard-system.sb-entering .fighter-content {
     opacity: 0;
 }
@@ -1204,7 +1204,7 @@ body {
 
 /* 1. MATCH ID (HEADER ROUND) SLIDES IN FROM FAR LEFT */
 #widget-next-round.sb-entering .header-round,
-#widget-scoreboard-system.sb-entering .header-round {
+#widget-scoreboard-system.sb-entering .header-grid:not(.sb-time-grid) .header-round {
     animation: sb-slide-in-left 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
@@ -1222,8 +1222,7 @@ body {
 
 /* 2. HEADER TEXT SLIDES OUT FROM BEHIND THE MATCH ID */
 #widget-next-round.sb-entering .header-text,
-#widget-scoreboard-system.sb-entering .header-text {
-    /* Starts at 0.2s so it begins right as the Match ID is finishing its entrance */
+#widget-scoreboard-system.sb-entering .header-grid:not(.sb-time-grid) .header-text {
     animation: sb-slide-out-right 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
 }
 
@@ -1289,5 +1288,26 @@ body {
     to {
         transform: translateX(-100px);
         opacity: 0;
+    }
+}
+
+#widget-scoreboard-system .row-wrapper.with-color .sb-time-grid {
+    grid-column: 1 / -1;
+    overflow: hidden;
+}
+
+#widget-scoreboard-system.sb-entering .sb-time-grid {
+    animation: sb-time-reveal 0.2s cubic-bezier(0.22, 1, 0.36, 1) 0.9s both;
+}
+
+@keyframes sb-time-reveal {
+    from {
+        clip-path: inset(0 0 100% 0);
+        opacity: 0;
+    }
+
+    to {
+        clip-path: inset(0 0 0% 0);
+        opacity: 1;
     }
 }

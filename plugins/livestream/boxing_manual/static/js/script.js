@@ -29,13 +29,13 @@ function showScoreboard() {
     sbWidget.classList.remove('hidden', 'sb-exiting');
     sbWidget.classList.add('sb-animating', 'sb-entering');
 
-    void sbWidget.offsetWidth; // Force DOM reflow to restart animations
+    void sbWidget.offsetWidth;
 
-    // Sequence completes around 1s. Leave buffer.
+    // Sequence now completes around 1.3s. Leave buffer.
     setTimeout(() => {
         sbWidget.classList.remove('sb-entering', 'sb-animating');
         sbBusy = false;
-    }, 1200);
+    }, 1500);
 }
 
 function hideScoreboard() {
