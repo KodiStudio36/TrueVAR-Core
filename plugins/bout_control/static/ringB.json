@@ -4,14 +4,14 @@
             "bout": 1,
             "category": "U13 Men -38kg",
             "red": {
-                "name": "Sebastián Mayer",
+                "name": "Viktor Sečkár",
                 "country": "SVK",
                 "flag": "sk"
             },
             "blue": {
-                "name": "Jude Wilson",
-                "country": "ENG",
-                "flag": "gb-eng"
+                "name": "Sebastián Mayer",
+                "country": "SVK",
+                "flag": "sk"
             },
             "clock": 60
         },
@@ -19,14 +19,14 @@
             "bout": 2,
             "category": "U15 Woman -40kg",
             "red": {
+                "name": "Aneta Hrúzová",
+                "country": "CZE",
+                "flag": "cz"
+            },
+            "blue": {
                 "name": "Veronika Biháriová",
                 "country": "SVK",
                 "flag": "sk"
-            },
-            "blue": {
-                "name": "Letícia Varga",
-                "country": "HUN",
-                "flag": "hu"
             },
             "clock": 90
         },
@@ -34,14 +34,14 @@
             "bout": 3,
             "category": "U15 Men -38kg",
             "red": {
-                "name": "Shey Shakes",
+                "name": "Shay Shakes",
                 "country": "ENG",
                 "flag": "gb-eng"
             },
             "blue": {
-                "name": "Brendon Balogh",
-                "country": "SVK",
-                "flag": "sk"
+                "name": "Richie Woods",
+                "country": "ENG",
+                "flag": "gb-eng"
             },
             "clock": 90
         },
@@ -49,14 +49,14 @@
             "bout": 4,
             "category": "U15 Men -38kg",
             "red": {
+                "name": "Brendon Balogh",
+                "country": "SVK",
+                "flag": "sk"
+            },
+            "blue": {
                 "name": "Tadija Mitić",
                 "country": "SRB",
                 "flag": "rs"
-            },
-            "blue": {
-                "name": "Richie Woods",
-                "country": "ENG",
-                "flag": "gb-eng"
             },
             "clock": 90
         },
@@ -69,9 +69,9 @@
                 "flag": "pl"
             },
             "blue": {
-                "name": "Zsombor Vajmi",
-                "country": "POL",
-                "flag": "pl"
+                "name": "Jakov Brajkovič",
+                "country": "CRO",
+                "flag": "hr"
             },
             "clock": 90
         },
@@ -79,9 +79,9 @@
             "bout": 6,
             "category": "U15 Men -42kg",
             "red": {
-                "name": "Jakov Brajkovic",
-                "country": "CRO",
-                "flag": "hr"
+                "name": "Zsombor Vajmi",
+                "country": "HUN",
+                "flag": "hu"
             },
             "blue": {
                 "name": "Oleg Cudrecov",
@@ -99,9 +99,9 @@
                 "flag": "sk"
             },
             "blue": {
-                "name": "Barna Horváth",
-                "country": "HUN",
-                "flag": "hu"
+                "name": "Lenart Becker",
+                "country": "GER",
+                "flag": "de"
             },
             "clock": 90
         },
@@ -109,9 +109,9 @@
             "bout": 8,
             "category": "U15 Men -46kg",
             "red": {
-                "name": "Lenart Becker",
-                "country": "GER",
-                "flag": "de"
+                "name": "Barna Horvath",
+                "country": "HUN",
+                "flag": "hu"
             },
             "blue": {
                 "name": "Ferenc Szabó",
@@ -129,9 +129,9 @@
                 "flag": "lt"
             },
             "blue": {
-                "name": "Maks Piotrowski",
-                "country": "POL",
-                "flag": "pl"
+                "name": "Tobias Horváth",
+                "country": "SVK",
+                "flag": "sk"
             },
             "clock": 90
         },
@@ -139,9 +139,9 @@
             "bout": 10,
             "category": "U15 Men -50kg",
             "red": {
-                "name": "Tobias Horváth",
-                "country": "SVK",
-                "flag": "sk"
+                "name": "Maks Piotrowski",
+                "country": "POL",
+                "flag": "pl"
             },
             "blue": {
                 "name": "Vilém Kroupa",
@@ -154,14 +154,14 @@
             "bout": 11,
             "category": "U15 Men -52kg",
             "red": {
-                "name": "Adrian Shorban",
-                "country": "CZE",
-                "flag": "cz"
-            },
-            "blue": {
-                "name": "Adrijus Lysenko",
+                "name": "Adrius Lysenko",
                 "country": "LTU",
                 "flag": "lt"
+            },
+            "blue": {
+                "name": "Rostyslav Karabyn",
+                "country": "UKR",
+                "flag": "ua"
             },
             "clock": 90
         },
@@ -169,9 +169,9 @@
             "bout": 12,
             "category": "U15 Men -52kg",
             "red": {
-                "name": "Rostyslav Karabyn",
-                "country": "UKR",
-                "flag": "ua"
+                "name": "Adrian Shorban",
+                "country": "CZE",
+                "flag": "cz"
             },
             "blue": {
                 "name": "Matti Molinari",
@@ -182,36 +182,6 @@
         },
         {
             "bout": 13,
-            "category": "U15 Men -54kg",
-            "red": {
-                "name": "Dominykas Perminas",
-                "country": "LTU",
-                "flag": "lt"
-            },
-            "blue": {
-                "name": "Nikita Mironov",
-                "country": "MDA",
-                "flag": "md"
-            },
-            "clock": 90
-        },
-        {
-            "bout": 14,
-            "category": "U15 Men -54kg",
-            "red": {
-                "name": "Arsen Bosák",
-                "country": "SVK",
-                "flag": "sk"
-            },
-            "blue": {
-                "name": "Kristof Furian",
-                "country": "HUN",
-                "flag": "hu"
-            },
-            "clock": 90
-        },
-        {
-            "bout": 15,
             "category": "U15 Men -57kg",
             "red": {
                 "name": "Martin Goliaš",
@@ -219,29 +189,14 @@
                 "flag": "cz"
             },
             "blue": {
-                "name": "Martin Homai",
-                "country": "HUN",
-                "flag": "hu"
-            },
-            "clock": 90
-        },
-        {
-            "bout": 16,
-            "category": "U15 Men -60kg",
-            "red": {
-                "name": "Alan Starczewski",
-                "country": "POL",
-                "flag": "pl"
-            },
-            "blue": {
-                "name": "Richard Mráz",
+                "name": "Tobias Lipták",
                 "country": "SVK",
                 "flag": "sk"
             },
             "clock": 90
         },
         {
-            "bout": 17,
+            "bout": 14,
             "category": "U15 Men -66kg",
             "red": {
                 "name": "Armandas Vobalis",
@@ -249,19 +204,19 @@
                 "flag": "lt"
             },
             "blue": {
-                "name": "Oliwier Maj",
-                "country": "POL",
-                "flag": "pl"
+                "name": "Bence Susík",
+                "country": "SVK",
+                "flag": "sk"
             },
             "clock": 90
         },
         {
-            "bout": 18,
+            "bout": 15,
             "category": "U15 Men -66kg",
             "red": {
-                "name": "Bence Susík",
-                "country": "SVK",
-                "flag": "sk"
+                "name": "Oliwier Maj",
+                "country": "POL",
+                "flag": "pl"
             },
             "blue": {
                 "name": "Jan Bal",
@@ -271,117 +226,42 @@
             "clock": 90
         },
         {
-            "bout": 19,
+            "bout": 16,
             "category": "U15 Men -75kg",
             "red": {
-                "name": "Adam Policht",
-                "country": "POL",
-                "flag": "pl"
-            },
-            "blue": {
-                "name": "Bence Károly",
-                "country": "HUN",
-                "flag": "hu"
-            },
-            "clock": 90
-        },
-        {
-            "bout": 20,
-            "category": "U17 Woman -57kg",
-            "red": {
-                "name": "Anna Rožnovjaková",
-                "country": "CZE",
-                "flag": "cz"
-            },
-            "blue": {
-                "name": "Dorina Varga",
-                "country": "HUN",
-                "flag": "hu"
-            },
-            "clock": 120
-        },
-        {
-            "bout": 21,
-            "category": "U17 Men -52kg",
-            "red": {
-                "name": "Satya Horváth",
-                "country": "HUN",
-                "flag": "hu"
-            },
-            "blue": {
-                "name": "Sebastián Feri",
-                "country": "CZE",
-                "flag": "cz"
-            },
-            "clock": 120
-        },
-        {
-            "bout": 22,
-            "category": "U17 Men -52kg",
-            "red": {
-                "name": "Vakaris Kiseliunas",
-                "country": "LTU",
-                "flag": "lt"
-            },
-            "blue": {
-                "name": "Rocco Leitmann",
-                "country": "GER",
-                "flag": "de"
-            },
-            "clock": 120
-        },
-        {
-            "bout": 23,
-            "category": "U17 Men -54kg",
-            "red": {
-                "name": "Michael Kincel",
+                "name": "Filip Mojík",
                 "country": "SVK",
                 "flag": "sk"
             },
             "blue": {
-                "name": "Vito Rupčić",
-                "country": "CRO",
-                "flag": "hr"
+                "name": "Adam Policht",
+                "country": "CZE",
+                "flag": "cz"
             },
-            "clock": 120
+            "clock": 90
         },
         {
-            "bout": 24,
-            "category": "U17 Men -54kg",
+            "bout": 17,
+            "category": "U17 Woman -57kg",
             "red": {
-                "name": "Dominik Adamski",
-                "country": "POL",
-                "flag": "pl"
-            },
-            "blue": {
-                "name": "Maxim Simon",
-                "country": "GER",
-                "flag": "de"
-            },
-            "clock": 120
-        },
-        {
-            "bout": 25,
-            "category": "U17 Men -60kg",
-            "red": {
-                "name": "Lukáš Schejthauer",
+                "name": "Elena Mouralová",
                 "country": "CZE",
                 "flag": "cz"
             },
             "blue": {
-                "name": "László Khalil",
-                "country": "HUN",
-                "flag": "hu"
+                "name": "Anna Rožnovjaková",
+                "country": "CZE",
+                "flag": "cz"
             },
             "clock": 120
         },
         {
-            "bout": 26,
+            "bout": 18,
             "category": "U17 Men -60kg",
             "red": {
-                "name": "Hrvoje Kunstović",
-                "country": "CRO",
-                "flag": "hr"
+                "name": "Lukáš Schejthauser",
+                "country": "CZE",
+                "flag": "cz"
             },
             "blue": {
                 "name": "Sam Kalmykov",
@@ -391,57 +271,27 @@
             "clock": 120
         },
         {
-            "bout": 27,
-            "category": "U17 Men -66kg",
+            "bout": 19,
+            "category": "U17 Men -60kg",
             "red": {
-                "name": "Illia Makhankov",
-                "country": "SVK",
-                "flag": "sk"
-            },
-            "blue": {
-                "name": "Asztalos Hunor",
+                "name": "László Khalil",
                 "country": "HUN",
                 "flag": "hu"
             },
-            "clock": 120
-        },
-        {
-            "bout": 28,
-            "category": "U17 Men -66kg",
-            "red": {
-                "name": "Tadeáš Jašek",
-                "country": "CZE",
-                "flag": "cz"
-            },
             "blue": {
-                "name": "Elias Zálešák",
-                "country": "SVK",
-                "flag": "sk"
-            },
-            "clock": 120
-        },
-        {
-            "bout": 29,
-            "category": "U17 Men -70kg",
-            "red": {
-                "name": "Karlo Milas",
+                "name": "Hrvoje Kunstović",
                 "country": "CRO",
                 "flag": "hr"
             },
-            "blue": {
-                "name": "Attila Józsa",
-                "country": "HUN",
-                "flag": "hu"
-            },
             "clock": 120
         },
         {
-            "bout": 30,
+            "bout": 20,
             "category": "U17 Men -70kg",
             "red": {
-                "name": "Nikolajus Kazancevas",
-                "country": "LTU",
-                "flag": "lt"
+                "name": "Karlo Milas",
+                "country": "ITA",
+                "flag": "it"
             },
             "blue": {
                 "name": "Artem Leskiv",
@@ -451,7 +301,22 @@
             "clock": 120
         },
         {
-            "bout": 31,
+            "bout": 21,
+            "category": "U17 Men -70kg",
+            "red": {
+                "name": "Attila Józsa",
+                "country": "HUN",
+                "flag": "hu"
+            },
+            "blue": {
+                "name": "Nikolajus Kazencevas",
+                "country": "LTU",
+                "flag": "lt"
+            },
+            "clock": 120
+        },
+        {
+            "bout": 22,
             "category": "U17 Men -75kg",
             "red": {
                 "name": "Dominykas Garbenis",
@@ -459,99 +324,39 @@
                 "flag": "lt"
             },
             "blue": {
+                "name": "Anatolii Antoniuk",
+                "country": "UKR",
+                "flag": "ua"
+            },
+            "clock": 120
+        },
+        {
+            "bout": 23,
+            "category": "U17 Men -75kg",
+            "red": {
                 "name": "Mimi Cerim Hoxhaj",
                 "country": "CRO",
                 "flag": "hr"
             },
+            "blue": {
+                "name": "Dominik Stečínsky",
+                "country": "CZE",
+                "flag": "cz"
+            },
             "clock": 120
         },
         {
-            "bout": 32,
-            "category": "U17 Men -75kg",
+            "bout": 24,
+            "category": "U19 Men -50kg",
             "red": {
-                "name": "Antolii Antoniuk",
+                "name": "Jurij Zupnyk",
                 "country": "UKR",
                 "flag": "ua"
             },
             "blue": {
-                "name": "Dominik Stečinský",
-                "country": "CZE",
-                "flag": "cz"
-            },
-            "clock": 120
-        },
-        {
-            "bout": 33,
-            "category": "U17 Men -80+kg",
-            "red": {
-                "name": "Ruben Seszták",
-                "country": "SVK",
-                "flag": "sk"
-            },
-            "blue": {
-                "name": "Marek Rigo",
-                "country": "SVK",
-                "flag": "sk"
-            },
-            "clock": 120
-        },
-        {
-            "bout": 34,
-            "category": "U17 Men -80+kg",
-            "red": {
-                "name": "Lorant Levante",
-                "country": "HUN",
-                "flag": "hu"
-            },
-            "blue": {
-                "name": "Emiliss Kavaliunas",
-                "country": "LTU",
-                "flag": "lt"
-            },
-            "clock": 120
-        },
-        {
-            "bout": 35,
-            "category": "U19 Woman -65kg",
-            "red": {
-                "name": "Bára Rosyvková",
-                "country": "CZE",
-                "flag": "cz"
-            },
-            "blue": {
-                "name": "Timea Fábryová",
-                "country": "SVK",
-                "flag": "sk"
-            },
-            "clock": 180
-        },
-        {
-            "bout": 36,
-            "category": "U19 Woman -65kg",
-            "red": {
-                "name": "Karolína Kollárová",
-                "country": "SVK",
-                "flag": "sk"
-            },
-            "blue": {
-                "name": "Agata Štajcer",
-                "country": "CRO",
-                "flag": "hr"
-            },
-            "clock": 180
-        },
-        {
-            "bout": 37,
-            "category": "U19 Men -50kg",
-            "red": {
                 "name": "Adrian Zámečník",
                 "country": "SVK",
                 "flag": "sk"
-            },
-            "blue": {
-                "name": "Sawwa Brodskyj",
-                "country": "GER",
-                "flag": "de"
             },
             "clock": 180
         }
