@@ -86,6 +86,19 @@ class FirebaseAdapter(DatabasePort):
             })
         await asyncio.to_thread(_update)
 
+    async def clear_case_binding(self, license_key: str) -> None:
+        """
+        Removes tournamentId/courtId from a case doc. Used when the bound
+        tournament no longer exists or is stale, so the case falls back to
+        the normal tournament-selection flow on next preflight.
+        """
+        def _clear():
+            self.firestore_db.collection('cases').document(license_key).update({
+                'tournamentId': firestore.DELETE_FIELD,
+                'courtId': firestore.DELETE_FIELD,
+            })
+        await asyncio.to_thread(_clear)
+
     async def fetch_tournament_by_id(self, tournament_id: str) -> Tournament | None:
         def _fetch():
             doc = self.firestore_db.collection('tournaments').document(tournament_id).get()

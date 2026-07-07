@@ -28,6 +28,9 @@ class DatabasePort(ABC):
     async def update_case_binding(self, license_key: str, tournament_id: str, court_id: int) -> None:
         """Writes tournamentId + courtId onto the case document."""
         raise NotImplementedError
+    
+    @abstractmethod
+    async def clear_case_binding(self, license_key: str) -> None: ...
 
     @abstractmethod
     async def fetch_tournament_by_id(self, tournament_id: str) -> Optional[object]:

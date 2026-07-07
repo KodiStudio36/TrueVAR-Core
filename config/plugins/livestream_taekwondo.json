@@ -1,7 +1,12 @@
 {
     "obs_collection": "TrueVAR Kyorugi",
     "i3_workspace": 3,
+    "obs_scene_starting": "Starting Scene",
     "obs_scene_main": "Main Scene",
+    "obs_scene_main_scoreboard": "Main Scene Scoreboard",
+    "obs_scene_ivr": "IVR Scene",
+    "obs_scene_ivr_closeup": "IVR Closeup Scene",
+    "obs_scene_troubleshoot": "Troubleshoot Scene",
     "obs_transition_stinger": "Stinger",
     "obs_transition_move": "Move",
     "youtube_subscribe_interval_mins": 10
