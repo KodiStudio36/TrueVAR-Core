@@ -2,6 +2,7 @@ import asyncio
 import threading
 from obswebsocket import obsws, requests
 from core.domain.ports.broadcaster_port import BroadcasterPort
+from core.use_cases.application_bootstrapper import ApplicationBootstrapper
 
 class OBSAdapter(BroadcasterPort):
     def __init__(self, host: str, port: int, password: str, logger):
@@ -9,38 +10,21 @@ class OBSAdapter(BroadcasterPort):
         self.port = int(port)
         self.password = password
         self.logger = logger
+        self._bootstrapper = ApplicationBootstrapper(logger)
         
         self.client = None
         self.connected = False
         self._obs_process = None
 
     async def boot_application(self, collection_name: str, workspace: int) -> bool:
-        """Starts OBS via CLI, loads the collection, and moves the window via i3."""
-        self.logger.info(f"Booting OBS Studio with collection: {collection_name}")
-        
-        try:
-            # 1. Launch OBS in the background
-            # Note: Starting with --collection prevents the WebSocket from disconnecting 
-            # later when you change collections programmatically.
-            self._obs_process = await asyncio.create_subprocess_exec(
-                "obs", "--collection", collection_name,
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL
-            )
-            
-            # 2. Wait for the window to actually appear
-            await asyncio.sleep(4)
-            
-            # 3. Move it to the designated i3 workspace
-            self.logger.info(f"Moving OBS to i3 workspace {workspace}")
-            await asyncio.create_subprocess_exec(
-                "i3-msg", f'[class="obs"] move container to workspace {workspace}'
-            )
-            
-            return True
-        except Exception as e:
-            self.logger.error("Failed to boot OBS process", exception=str(e))
-            return False
+        # Simply delegate to the utility class
+        cmd = ["obs", "--collection", collection_name]
+        return await self._bootstrapper.boot(
+            cmd=cmd, 
+            window_class="obs", 
+            workspace=workspace, 
+            startup_delay=4.0
+        )
 
     async def connect(self, max_retries: int = 5) -> bool:
         """Attempts to connect to the OBS WebSocket with exponential backoff."""
@@ -72,9 +56,7 @@ class OBSAdapter(BroadcasterPort):
             self.connected = False
             self.logger.info("Disconnected from OBS.")
             
-        if self._obs_process:
-            self._obs_process.terminate()
-            self.logger.info("Terminated OBS process.")
+        self._bootstrapper.terminate()
 
     # --- Broadcaster Controls ---
 

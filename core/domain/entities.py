@@ -8,8 +8,10 @@ class Tournament(BaseModel):
     location: str
     courtNum: int
     dateTime: datetime
-    settings: dict
+    sport: str
     discipline: str
+    settings: dict
+    status: str
 
 class SystemStatus(BaseModel):
     network_alive: bool = False

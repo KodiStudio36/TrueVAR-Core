@@ -2,42 +2,68 @@ from typing import List, Type
 from plugins.base_plugin import BasePlugin
 from plugins.gstreamer_core.plugin import GStreamerCorePlugin
 from plugins.ivr.plugin import IVRPlugin
-from plugins.livestream.boxing_manual.plugin import BoxingLivestreamExtension
-from plugins.livestream.core.plugin import LivestreamCorePlugin
-from plugins.livestream.kyorugi_tkstrike.plugin import TaekwondoLivestreamExtension
-from plugins.tkstrike_external_screen.plugin import TkStrikeExternalScreenPlugin
-from plugins.tkstrike_listener.plugin import KyorugiListenerPlugin
-from plugins.bout_control.plugin import BoutControlPlugin
-# from plugins.livestream.plugin import LivestreamPlugin
-# from plugins.judo.plugin import JudoScoreboardPlugin
+from plugins.bout_cntrl.livestream_extension.plugin import BoutCntrlLivestreamExtension
+from plugins.livestream.plugin import LivestreamCorePlugin
+from plugins.tkstrike.livestream_extension.plugin import TkStrikeLivestreamExtension
+from plugins.tkstrike.external_screen.plugin import TkStrikeExternalScreenPlugin
+from plugins.tkstrike.listener.plugin import TkStrikeListenerPlugin
+from plugins.bout_cntrl.bout_cntrl.plugin import BoutCntrlPlugin
 
-KYORUGI_TKSTRIKE = "Kyorugi TkStrike"
-POOMSAE_FITOFAN = "Poomsae Fitofan"
-BOXING_MANUAL = "Boxing Manual"
+# === Taekwondo ===============
+TAEKWONDO = "Taekwondo"
+
+# disciplines
+KYORUGI = "Kyorugi"
+POOMSAE = "Poomsae"
+
+# providers
+DAEDO = "DAEDO"
+
+# modes
+INTEGRATED_TKSTRIKE = "Integrated TkStrike"
+EXTERNAL_TKSTRIKE = "External TkStrike"
+
+
+# === Box =====================
+BOXING = "Boxing"
+
+# disciplines
+OLYMPIC_BOXING = "Olympic Boxing"
+
+# providers
+BOUT_CNTRL = "Bout Cntrl"
+
+# modes
+INTEGRATED_BOUT_CNTRL = "Integrated Bout Cntrl"
+
 
 class PluginFactory:
     @staticmethod
-    def build_stack(discipline: str, is_stream: bool) -> List[Type[BasePlugin]]:
+    def build_stack(sport: str, discipline: str, provider: str, mode: str, is_stream: bool) -> List[Type[BasePlugin]]:
         """Determines exactly which plugins need to boot for this tournament."""
         
         # 1. Base Layer: GStreamer handles the hardware for everything
         stack = [GStreamerCorePlugin]
 
-        if discipline == KYORUGI_TKSTRIKE:
-            stack.append(KyorugiListenerPlugin)
+        if provider == DAEDO:
+            stack.append(TkStrikeListenerPlugin)
             stack.append(TkStrikeExternalScreenPlugin)
             # stack.append(IVRPlugin)
 
-        elif discipline == BOXING_MANUAL:
-            stack.append(BoutControlPlugin)
+            if mode == INTEGRATED_TKSTRIKE:
+                pass
+
+
+        elif provider == BOUT_CNTRL:
+            stack.append(BoutCntrlPlugin)
             
         if is_stream:
             stack.append(LivestreamCorePlugin)
 
-            if discipline == KYORUGI_TKSTRIKE:
-                stack.append(TaekwondoLivestreamExtension)
+            if provider == DAEDO:
+                stack.append(TkStrikeLivestreamExtension)
 
-            elif discipline == BOXING_MANUAL:
-                stack.append(BoxingLivestreamExtension)
+            elif provider == BOUT_CNTRL:
+                stack.append(BoutCntrlLivestreamExtension)
             
         return stack

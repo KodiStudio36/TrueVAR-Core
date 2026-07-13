@@ -154,7 +154,7 @@ class SystemOrchestrator:
             self.root_logger.warning("System already booted — skipping re-boot.")
             return
 
-        tournament = next(
+        tournament: Tournament = next(
             (t for t in self.system_status.active_tournaments if t.id == tournament_id), None
         )
 
@@ -183,7 +183,11 @@ class SystemOrchestrator:
         self.root_logger.info(f"Booting system for {tournament.title} ({tournament.discipline})")
 
         plugins_to_load = PluginFactory.build_stack(
-            tournament.discipline, tournament.settings["isStream"]
+            tournament.sport,
+            tournament.discipline,
+            tournament.settings["provider"],
+            tournament.settings["mode"],
+            tournament.settings["isStream"],
         )
 
         shared_context = {

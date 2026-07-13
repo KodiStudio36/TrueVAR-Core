@@ -44,7 +44,7 @@ class IVRPlugin(BasePlugin):
     # ------------------------------------------------------------------ identity
 
     @property
-    def name(self) -> str: return "ivr"
+    def name(self) -> str: return "instant_video_replay"
 
     @property
     def requires_internet(self) -> bool: return False
