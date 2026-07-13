@@ -7,6 +7,7 @@ import websockets.exceptions
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from core.use_cases.application_bootstrapper import ApplicationBootstrapper
 from plugins.base_plugin import BasePlugin
 from plugins.ivr.settings import IVRSettings
 
@@ -37,6 +38,7 @@ class IVRPlugin(BasePlugin):
         self._reconnect_task: Optional[asyncio.Task] = None
         self._connected = False
         self._subscriptions: list[tuple] = []
+        self._bootstrapper = ApplicationBootstrapper(logger)
 
         self.is_recording = False
         self.fight_num: Optional[str] = None
@@ -58,6 +60,16 @@ class IVRPlugin(BasePlugin):
         self._settings = self.core_context["settings_manager"].get_settings(self.name)
         self.core_context["ivr_plugin"] = self
 
+        cmd = ["python", self._settings.app_path]
+        asyncio.create_task(
+            self._bootstrapper.boot(
+                cmd=cmd,
+                window_class=self._settings.window_class,
+                workspace=self._settings.workspace,
+                startup_delay=3.0
+            )
+        )
+
         bus = self.core_context.get("event_bus")
         if bus:
             self._subscriptions = [
@@ -76,6 +88,8 @@ class IVRPlugin(BasePlugin):
         self._reconnect_task = asyncio.create_task(self._reconnect_loop())
 
     async def stop(self) -> None:
+        self._bootstrapper.terminate()
+        
         bus = self.core_context.get("event_bus")
         if bus and self._subscriptions:
             bus.unsubscribe_many(self._subscriptions)

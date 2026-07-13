@@ -1,0 +1,25 @@
+{
+    "ws_host": "localhost",
+    "ws_port": 8765,
+    "app_path": "/home/kodi/Documents/programs/var/TrueVAR-IVR/main.py",
+    "window_class": "truevar_ivr",
+    "workspace": 3,
+    "fps": 30,
+    "res_height": 720,
+    "camera_count": 1,
+    "delete_records": true,
+    "auto_record": false,
+    "key_binds": {
+        "settings_key": "S",
+        "replay_key": "R",
+        "record_key": "N",
+        "next_camera_key": "E",
+        "play_pause_key": " ",
+        "frame_forward_key": "Right",
+        "frame_backward_key": "Left",
+        "second_forward_key": "Shift+Right",
+        "second_backward_key": "Shift+Left",
+        "reset_zoom_key": "Escape",
+        "toggle_external_screen_key": "W"
+    }
+}

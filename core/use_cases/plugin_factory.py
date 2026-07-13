@@ -48,7 +48,7 @@ class PluginFactory:
         if provider == DAEDO:
             stack.append(TkStrikeListenerPlugin)
             stack.append(TkStrikeExternalScreenPlugin)
-            # stack.append(IVRPlugin)
+            stack.append(IVRPlugin)
 
             if mode == INTEGRATED_TKSTRIKE:
                 pass
