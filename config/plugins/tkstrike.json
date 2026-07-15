@@ -1,0 +1,11 @@
+{
+    "wine_prefix": "/home/kodi/Documents/programs/var/TKStrike/pfx",
+    "app_dir": "/home/kodi/Documents/programs/var/TKStrike/pfx/drive_c/users/kodi/AppData/Local/tkStrikeGen2",
+    "exe_name": "tkStrikeGen2.exe",
+    "window_class": "tkstrikegen2.exe",
+    "workspace": 2,
+    "ivr_workspace": 3,
+    "startup_delay": 6.0,
+    "replay_start_event": "scoreboard.START_FIGHT",
+    "replay_stop_event": "ivr.replay_closed"
+}

@@ -46,3 +46,7 @@ class DatabasePort(ABC):
     async def fetch_scheduled_broadcast(self, tournament_id: str, court_number: str) -> dict | None:
         """Returns the scheduled_broadcast doc for a given tournament + court, or None."""
         raise NotImplementedError
+    
+    @abstractmethod
+    async def save_match_state(self, sport_id: str, discipline_id: str, match_id: str, data: dict) -> None:
+        ...

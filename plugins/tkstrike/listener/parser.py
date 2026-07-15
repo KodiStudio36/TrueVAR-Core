@@ -74,7 +74,8 @@ class TkStrikeStateEngine:
         self.data["state"] = READY_STATE
 
     def on_test(self, parts):
-        if self.data["state"] == READY_STATE:
+        # TODO: remove this
+        # if self.data["state"] == READY_STATE:
             self.trigger_fight_start()
 
     def on_clock(self, parts):
@@ -156,6 +157,7 @@ class TkStrikeStateEngine:
     def trigger_fight_start(self):
         if not self.data["fight_started"]:
             self.data["fight_started"] = True
+            print("here")
             self.on_event_trigger("START_FIGHT")
 
     def reset_data(self):

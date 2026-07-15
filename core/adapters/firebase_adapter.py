@@ -140,3 +140,22 @@ class FirebaseAdapter(DatabasePort):
             data["id"] = docs[0].id
             return data
         return await asyncio.to_thread(_fetch)
+    
+    async def save_match_state(
+        self, sport_id: str, discipline_id: str, match_id: str, data: dict
+    ) -> None:
+        """
+        Upserts a match document at:
+            sports/{sport_id}/disciplines/{discipline_id}/matches/{match_id}
+        merge=True so repeated stable_update writes for the same match_id
+        update the doc in place instead of overwriting untouched fields.
+        """
+        def _save():
+            ref = (
+                self.firestore_db.collection('sports').document(sport_id)
+                .collection('disciplines').document(discipline_id)
+                .collection('matches').document(match_id)
+            )
+            ref.set(data, merge=True)
+
+        await asyncio.to_thread(_save)

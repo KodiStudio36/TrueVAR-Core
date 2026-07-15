@@ -1,4 +1,5 @@
 import asyncio
+import os
 import shlex
 from typing import List, Optional
 
@@ -12,19 +13,37 @@ class ApplicationBootstrapper:
         cmd: List[str], 
         window_class: str, 
         workspace: int, 
-        startup_delay: float = 4.0
+        startup_delay: float = 4.0,
+        env: dict = None,
     ) -> bool:
         """
         Launches any application, waits for its window, and pins it to an i3 workspace.
         """
         self.logger.info(f"Booting application process: {' '.join(cmd)}")
         try:
-            # 1. Launch the process safely
+            process_env = os.environ.copy()
+            if env:
+                process_env.update(env)
+
+            # log_file_path = "/home/kodi/Documents/programs/var/TKStrike/wine_runtime.log"
+
+            # # Ensure the directory exists
+            # os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+                
             self._process = await asyncio.create_subprocess_exec(
                 *cmd,
+                env=process_env,
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL
             )
+
+            # with open(log_file_path, "a") as log_file:
+            #     self._process = await asyncio.create_subprocess_exec(
+            #         *cmd,
+            #         env=env,
+            #         stdout=log_file, # Redirects stdout to file
+            #         stderr=log_file  # Redirects stderr to file
+            #     )
             
             # 2. Wait for the window to render completely
             await asyncio.sleep(startup_delay)

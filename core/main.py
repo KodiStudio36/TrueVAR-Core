@@ -13,10 +13,9 @@ from core.adapters.firebase_adapter import FirebaseAdapter
 from core.adapters.system_network_adapter import SystemNetworkAdapter
 from core.use_cases.system_orchestrator import SystemOrchestrator
 from core.adapters.structured_logger_adapter import StructuredLoggerAdapter
-from core.infrastructure.routers import log_router
 
 # Routers
-from core.infrastructure.routers import api_router, ui_router
+from core.infrastructure.routers import api_router, ui_router, plugin_router
 
 # 1. Initialize Adapters
 db_adapter = FirebaseAdapter()
@@ -50,7 +49,7 @@ async def lifespan(app: FastAPI):
     
     yield 
     print("[Lifespan] Shutting down Web Server...")
-    # await orchestrator.shutdown_system()
+    await orchestrator.shutdown_system()
 
 # 4. FastAPI Setup
 app = FastAPI(title="TrueVAR Core", lifespan=lifespan)
@@ -58,6 +57,7 @@ app = FastAPI(title="TrueVAR Core", lifespan=lifespan)
 # Mount separated routes
 app.include_router(ui_router.router)
 app.include_router(api_router.router)
+app.include_router(plugin_router.router)
 
 combined_app = socketio.ASGIApp(sio, other_asgi_app=app)
 

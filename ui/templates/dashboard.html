@@ -14,11 +14,16 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-3 gap-6">
+        <div class="grid grid-cols-3 gap-6 mb-6">
             <div class="bg-gray-800 p-6 rounded-lg col-span-1">
                 <h3 class="text-xl font-bold mb-4 text-green-400">Active Plugins</h3>
                 <ul id="pluginList" class="space-y-2">
                     <li class="text-gray-400 italic">Polling engine...</li>
+                </ul>
+
+                <h3 class="text-xl font-bold mt-6 mb-4 text-purple-400">Attach Plugin</h3>
+                <ul id="availableList" class="space-y-2">
+                    <li class="text-gray-400 italic">Loading...</li>
                 </ul>
             </div>
 
@@ -27,35 +32,114 @@
                 <div id="logConsole" class="bg-black p-4 rounded h-64 overflow-y-auto font-mono text-sm text-green-500">
                     System initialized. Waiting for stream...
                 </div>
+
+                <div id="settingsPanel" class="hidden bg-gray-950 border border-gray-700 mt-4 p-4 rounded">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="font-bold text-yellow-400">Plugin Settings (placeholder)</h4>
+                        <button onclick="closeSettings()" class="text-gray-400 hover:text-white">✕</button>
+                    </div>
+                    <pre id="settingsContent" class="text-xs text-gray-300 overflow-x-auto"></pre>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
         async function fetchStatus() {
-            const res = await fetch("/api/system/status");
+            const res = await fetch("/api/plugins/status");
             const data = await res.json();
 
-            // Set Badge
             const badge = document.getElementById("modeBadge");
             if (data.is_offline_mode) {
                 badge.innerText = "OFFLINE MODE";
                 badge.className = "px-4 py-1 rounded-full text-sm font-bold bg-yellow-600 text-white";
             } else {
-                badge.innerText = "ONLINE - " + data.active_tournament_id;
+                badge.innerText = "ONLINE - " + (data.active_tournament_id || "");
                 badge.className = "px-4 py-1 rounded-full text-sm font-bold bg-green-600 text-white";
             }
 
-            // Set Plugins
             const list = document.getElementById("pluginList");
             list.innerHTML = "";
+            if (data.loaded_plugins.length === 0) {
+                list.innerHTML = '<li class="text-gray-400 italic">No plugins attached.</li>';
+            }
             data.loaded_plugins.forEach(p => {
-                list.innerHTML += `<li class="flex items-center"><span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span> ${p}</li>`;
+                list.innerHTML += `
+            <li class="flex items-center justify-between bg-gray-700/40 rounded px-2 py-1">
+                <button onclick="openSettings('${p.name}')" class="flex items-center text-left hover:underline">
+                    <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span> ${p.name}
+                </button>
+                <span class="space-x-2">
+                    <button onclick="restartPlugin('${p.name}')" class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded">Restart</button>
+                    <button onclick="detachPlugin('${p.name}')" class="text-xs px-2 py-1 bg-red-600 hover:bg-red-500 rounded">Detach</button>
+                </span>
+            </li>`;
+            });
+
+            const avail = document.getElementById("availableList");
+            avail.innerHTML = "";
+            if (data.available_plugins.length === 0) {
+                avail.innerHTML = '<li class="text-gray-500 italic">Everything is attached.</li>';
+            }
+            data.available_plugins.forEach(className => {
+                avail.innerHTML += `
+            <li class="flex items-center justify-between bg-gray-700/20 rounded px-2 py-1">
+                <span class="text-sm text-gray-300">${className}</span>
+                <button onclick="attachPlugin('${className}')" class="text-xs px-2 py-1 bg-purple-600 hover:bg-purple-500 rounded">Attach</button>
+            </li>`;
             });
         }
 
+        function log(msg) {
+            const c = document.getElementById("logConsole");
+            c.innerHTML += `<div>&gt; ${msg}</div>`;
+            c.scrollTop = c.scrollHeight;
+        }
+
+        async function restartPlugin(name) {
+            log(`Restarting ${name}...`);
+            const res = await fetch(`/api/plugins/${name}/restart`, { method: "POST" });
+            log(res.ok ? `${name} restarted.` : `Failed to restart ${name}.`);
+            fetchStatus();
+        }
+
+        async function detachPlugin(name) {
+            if (!confirm(`Detach ${name}? It will stop running.`)) return;
+            log(`Detaching ${name}...`);
+            const res = await fetch(`/api/plugins/${name}/detach`, { method: "POST" });
+            log(res.ok ? `${name} detached.` : `Failed to detach ${name}.`);
+            fetchStatus();
+        }
+
+        async function attachPlugin(className) {
+            log(`Attaching ${className}...`);
+            const res = await fetch(`/api/plugins/attach`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ class_name: className }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                log(`Failed to attach ${className}: ${err.detail}`);
+            } else {
+                log(`${className} attached.`);
+            }
+            fetchStatus();
+        }
+
+        async function openSettings(name) {
+            const res = await fetch(`/api/plugins/${name}/settings`);
+            const data = await res.json();
+            document.getElementById("settingsContent").innerText = JSON.stringify(data, null, 2);
+            document.getElementById("settingsPanel").classList.remove("hidden");
+        }
+
+        function closeSettings() {
+            document.getElementById("settingsPanel").classList.add("hidden");
+        }
+
         fetchStatus();
-        // setInterval(fetchStatus, 5000); // Poll every 5 seconds
+        setInterval(fetchStatus, 5000);
     </script>
 </body>
 

@@ -1,5 +1,6 @@
 from typing import List, Type
 from plugins.base_plugin import BasePlugin
+from plugins.firebase_sync.plugin import FirebaseSyncPlugin
 from plugins.gstreamer_core.plugin import GStreamerCorePlugin
 from plugins.ivr.plugin import IVRPlugin
 from plugins.bout_cntrl.livestream_extension.plugin import BoutCntrlLivestreamExtension
@@ -8,6 +9,7 @@ from plugins.tkstrike.livestream_extension.plugin import TkStrikeLivestreamExten
 from plugins.tkstrike.external_screen.plugin import TkStrikeExternalScreenPlugin
 from plugins.tkstrike.listener.plugin import TkStrikeListenerPlugin
 from plugins.bout_cntrl.bout_cntrl.plugin import BoutCntrlPlugin
+from plugins.tkstrike.tkstrike.plugin import TkStrikePlugin
 
 # === Taekwondo ===============
 TAEKWONDO = "Taekwondo"
@@ -43,15 +45,15 @@ class PluginFactory:
         """Determines exactly which plugins need to boot for this tournament."""
         
         # 1. Base Layer: GStreamer handles the hardware for everything
-        stack = [GStreamerCorePlugin]
+        stack = [GStreamerCorePlugin, FirebaseSyncPlugin]
 
         if provider == DAEDO:
             stack.append(TkStrikeListenerPlugin)
-            stack.append(TkStrikeExternalScreenPlugin)
-            stack.append(IVRPlugin)
+            # stack.append(TkStrikeExternalScreenPlugin)
+            # stack.append(IVRPlugin)
 
             if mode == INTEGRATED_TKSTRIKE:
-                pass
+                stack.append(TkStrikePlugin)
 
 
         elif provider == BOUT_CNTRL:
