@@ -26,6 +26,7 @@ class IVRSettings(BaseModel):
     camera_count:   int  = Field(default=1,                    description="Number of recording cameras")
     delete_records: bool = Field(default=True,                 description="Wipe old recordings on new session start")
     auto_record:    bool = Field(default=False,                description="Start recording automatically on launch")
+    is_scoreboard:  bool = Field(default=False,                description="Using external video source as scoreboard")
     key_binds: KeyBindSettings = Field(
         default_factory=KeyBindSettings,
         description="IVR keyboard shortcuts",

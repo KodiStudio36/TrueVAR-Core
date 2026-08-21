@@ -6,6 +6,6 @@
     "workspace": 2,
     "ivr_workspace": 3,
     "startup_delay": 6.0,
-    "replay_start_event": "scoreboard.START_FIGHT",
+    "replay_start_event": "scoreboard.IVR",
     "replay_stop_event": "ivr.replay_closed"
 }

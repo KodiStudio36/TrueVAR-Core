@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel as PydanticBody
 
+from plugins.base_plugin import Namespace
 from plugins.bout_cntrl.livestream_extension.automation import BoutCntrlAutomation
 from plugins.bout_cntrl.livestream_extension.settings import BoutCntrlSettings
 from plugins.livestream.base_extension import BaseLivestreamExtension
@@ -26,6 +27,8 @@ class BoutCntrlLivestreamExtension(BaseLivestreamExtension):
 
     @property
     def settings_schema(self): return BoutCntrlSettings
+
+    namespace: str = Namespace.BOUT_CNTRL
 
     @property
     def obs_collection_name(self) -> str:

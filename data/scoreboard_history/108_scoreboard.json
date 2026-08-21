@@ -1,0 +1,1073 @@
+[
+  {
+    "t": 0.0,
+    "round": 1,
+    "clk": "2:00",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 42.603,
+    "round": 1,
+    "clk": "1:59",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 43.604,
+    "round": 1,
+    "clk": "1:58",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 44.604,
+    "round": 1,
+    "clk": "1:57",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 45.603,
+    "round": 1,
+    "clk": "1:56",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 46.603,
+    "round": 1,
+    "clk": "1:55",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 47.603,
+    "round": 1,
+    "clk": "1:54",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 48.603,
+    "round": 1,
+    "clk": "1:53",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 49.603,
+    "round": 1,
+    "clk": "1:52",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 50.603,
+    "round": 1,
+    "clk": "1:51",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 51.603,
+    "round": 1,
+    "clk": "1:50",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 52.605,
+    "round": 1,
+    "clk": "1:49",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 53.603,
+    "round": 1,
+    "clk": "1:48",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 54.603,
+    "round": 1,
+    "clk": "1:47",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 55.605,
+    "round": 1,
+    "clk": "1:46",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 56.603,
+    "round": 1,
+    "clk": "1:45",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 57.603,
+    "round": 1,
+    "clk": "1:44",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 58.604,
+    "round": 1,
+    "clk": "1:43",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 59.603,
+    "round": 1,
+    "clk": "1:42",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 60.603,
+    "round": 1,
+    "clk": "1:41",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 61.603,
+    "round": 1,
+    "clk": "1:40",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 61.778,
+    "round": 1,
+    "clk": "1:40",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 62.603,
+    "round": 1,
+    "clk": "1:39",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 63.603,
+    "round": 1,
+    "clk": "1:38",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 64.604,
+    "round": 1,
+    "clk": "1:37",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 65.603,
+    "round": 1,
+    "clk": "1:36",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 66.603,
+    "round": 1,
+    "clk": "1:35",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 67.603,
+    "round": 1,
+    "clk": "1:34",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 68.603,
+    "round": 1,
+    "clk": "1:33",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 69.603,
+    "round": 1,
+    "clk": "1:32",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 70.602,
+    "round": 1,
+    "clk": "1:31",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 71.603,
+    "round": 1,
+    "clk": "1:30",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 72.603,
+    "round": 1,
+    "clk": "1:29",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 73.603,
+    "round": 1,
+    "clk": "1:28",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 98.448,
+    "round": 1,
+    "clk": "1:00",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 98.594,
+    "round": 1,
+    "clk": "1:27",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 99.595,
+    "round": 1,
+    "clk": "1:26",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 100.595,
+    "round": 1,
+    "clk": "1:25",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 101.595,
+    "round": 1,
+    "clk": "1:24",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 102.595,
+    "round": 1,
+    "clk": "1:23",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 103.595,
+    "round": 1,
+    "clk": "1:22",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 104.595,
+    "round": 1,
+    "clk": "1:21",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 105.595,
+    "round": 1,
+    "clk": "1:20",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 106.595,
+    "round": 1,
+    "clk": "1:19",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 107.595,
+    "round": 1,
+    "clk": "1:18",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 108.595,
+    "round": 1,
+    "clk": "1:17",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 109.595,
+    "round": 1,
+    "clk": "1:16",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 110.594,
+    "round": 1,
+    "clk": "1:15",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 111.595,
+    "round": 1,
+    "clk": "1:14",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 112.596,
+    "round": 1,
+    "clk": "1:13",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 113.595,
+    "round": 1,
+    "clk": "1:12",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 114.595,
+    "round": 1,
+    "clk": "1:11",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 115.594,
+    "round": 1,
+    "clk": "1:10",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 116.594,
+    "round": 1,
+    "clk": "1:09",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 117.595,
+    "round": 1,
+    "clk": "1:08",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 118.595,
+    "round": 1,
+    "clk": "1:07",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 119.596,
+    "round": 1,
+    "clk": "1:06",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 120.595,
+    "round": 1,
+    "clk": "1:05",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 121.594,
+    "round": 1,
+    "clk": "1:04",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 122.595,
+    "round": 1,
+    "clk": "1:03",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 123.595,
+    "round": 1,
+    "clk": "1:02",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 124.595,
+    "round": 1,
+    "clk": "1:01",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 125.595,
+    "round": 1,
+    "clk": "1:00",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 126.595,
+    "round": 1,
+    "clk": "0:59",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 127.595,
+    "round": 1,
+    "clk": "0:58",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 128.594,
+    "round": 1,
+    "clk": "0:57",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 129.594,
+    "round": 1,
+    "clk": "0:56",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 130.594,
+    "round": 1,
+    "clk": "0:55",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 131.594,
+    "round": 1,
+    "clk": "0:54",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 132.594,
+    "round": 1,
+    "clk": "0:53",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 133.594,
+    "round": 1,
+    "clk": "0:52",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 134.595,
+    "round": 1,
+    "clk": "0:51",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 135.594,
+    "round": 1,
+    "clk": "0:50",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 136.595,
+    "round": 1,
+    "clk": "0:49",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 137.595,
+    "round": 1,
+    "clk": "0:48",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 138.063,
+    "round": 1,
+    "clk": "0:48",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 138.594,
+    "round": 1,
+    "clk": "0:47",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 139.594,
+    "round": 1,
+    "clk": "0:46",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 140.595,
+    "round": 1,
+    "clk": "0:45",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 141.594,
+    "round": 1,
+    "clk": "0:44",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 142.17,
+    "round": 1,
+    "clk": "0:44",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 142.595,
+    "round": 1,
+    "clk": "0:43",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 143.594,
+    "round": 1,
+    "clk": "0:42",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 144.595,
+    "round": 1,
+    "clk": "0:41",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 145.594,
+    "round": 1,
+    "clk": "0:40",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 146.595,
+    "round": 1,
+    "clk": "0:39",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 147.594,
+    "round": 1,
+    "clk": "0:38",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 148.594,
+    "round": 1,
+    "clk": "0:37",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 149.595,
+    "round": 1,
+    "clk": "0:36",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 150.594,
+    "round": 1,
+    "clk": "0:35",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 2,
+    "red_penalties": 0
+  },
+  {
+    "t": 151.209,
+    "round": 1,
+    "clk": "0:35",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 151.594,
+    "round": 1,
+    "clk": "0:34",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 152.595,
+    "round": 1,
+    "clk": "0:33",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 153.595,
+    "round": 1,
+    "clk": "0:32",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 154.383,
+    "round": 1,
+    "clk": "0:32",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 154.594,
+    "round": 1,
+    "clk": "0:31",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 155.594,
+    "round": 1,
+    "clk": "0:30",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 156.595,
+    "round": 1,
+    "clk": "0:29",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 157.594,
+    "round": 1,
+    "clk": "0:28",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 158.594,
+    "round": 1,
+    "clk": "0:27",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 159.594,
+    "round": 1,
+    "clk": "0:26",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 160.594,
+    "round": 1,
+    "clk": "0:25",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 161.595,
+    "round": 1,
+    "clk": "0:24",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 162.595,
+    "round": 1,
+    "clk": "0:23",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 163.595,
+    "round": 1,
+    "clk": "0:22",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 164.595,
+    "round": 1,
+    "clk": "0:21",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 165.594,
+    "round": 1,
+    "clk": "0:20",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 4,
+    "red_penalties": 0
+  },
+  {
+    "t": 166.397,
+    "round": 1,
+    "clk": "0:20",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 6,
+    "red_penalties": 0
+  },
+  {
+    "t": 166.595,
+    "round": 1,
+    "clk": "0:19",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 6,
+    "red_penalties": 0
+  },
+  {
+    "t": 167.594,
+    "round": 1,
+    "clk": "0:18",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 6,
+    "red_penalties": 0
+  },
+  {
+    "t": 168.594,
+    "round": 1,
+    "clk": "0:17",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 6,
+    "red_penalties": 0
+  },
+  {
+    "t": 169.594,
+    "round": 1,
+    "clk": "0:16",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 6,
+    "red_penalties": 0
+  },
+  {
+    "t": 170.594,
+    "round": 1,
+    "clk": "0:15",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 6,
+    "red_penalties": 0
+  },
+  {
+    "t": 171.594,
+    "round": 1,
+    "clk": "0:14",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 6,
+    "red_penalties": 0
+  },
+  {
+    "t": 172.594,
+    "round": 1,
+    "clk": "0:13",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 6,
+    "red_penalties": 0
+  },
+  {
+    "t": 173.595,
+    "round": 1,
+    "clk": "0:12",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 6,
+    "red_penalties": 0
+  },
+  {
+    "t": 174.595,
+    "round": 1,
+    "clk": "0:11",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 6,
+    "red_penalties": 0
+  },
+  {
+    "t": 343.422,
+    "round": 1,
+    "clk": "0:00",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 6,
+    "red_penalties": 0
+  },
+  {
+    "t": 346.812,
+    "round": 1,
+    "clk": "1:00",
+    "blue_points": 6,
+    "blue_penalties": 0,
+    "red_points": 6,
+    "red_penalties": 0
+  }
+]

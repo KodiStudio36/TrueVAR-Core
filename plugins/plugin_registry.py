@@ -14,18 +14,6 @@ from plugins.tkstrike.tkstrike.plugin import TkStrikePlugin
 
 
 class PluginRegistry:
-    """
-    Static catalogue of every plugin class the application knows about.
-
-    PluginFactory.build_stack() decides sane defaults for a given
-    tournament; this registry is the full universe of what CAN be
-    attached on top of that from the dashboard, regardless of whether
-    it's normally auto-booted.
-
-    Keyed by class name (e.g. "FirebaseSyncPlugin") since that's
-    available without instantiating anything.
-    """
-
     _CLASSES: Dict[str, Type[BasePlugin]] = {
         cls.__name__: cls
         for cls in [
@@ -43,9 +31,51 @@ class PluginRegistry:
     }
 
     @classmethod
+    def _validate(cls) -> None:
+        for name, plugin_cls in cls._CLASSES.items():
+            deps = plugin_cls.__dict__.get("dependencies", plugin_cls.dependencies)
+            if isinstance(deps, property):
+                raise TypeError(
+                    f"{name}.dependencies is declared as a @property — it must be a "
+                    f"plain class attribute (e.g. `dependencies = [\"OtherPlugin\"]`)."
+                )
+            if not isinstance(deps, list):
+                raise TypeError(f"{name}.dependencies must be a list, got {type(deps).__name__}.")
+            for d in deps:
+                if not isinstance(d, str):
+                    raise TypeError(
+                        f"{name}.dependencies contains {d!r} ({type(d).__name__}) — "
+                        f"entries must be class-name strings, not the class object itself."
+                    )
+                if d not in cls._CLASSES:
+                    raise TypeError(
+                        f"{name}.dependencies references unknown plugin '{d}' — "
+                        f"check spelling against the registered class name."
+                    )
+
+            ns = plugin_cls.__dict__.get("namespace", plugin_cls.namespace)
+            if isinstance(ns, property):
+                raise TypeError(
+                    f"{name}.namespace is declared as a @property — it must be a "
+                    f"plain class attribute (e.g. `namespace = Namespace.SCORING`)."
+                )
+            if not isinstance(ns, str):
+                raise TypeError(f"{name}.namespace must be a string, got {type(ns).__name__}.")
+            
+            ui = plugin_cls.__dict__.get("settings_ui", plugin_cls.settings_ui)
+            if isinstance(ui, property):
+                raise TypeError(f"{name}.settings_ui must be a plain class attribute, not a @property.")
+            if ui is not None and not isinstance(ui, str):
+                raise TypeError(f"{name}.settings_ui must be None or a string, got {type(ui).__name__}.")
+
+
+    @classmethod
     def all(cls) -> Dict[str, Type[BasePlugin]]:
         return dict(cls._CLASSES)
 
     @classmethod
     def get(cls, class_name: str) -> Optional[Type[BasePlugin]]:
         return cls._CLASSES.get(class_name)
+
+
+PluginRegistry._validate()

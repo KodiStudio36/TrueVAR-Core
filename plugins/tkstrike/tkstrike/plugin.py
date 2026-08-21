@@ -4,7 +4,10 @@ from typing import Optional
 from fastapi import APIRouter
 
 from core.use_cases.application_bootstrapper import ApplicationBootstrapper
-from plugins.base_plugin import BasePlugin
+from core.use_cases.serial_device_resolver import (
+    SerialDeviceResolver, MSP430_USB, DeviceNotFoundError,
+)
+from plugins.base_plugin import BasePlugin, Namespace
 from plugins.tkstrike.tkstrike.settings import TkStrikeSettings
 
 
@@ -22,6 +25,8 @@ class TkStrikePlugin(BasePlugin):
 
     @property
     def settings_schema(self): return TkStrikeSettings
+
+    namespace: str = Namespace.TKSTRIKE
 
     # ------------------------------------------------------------------ i3 Workspace Transitions
 
@@ -43,11 +48,13 @@ class TkStrikePlugin(BasePlugin):
     async def _on_replay_triggered(self, data: dict):
         """Triggered when event bus signals video replay start."""
         self.logger.info("Replay event received. Transitioning screen to IVR workspace...")
+        await asyncio.sleep(.5)
         await self._switch_active_workspace(self._settings.ivr_workspace)
 
     async def _on_replay_stopped(self, data: dict):
         """Triggered when event bus signals video replay finish."""
         self.logger.info("Replay finished event received. Returning to TkStrike workspace...")
+        await asyncio.sleep(.5)
         await self._switch_active_workspace(self._settings.workspace)
 
     # ------------------------------------------------------------------ Lifecycle
@@ -57,6 +64,18 @@ class TkStrikePlugin(BasePlugin):
         self.core_context["tk_strike_plugin"] = self
 
         self.logger.info("Starting TkStrike Plugin (Wine Sandbox)...")
+
+        # Resolve the MSP430 USB device by VID:PID and link it to a stable
+        # /dev/com1 path — works for any unit of this hardware, not one
+        # fixed ttyACM number. Raising here (instead of proceeding) means
+        # SystemOrchestrator._safe_load_plugins records this as a failed
+        # plugin, which the dashboard then shows as a retryable notification.
+        resolver = SerialDeviceResolver(self.logger, MSP430_USB)
+        try:
+            resolver.require_linked("com1")
+        except DeviceNotFoundError as e:
+            self.logger.error(str(e))
+            raise
 
         # 2. Subscribe to Video Replay Event Hooks on the EventBus
         bus = self.core_context.get("event_bus")

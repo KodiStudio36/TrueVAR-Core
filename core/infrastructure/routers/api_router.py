@@ -85,3 +85,8 @@ async def get_courts(tournament_id: str, request: Request):
     orchestrator = request.app.state.orchestrator
     courts = await orchestrator.db_adapter.fetch_courts_for_tournament(tournament_id)
     return {"tournament_id": tournament_id, "courts": courts}
+
+@router.post("/change-tournament")
+async def change_tournament(request: Request):
+    orchestrator = request.app.state.orchestrator
+    return await orchestrator.reset_to_tournament_selection()

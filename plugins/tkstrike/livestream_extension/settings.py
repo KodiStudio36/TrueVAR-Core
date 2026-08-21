@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
 
-class TaekwondoSettings(BaseModel):
+class TkStrikeSettings(BaseModel):
     # --- OBS integration ---
     obs_collection: str = Field(default="Taekwondo",             description="OBS scene collection name")
     i3_workspace:   int = Field(default=2,                       description="i3 workspace for OBS window")

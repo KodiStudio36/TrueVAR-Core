@@ -9,14 +9,15 @@ from plugins.tkstrike.livestream_extension.plugin import TkStrikeLivestreamExten
 from plugins.tkstrike.external_screen.plugin import TkStrikeExternalScreenPlugin
 from plugins.tkstrike.listener.plugin import TkStrikeListenerPlugin
 from plugins.bout_cntrl.bout_cntrl.plugin import BoutCntrlPlugin
+from plugins.tkstrike.server.plugin import TkStrikeServerPlugin
 from plugins.tkstrike.tkstrike.plugin import TkStrikePlugin
 
 # === Taekwondo ===============
-TAEKWONDO = "Taekwondo"
+TAEKWONDO = "Taekwondo".lower()
 
 # disciplines
-KYORUGI = "Kyorugi"
-POOMSAE = "Poomsae"
+KYORUGI = "Kyorugi".lower()
+POOMSAE = "Poomsae".lower()
 
 # providers
 DAEDO = "DAEDO"
@@ -27,10 +28,10 @@ EXTERNAL_TKSTRIKE = "External TkStrike"
 
 
 # === Box =====================
-BOXING = "Boxing"
+BOXING = "Boxing".lower()
 
 # disciplines
-OLYMPIC_BOXING = "Olympic Boxing"
+OLYMPIC_BOXING = "Olympic Boxing".lower()
 
 # providers
 BOUT_CNTRL = "Bout Cntrl"
@@ -41,16 +42,19 @@ INTEGRATED_BOUT_CNTRL = "Integrated Bout Cntrl"
 
 class PluginFactory:
     @staticmethod
-    def build_stack(sport: str, discipline: str, provider: str, mode: str, is_stream: bool) -> List[Type[BasePlugin]]:
+    def build_stack(sport: str, discipline: str, provider: str, mode: str, is_stream: bool, is_public_register) -> List[Type[BasePlugin]]:
         """Determines exactly which plugins need to boot for this tournament."""
         
         # 1. Base Layer: GStreamer handles the hardware for everything
-        stack = [GStreamerCorePlugin, FirebaseSyncPlugin]
+        stack = [GStreamerCorePlugin, FirebaseSyncPlugin] # FirebaseSyncPlugin
 
         if provider == DAEDO:
             stack.append(TkStrikeListenerPlugin)
             # stack.append(TkStrikeExternalScreenPlugin)
             # stack.append(IVRPlugin)
+
+            if is_public_register == True:
+                stack.append(TkStrikeServerPlugin)
 
             if mode == INTEGRATED_TKSTRIKE:
                 stack.append(TkStrikePlugin)
@@ -59,13 +63,13 @@ class PluginFactory:
         elif provider == BOUT_CNTRL:
             stack.append(BoutCntrlPlugin)
             
-        if is_stream:
-            stack.append(LivestreamCorePlugin)
+        # if is_stream:
+        #     stack.append(LivestreamCorePlugin)
 
-            if provider == DAEDO:
-                stack.append(TkStrikeLivestreamExtension)
+        #     if provider == DAEDO:
+        #         stack.append(TkStrikeLivestreamExtension)
 
-            elif provider == BOUT_CNTRL:
-                stack.append(BoutCntrlLivestreamExtension)
+        #     elif provider == BOUT_CNTRL:
+        #         stack.append(BoutCntrlLivestreamExtension)
             
         return stack

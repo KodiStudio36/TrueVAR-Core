@@ -6,6 +6,7 @@
     "camera_count": 1,
     "delete_records": true,
     "auto_record": true,
+    "is_scoreboard": false,
     "key_binds": {
         "settings_key": "S",
         "replay_key": "R",

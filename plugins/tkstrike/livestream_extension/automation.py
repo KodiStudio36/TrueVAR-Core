@@ -1,12 +1,13 @@
 import asyncio
 from typing import Optional
 
+from core.domain.ports.database_port import DatabasePort
 from core.domain.ports.overlay_broadcaster_port import OverlayBroadcaster
 from plugins.livestream.base_automation import BaseAutomationEngine
-from plugins.tkstrike.livestream_extension.settings import TaekwondoSettings
+from plugins.tkstrike.livestream_extension.settings import TkStrikeSettings
 
 
-class TaekwondoStreamAutomation(BaseAutomationEngine):
+class TkStrikeStreamAutomation(BaseAutomationEngine):
     """
     All OBS scene switches and Socket.IO overlay broadcasts for Kyorugi.
 
@@ -21,16 +22,20 @@ class TaekwondoStreamAutomation(BaseAutomationEngine):
         self,
         obs_adapter,
         broadcaster: OverlayBroadcaster,
-        settings: TaekwondoSettings,
+        settings: TkStrikeSettings,
         logger,
+        db=None, tournament_id=None,
     ):
         super().__init__(logger)
         self.obs         = obs_adapter
         self.broadcaster = broadcaster
         self.settings    = settings
+        self.db: DatabasePort = db
+        self.tournament_id = tournament_id
 
         self._replay_active = False
         self._youtube_loop_task: Optional[asyncio.Task] = None
+        self._history_task: Optional[asyncio.Task] = None
 
     # ------------------------------------------------------------------ settings shorthands
 
@@ -49,9 +54,34 @@ class TaekwondoStreamAutomation(BaseAutomationEngine):
         )
 
     async def on_clock_update(self, data: dict):
-        # data = {"clk": "01:45"} — extend if the overlay needs live clock ticks
-        pass
+        await self.broadcaster.emit_to_namespace(
+            "clock_update", {"event": "update", "data": data}
+        )
 
+    async def on_blue_scored(self, data: dict):
+        await self.broadcaster.emit_to_namespace(
+            "blue_scored", {"event": "update", "data": data}
+        )
+
+    async def on_red_scored(self, data: dict):
+        await self.broadcaster.emit_to_namespace(
+            "red_scored", {"event": "update", "data": data}
+        )
+
+    async def _emit_previous(self, corner: str, athlete: dict, fights: list[dict]):
+        await self.broadcaster.emit_to_namespace(
+            "previous_results_update",
+            {"event": "update", "data": {
+                "corner": corner,
+                "athlete_name": athlete.get("name", ""),
+                "athlete_flag2": athlete.get("flag2", "un"),
+                "athlete_flag3": athlete.get("flag3", ""),
+                "fights": fights,
+            }},
+        )
+        await self.broadcaster.emit_to_namespace("show_previous_results", {})
+
+    
     # ================================================================== fight lifecycle handlers
 
     async def on_livestream_start(self, data: dict):
@@ -64,7 +94,7 @@ class TaekwondoStreamAutomation(BaseAutomationEngine):
 
     async def on_new_fight(self, data: dict):
         """Both mch + at1 received — new fighters loaded."""
-        self.trigger_pre_fight()
+        self.trigger_pre_fight(data)
 
     async def on_start_fight(self, data: dict):
         """Fight clock has started."""
@@ -113,6 +143,28 @@ class TaekwondoStreamAutomation(BaseAutomationEngine):
         """Switch OBS to the troubleshoot scene."""
         self.trigger_troubleshooting()
 
+    # ================================================================== db
+
+    async def _fetch_history(self, athlete_name: str | None) -> list[dict]:
+        if not athlete_name:
+            return []
+        raw = await self.db.fetch_previous_fights("taekwondo", "kyorugi", self.tournament_id, athlete_name)
+        return [self._shape_previous_fight(m, athlete_name) for m in raw]
+
+    @staticmethod
+    def _shape_previous_fight(match: dict, athlete_name: str) -> dict:
+        is_blue = match.get("blue", {}).get("name") == athlete_name
+        own_color = "blue" if is_blue else "red"
+        opponent = match.get("red" if is_blue else "blue") or {}
+        return {
+            "match_id": match.get("match_id"),
+            "win_score": match.get("win_score"),
+            "round_label": match.get("title", ""),
+            "opponent_name": opponent.get("name", ""),
+            "opponent_flag2": opponent.get("flag2", "un"),
+            "opponent_flag3": opponent.get("flag3", ""),
+        }
+
     # ================================================================== flows
 
     async def _pre_tournament_flow(self):
@@ -135,42 +187,97 @@ class TaekwondoStreamAutomation(BaseAutomationEngine):
             self._youtube_loop_manager(self.settings.youtube_subscribe_interval_mins)
         )
 
-    async def _pre_fight_flow(self):
+    async def _pre_fight_flow(self, data):
         self.logger.info("Flow: pre-fight")
-        await self.broadcaster.emit_to_namespace(
-            "reset_widgets",
-            {"event": "reset", "data": ["widget-winner", "widget-round-results"]},
-        )
+        await self.broadcaster.emit_to_namespace("reset_widgets", {"event": "reset", "data": None})
         self.obs.set_scene(self._scene("main"))
         await asyncio.sleep(0.5)
         await self.broadcaster.emit_to_namespace("show_next_round", {})
 
+        # cancel any fetch still in flight for a previous, now-stale fight
+        if self._history_task and not self._history_task.done():
+            self._history_task.cancel()
+
+        blue, red = data.get("blue", {}), data.get("red", {})
+        self._history_task = None
+        if self.db and self.tournament_id and (blue.get("name") or red.get("name")):
+            self._history_task = asyncio.create_task(self._load_history(blue, red))
+
+    async def _show_previous_results(self, history: dict):
+        blue, blue_history = history["blue"], history["blue_history"]
+        red, red_history = history["red"], history["red_history"]
+
+        if blue_history:
+            await self._emit_previous("blue", blue, blue_history)
+            await asyncio.sleep(6)
+        if red_history:
+            await self._emit_previous("red", red, red_history)
+            await asyncio.sleep(6)
+
+        await self.broadcaster.emit_to_namespace("hide_previous_results", {})
+
     async def _start_fight_flow(self):
         self.logger.info("Flow: start-fight")
-        await self.broadcaster.emit_to_namespace(
-            "reset_widgets", {"event": "reset", "data": None}
-        )
-        await self.broadcaster.emit_to_namespace("show_fighter_bars", {})
-        await asyncio.sleep(8)
-        await self.broadcaster.emit_to_namespace("hide_fighter_bars", {})
+        await self.broadcaster.emit_to_namespace("reset_widgets", {"event": "reset", "data": None})
+
+        history = await self._resolve_history()
+        has_previous = bool(history and (history["blue_history"] or history["red_history"]))
+
+        if has_previous:
+            self.logger.info("Previous fights found — showing previous-results instead of fighter bars.")
+            await self._show_previous_results(history)
+        else:
+            await self.broadcaster.emit_to_namespace("show_fighter_bars", {})
+            await asyncio.sleep(8)
+            await self.broadcaster.emit_to_namespace("hide_fighter_bars", {})
+
+    async def _resolve_history(self, timeout: float = 5.0) -> Optional[dict]:
+        if not self._history_task:
+            return None
+        try:
+            return await asyncio.wait_for(self._history_task, timeout=timeout)
+        except asyncio.TimeoutError:
+            self.logger.warning("Previous-fight fetch timed out — falling back to fighter bars.")
+            return None
+        except asyncio.CancelledError:
+            return None
+        except Exception as exc:
+            self.logger.error("Previous-fight fetch failed", exception=exc)
+            return None
+
+    async def _load_history(self, blue: dict, red: dict) -> dict:
+        try:
+            blue_history, red_history = await asyncio.gather(
+                self._fetch_history(blue.get("name")),
+                self._fetch_history(red.get("name")),
+            )
+        except Exception as exc:
+            self.logger.error("Failed to fetch previous fights", exception=exc)
+            blue_history, red_history = [], []
+
+        return {"blue": blue, "blue_history": blue_history, "red": red, "red_history": red_history}
 
     async def _start_round_flow(self):
         self.logger.info("Flow: start-round")
         await self.broadcaster.emit_to_namespace(
             "reset_widgets",
-            {"event": "reset", "data": ["widget-winner", "widget-round-results"]},
+            {"event": "reset", "data": ["widget-winner", "widget-round-results", "widget-next-round"]},
         )
-        self.obs.set_scene(self._scene("main_scoreboard"))
-        await asyncio.sleep(0.2)
-        await self.broadcaster.emit_to_namespace("hide_next_round", {})
+        await self.broadcaster.emit_to_namespace("hide_break", {})
+        await self.broadcaster.emit_to_namespace("show_scoreboard", {})
+        await asyncio.sleep(8)
+        await self.broadcaster.emit_to_namespace("compact_scoreboard", {})
+
 
     async def _post_round_flow(self):
         self.logger.info("Flow: post-round")
         await self.broadcaster.emit_to_namespace(
-            "reset_widgets", {"event": "reset", "data": None}
+            "reset_widgets", 
+            {"event": "reset", "data": ["widget-winner", "widget-round-results", "widget-next-round"]}
         )
-        self.obs.set_scene(self._scene("main"))
+        await self.broadcaster.emit_to_namespace("show_break", {})
         await asyncio.sleep(4)
+        await self.broadcaster.emit_to_namespace("uncompact_scoreboard", {})
         await self.broadcaster.emit_to_namespace("show_round_results", {})
         await asyncio.sleep(10)
         await self.broadcaster.emit_to_namespace("hide_round_results", {})
@@ -180,7 +287,6 @@ class TaekwondoStreamAutomation(BaseAutomationEngine):
         await self.broadcaster.emit_to_namespace(
             "reset_widgets", {"event": "reset", "data": None}
         )
-        self.obs.set_scene(self._scene("main"))
         await asyncio.sleep(2)
         await self.broadcaster.emit_to_namespace("show_win", {})
         await asyncio.sleep(8)
@@ -210,7 +316,7 @@ class TaekwondoStreamAutomation(BaseAutomationEngine):
         await self.broadcaster.emit_to_namespace(
             "reset_widgets", {"event": "reset", "data": ["widget-ivr"]}
         )
-        self.obs.set_scene(self._scene("main_scoreboard"))
+        self.obs.set_scene(self._scene("main"))
         await asyncio.sleep(3)
         self.obs.set_transition(self._transition("move"))
 
@@ -253,8 +359,8 @@ class TaekwondoStreamAutomation(BaseAutomationEngine):
     def trigger_pre_pre_fight(self):
         self.start_killable_flow(self._pre_pre_fight_flow())
 
-    def trigger_pre_fight(self):
-        self.start_killable_flow(self._pre_fight_flow())
+    def trigger_pre_fight(self, data):
+        self.start_killable_flow(self._pre_fight_flow(data))
 
     def trigger_start_fight(self):
         self.start_async_flow(self._start_fight_flow())

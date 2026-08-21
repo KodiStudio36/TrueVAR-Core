@@ -1,0 +1,47 @@
+[
+  {
+    "t": 0.0,
+    "round": 1,
+    "clk": "2:00",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 0.003,
+    "round": 1,
+    "clk": "1:59",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 1.003,
+    "round": 1,
+    "clk": "1:58",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 2.894,
+    "round": 1,
+    "clk": "0:00",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 12.378,
+    "round": 1,
+    "clk": "1:00",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  }
+]

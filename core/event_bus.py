@@ -21,6 +21,7 @@ class EventBus:
         scoreboard.WIN
         scoreboard.BLUE_SCORE
         scoreboard.RED_SCORE
+        scoreboard.IVR
 
         ivr.recording_started       — {"fight_num": "..."}
         ivr.recording_stopped

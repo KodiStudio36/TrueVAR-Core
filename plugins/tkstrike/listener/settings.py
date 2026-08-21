@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-class KyorugiListenerSettings(BaseModel):
-    scoring_system_port: int = 5000
+class TkStrikeListenerSettings(BaseModel):
+    bind_host: str = Field(default="0.0.0.0", description="UDP bind address")
+    bind_port: int = Field(default=8080,      description="Daedo UDP port")

@@ -50,3 +50,7 @@ class DatabasePort(ABC):
     @abstractmethod
     async def save_match_state(self, sport_id: str, discipline_id: str, match_id: str, data: dict) -> None:
         ...
+    
+    @abstractmethod
+    async def fetch_previous_fights(self, sport_id, discipline_id, tournament_id: str, athlete_name: str, limit: int) -> None:
+        ...

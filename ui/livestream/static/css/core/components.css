@@ -1,0 +1,598 @@
+/* =========================================================
+   CORE COMPONENTS
+   These are the LEGO bricks every sport composes widgets
+   from: a label, a header, a data row, a point box, a flag
+   row. A new sport should be buildable from 90% of what's
+   here + a handful of sport-only tweaks in its own stylesheet.
+   ========================================================= */
+
+.header-label {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--bg-label);
+    color: var(--text-light);
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 6px 10px;
+    margin-bottom: 2px;
+}
+
+.header-grid {
+    position: relative;
+    gap: 2px;
+}
+
+.header-grid.with-color {
+    display: grid;
+    grid-template-columns: 16px 1fr;
+}
+
+.header-content {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    background: var(--grad-header);
+    color: var(--text-white);
+    padding: 8px 15px;
+    position: relative;
+}
+
+.header-content.stacked {
+    flex-direction: column;
+    align-items: start;
+    background: var(--bg-panel);
+    padding: 12px 15px;
+}
+
+.header-country {
+    font-size: 26px;
+    margin-right: 12px;
+    font-weight: 400;
+}
+
+.header-name {
+    font-size: 28px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.header-seed {
+    font-size: 20px;
+    color: var(--text-muted);
+    margin-left: 8px;
+    margin-top: 7px;
+    flex-grow: 1;
+}
+
+.header-content.stacked .header-seed {
+    margin-left: 0;
+    margin-top: -2px;
+}
+
+.header-logo {
+    height: 44px;
+    width: 50px;
+}
+
+.header-legend {
+    position: absolute;
+    display: grid;
+    grid-template-columns: 1fr repeat(5, 38px);
+    gap: 2px;
+    width: 200px;
+    height: 30px;
+    right: 0;
+    bottom: 4px;
+}
+
+.legend-box {
+    position: relative;
+    display: flex;
+    height: 100%;
+    width: 38px;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-size: 19px;
+    font-weight: 600;
+}
+
+/* -------------------------------------------------------
+   Generic icon-mask system. Core defines the mechanism;
+   each sport only supplies --icon-src per icon, e.g.
+     .icon-trunk { --icon-src: url('assets/icons/vest.png'); }
+   in its own stylesheet. No sport ever writes mask-image
+   directly — that keeps every icon themeable from one place.
+   ------------------------------------------------------- */
+.icon {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    background-color: var(--icon-color, var(--text-white));
+    -webkit-mask-image: var(--icon-src);
+    mask-image: var(--icon-src);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+/* -------------------------------------------------------
+   Compact scoreboard header pieces (match id chip, running
+   text chip) shared by any "top-left corner box" widget.
+   ------------------------------------------------------- */
+.chip-id {
+    font-size: 19px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-label);
+    color: var(--text-white);
+    padding: 0 14px;
+    font-weight: bold;
+}
+
+.chip-label {
+    font-size: 19px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-row);
+    color: var(--text-primary);
+    padding: 0 12px;
+    font-weight: bold;
+}
+
+.chip-label.wide {
+    padding: 0 16px;
+}
+
+.chip-label.is-medical {
+    background-color: var(--color-penalty);
+    color: var(--text-primary);
+}
+
+/* -------------------------------------------------------
+   Data row — the workhorse. Any list of results/points is
+   a .row-wrapper containing an optional .color-bar and a
+   .row-content laid out with one of the grid modifiers.
+   ------------------------------------------------------- */
+.row-wrapper {
+    margin-top: 2px;
+}
+
+.row-wrapper.with-color {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 12px 1fr;
+    gap: 2px;
+}
+
+.row-wrapper.with-color.scoreboard {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 12px auto 1fr;
+    gap: 2px;
+}
+
+.row-wrapper.results {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 12px 1fr auto auto auto auto;
+    gap: 2px;
+}
+
+.row-content {
+    position: relative;
+    height: 38px;
+    background-color: var(--bg-row);
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    color: var(--text-primary);
+    font-size: 19px;
+    font-weight: 600;
+    gap: 12px;
+}
+
+.row-content.scoreboard {
+    /* max-width: 280px; */
+    padding: 8px 12px;
+    gap: 12px;
+}
+
+.row-content.grid-result {
+    display: grid;
+    grid-template-columns: 34px auto 1fr auto auto auto;
+    gap: 16px;
+}
+
+.row-content.grid-name {
+    display: grid;
+    grid-template-columns: auto auto auto;
+    gap: 16px;
+}
+
+.row-content.grid-round {
+    display: grid;
+    grid-template-columns: 34px auto 1fr auto auto auto;
+    gap: 16px;
+}
+
+.point-box {
+    position: relative;
+    display: block;
+    height: 38px;
+    width: 38px;
+    background-color: var(--bg-row);
+    color: var(--text-primary);
+    font-size: 19px;
+    font-weight: 600;
+}
+
+.point-box.penalty {
+    background-color: var(--color-penalty);
+}
+
+.point-box.winner {
+    background-color: var(--bg-label);
+    color: var(--text-white);
+}
+
+.point-box .main {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.point-box.composed .main {
+    left: 40%;
+}
+
+.point-box .small {
+    font-size: 16px;
+    position: absolute;
+    top: 65%;
+    left: 70%;
+    transform: translate(-50%, -50%);
+}
+
+.row-content .main {
+    position: absolute;
+    top: 50%;
+    right: 19px;
+    text-align: end;
+    transform: translate(0, -50%);
+}
+
+.row-content .small {
+    font-size: 16px;
+    position: absolute;
+    top: 65%;
+    right: 9px;
+    transform: translate(0, -50%);
+}
+
+.res-country {
+    font-weight: 500;
+}
+
+.res-name {
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.res-round {
+    font-weight: 500;
+    color: var(--text-round);
+}
+
+.res-score {
+    text-align: center;
+    letter-spacing: 1px;
+}
+
+.res-outcome {
+    text-align: right;
+    font-weight: bold;
+}
+
+.res-seed {
+    font-size: 13px;
+    color: var(--text-seed);
+    margin-left: -4px;
+}
+
+/* -------------------------------------------------------
+   Side-by-side "vs" bars (fighter intro, competitor list)
+   ------------------------------------------------------- */
+.bars-layout {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+}
+
+.bar-item {
+    width: auto;
+    min-width: 380px;
+    display: grid;
+    grid-template-columns: 12px 1fr;
+    gap: 2px;
+}
+
+/* -------------------------------------------------------
+   Universal broadcast chrome: ticker, replay badge, subscribe
+   card. These are NOT sport-specific — every discipline gets
+   the same ones for free.
+   ------------------------------------------------------- */
+#widget-ticker {
+    position: absolute;
+    bottom: -60px;
+    left: 0;
+    width: 100%;
+    height: var(--ticker-height);
+    background: var(--ticker-bg);
+    display: flex;
+    align-items: end;
+    overflow: hidden;
+    transition: bottom var(--t-slow) cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    z-index: 9999;
+}
+
+#widget-ticker.active {
+    bottom: 0;
+}
+
+.ticker-content {
+    margin-bottom: 2px;
+    white-space: nowrap;
+    display: inline-block;
+    padding-left: 100%;
+    will-change: transform;
+}
+
+.ticker-text {
+    color: #fff;
+    font-size: 20px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+@keyframes ticker-scroll {
+    to {
+        transform: translateX(-100%);
+    }
+}
+
+.ticker-content.scrolling {
+    animation: ticker-scroll var(--ticker-speed) linear;
+}
+
+.replay-badge {
+    display: inline-flex;
+    height: 60px;
+    gap: 2px;
+    user-select: none;
+    left: 50%;
+    bottom: 70px;
+    transform: translate(-50%, 0);
+}
+
+.replay-flag {
+    width: 72px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.replay-flag-text {
+    color: #fff;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.replay-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 280px;
+    gap: 2px;
+    overflow: hidden;
+}
+
+.replay-title {
+    background-color: var(--bg-panel);
+    color: #fff;
+    font-size: 19px;
+    font-weight: 700;
+    padding: 2px 16px 0 16px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+}
+
+.replay-sub {
+    background-color: var(--bg-row);
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    padding: 0 16px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+}
+
+.subscribe-card {
+    width: 320px;
+    transform: translateX(6px);
+    opacity: 1;
+    transition: transform var(--t-slow) cubic-bezier(0.18, 0.9, 0.3, 1.1), opacity var(--t-base) ease;
+    pointer-events: auto;
+}
+
+.subscribe-card.is-hidden {
+    display: block !important;
+    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.subscribe-header {
+    display: grid;
+    grid-template-columns: 12px 1fr;
+    gap: 2px;
+    margin-bottom: 2px;
+}
+
+.subscribe-color-bar {
+    background: var(--color-red);
+}
+
+.subscribe-content {
+    background: var(--grad-header);
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    gap: 10px;
+}
+
+.subscribe-logo {
+    width: 32px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.subscribe-name {
+    color: #fff;
+    font-size: 19px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    line-height: 1.1;
+}
+
+/* Keeps the country, flag, and name perfectly grouped on the left */
+.competitor-info {
+    display: grid;
+    grid-template-columns: 38px 32px auto;
+    align-items: center;
+    gap: 12px;
+}
+
+.competitor-info {
+    transition: grid-template-columns .35s ease;
+}
+
+.competitor-info .res-country,
+.competitor-info .flag-sm {
+    overflow: hidden;
+    transition: opacity .2s ease;
+}
+
+.is-compact .competitor-info {
+    grid-template-columns: 0px 0px auto;
+    gap: 0px;
+}
+
+.is-compact .competitor-info .res-country,
+.is-compact .competitor-info .flag-sm {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* The dynamic container where you will inject your squares */
+.score-elements {
+    display: flex;
+    gap: 2px;
+    /* Matches the global 2px design gap */
+}
+
+/* The new green rectangle for text events (PUNCH, HEAD, etc.) */
+.event-box {
+    height: 38px;
+    /* Matches exact height of .point-box */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-size: 15px;
+    font-weight: bold;
+    padding: 0 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+
+
+
+
+
+/* =========================================================
+   SCOREBOARD "BREAK" STATE TRANSFORMATION
+   Toggled via class ".state-break" on the widget root
+   ========================================================= */
+
+/* 1. The Collapsible Body */
+.rows-collapser {
+    display: grid;
+    grid-template-rows: 1fr;
+    /* Uses your existing variable timings if available, else falls back to standard values */
+    transition: grid-template-rows var(--t-base, 0.4s) var(--ease-out, cubic-bezier(0.18, 0.89, 0.32, 1.28));
+}
+
+.rows-inner {
+    overflow: hidden;
+    transition: opacity var(--t-base, 0.4s) ease;
+}
+
+/* When in break mode, squish the height to 0 and fade out */
+.state-break .rows-collapser {
+    grid-template-rows: 0fr;
+}
+
+.state-break .rows-inner {
+    opacity: 0;
+    pointer-events: none;
+    /* Prevents hidden rows from catching clicks */
+}
+
+/* 2. The Slot-Machine Header Swap */
+.chip-label-switcher {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    overflow: hidden;
+}
+
+.chip-label-switcher>* {
+    grid-column: 1;
+    grid-row: 1;
+    transition: transform var(--t-base, 0.4s) var(--ease-out, ease-out),
+        opacity var(--t-base, 0.4s) ease;
+}
+
+.break-label {
+    width: 140px;
+    transform: translateY(100%);
+    opacity: 0;
+    /* You can override colors here, currently it inherits .is-medical */
+}
+
+/* The rolling animation */
+.state-break .match-label {
+    transform: translateY(-100%);
+    opacity: 0;
+}
+
+.state-break .break-label {
+    transform: translateY(0);
+    opacity: 1;
+}

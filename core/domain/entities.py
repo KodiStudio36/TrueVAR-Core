@@ -12,6 +12,7 @@ class Tournament(BaseModel):
     discipline: str
     settings: dict
     status: str
+    isRegistrationOpen: Optional[bool]
 
 class SystemStatus(BaseModel):
     network_alive: bool = False

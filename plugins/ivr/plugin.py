@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from core.use_cases.application_bootstrapper import ApplicationBootstrapper
 from plugins.base_plugin import BasePlugin
+from plugins.gstreamer_core.plugin import GStreamerCorePlugin
 from plugins.ivr.settings import IVRSettings
 
 
@@ -54,6 +55,8 @@ class IVRPlugin(BasePlugin):
     @property
     def settings_schema(self): return IVRSettings
 
+    dependencies = ["GStreamerCorePlugin"]
+
     # ------------------------------------------------------------------ lifecycle
 
     async def start(self) -> None:
@@ -78,6 +81,10 @@ class IVRPlugin(BasePlugin):
                   for bus_ev, ws_ev in self._CMD_EVENTS.items()],
                 # Cross-plugin: auto-start recording when a fight begins
                 ("scoreboard.START_FIGHT", self._on_fight_started),
+                ("scoreboard.IVR", self._on_ivr_requested),
+                # Live scoreboard deltas — cheap to stream, lets the IVR app
+                # keep a rolling buffer even before a replay is requested.
+                ("scoreboard.score_event", self._on_score_event),
             ]
             bus.subscribe_many(self._subscriptions)
 
@@ -168,6 +175,18 @@ class IVRPlugin(BasePlugin):
             self.fight_num = data.get("fight_num")
         elif event == "recording_stopped":
             self.is_recording = False
+        elif event == "replay_opened":
+            # Replay is almost always opened locally in the IVR app (hotkey),
+            # not via our own ivr.cmd.show_replay — so this is the reliable
+            # place to push the scoreboard timeline, not the outbound
+            # show_replay command handler below (which may never fire).
+            history_payload = self._current_history_payload()
+            self.logger.info(
+                "Pushing scoreboard history to IVR app",
+                match_id=history_payload["match_id"],
+                event_count=len(history_payload["score_history"]),
+            )
+            await self.send_event("score_history", history_payload)
         elif event == "error":
             self.logger.error("IVR application error", message=data.get("message"))
 
@@ -186,15 +205,49 @@ class IVRPlugin(BasePlugin):
     def _make_cmd_handler(self, ws_event: str):
         """Factory that creates a typed async handler for each ivr.cmd.* bus event."""
         async def _handler(data: dict):
-            await self.send_event(ws_event)
+            if ws_event == "show_replay":
+                # Hand the IVR app the full scoreboard timeline for the fight
+                # that's currently loaded, so it can reconstruct the score
+                # at any video position without having captured it live.
+                await self.send_event(ws_event, self._current_history_payload())
+            else:
+                await self.send_event(ws_event)
         _handler.__name__ = f"_cmd_{ws_event}"
         return _handler
+
+    def _current_history_payload(self) -> dict:
+        listener_plugin = self.core_context.get("tkstrike_listener_plugin")
+        history = listener_plugin.get_history() if listener_plugin else None
+        if not history:
+            return {"match_id": None, "score_history": []}
+        return {"match_id": history.match_id, "score_history": history.to_list()}
 
     async def _on_fight_started(self, data: dict):
         """Auto-start IVR recording when the scoreboard signals a fight has begun."""
         if not self.is_recording:
             self.logger.info("Fight started — triggering IVR recording.")
-            await self.send_event("start_recording")
+            await self.send_event("start_recording", {
+                "fight_start_epoch": self._current_fight_start_epoch(),
+            })
+
+    async def _on_ivr_requested(self, data: dict):
+        """Auto-start IVR recording when the scoreboard signals a fight has begun."""
+        if self.is_recording:
+            self.logger.info("IVR Requested — triggering IVR replay.")
+            await self.send_event("show_replay", self._current_history_payload())
+
+    def _current_fight_start_epoch(self):
+        """Wall-clock epoch (time.time()) the current fight's scoreboard
+        timeline is anchored to. The IVR app uses this as t=0 to work out
+        how far into the fight each recorded segment started.
+        """
+        listener_plugin = self.core_context.get("tkstrike_listener_plugin")
+        history = listener_plugin.get_history() if listener_plugin else None
+        return history.fight_start if history else None
+
+    async def _on_score_event(self, data: dict):
+        """Stream each new scoreboard delta to the IVR app in real time."""
+        await self.send_event("score_event", data)
 
     # ------------------------------------------------------------------ outbound
 

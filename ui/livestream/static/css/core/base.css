@@ -1,0 +1,118 @@
+/* =========================================================
+   BASE / RESET
+   ========================================================= */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: transparent;
+    /* transparent for OBS/vMix browser sources */
+    height: 100vh;
+    overflow: hidden;
+}
+
+.is-hidden {
+    display: none !important;
+}
+
+/* Color-bar accent utilities — used by every corner-colored sport */
+.color-bar {
+    height: 100%;
+}
+
+.bg-blue {
+    background-color: var(--color-blue);
+}
+
+.bg-red {
+    background-color: var(--color-red);
+}
+
+.bg-green {
+    background-color: var(--color-green);
+}
+
+.bg-warn {
+    background-color: var(--color-warn);
+}
+
+/* Flags */
+.flag-lg {
+    height: 46px;
+    width: 70px;
+    object-fit: cover;
+    margin-right: 15px;
+    border: var(--border-flag);
+    background: #fff;
+}
+
+.flag-sm {
+    width: 32px;
+    height: 22px;
+    object-fit: cover;
+    border: var(--border-flag);
+}
+
+/* =========================================================
+   GENERIC WIDGET ANCHOR POSITIONS
+   Every widget picks ONE of these to declare where on screen
+   it lives. Sports never invent new positioning rules — if a
+   new anchor is genuinely needed, add it here so it stays
+   reusable.
+   ========================================================= */
+.anchor-bottom-center {
+    position: absolute;
+    bottom: var(--bottom-offset);
+    width: 100vw;
+    max-width: 1300px;
+    left: 50%;
+    transform: translate(-50%, 0%);
+    padding: 0 var(--side-padding);
+}
+
+.anchor-bottom-center-wide {
+    position: absolute;
+    bottom: var(--bottom-offset);
+    width: 100vw;
+    left: 50%;
+    transform: translate(-50%, 0%);
+}
+
+.anchor-bottom-center-fixed {
+    position: absolute;
+    bottom: var(--bottom-offset);
+    left: 50%;
+    transform: translateX(-50%);
+    /* Simpler way to center horizontally */
+    width: max-content;
+    /* Hugs the contents instead of forcing 100vw */
+
+    /* Flexbox to neatly align internal flag & text side-by-side */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.anchor-top-left {
+    position: absolute;
+    top: var(--top-offset);
+    left: var(--left-offset);
+    width: auto;
+}
+
+.anchor-bottom-left-full {
+    position: absolute;
+    bottom: var(--bottom-offset);
+    left: var(--left-offset);
+    width: 96vw;
+}
+
+.anchor-bottom-right {
+    position: absolute;
+    bottom: 140px;
+    right: 0;
+}

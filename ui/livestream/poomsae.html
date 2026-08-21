@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Livestream Overlay — Taekwondo</title>
+
+    <!-- Core (every sport loads these, in this order) -->
+    <link rel="stylesheet" href="static/css/core/tokens.css">
+    <link rel="stylesheet" href="static/css/core/base.css">
+    <link rel="stylesheet" href="static/css/core/components.css">
+    <link rel="stylesheet" href="static/css/core/animations.css">
+
+    <!-- Sport package (swap this one line to re-skin for a new discipline) -->
+    <link rel="stylesheet" href="static/css/sports/taekwondo/taekwondo.css">
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+
+<body data-sport="taekwondo">
+
+    <!-- NEXT ROUND (top-left corner) -->
+    <div class="anchor-top-left is-hidden" id="widget-next-round" data-anim="corner" data-enter-ms="1200"
+        data-exit-ms="400">
+        <div class="header-grid" style="display:grid;grid-template-columns:auto auto 1fr;height:36px;">
+            <div class="chip-id" data-bind="id_formatted">103</div>
+            <div class="chip-label">Next Match</div>
+        </div>
+    </div>
+
+    <!-- LIVE SCOREBOARD (State Morphable) -->
+    <div class="anchor-top-left is-hidden" id="widget-scoreboard-system" data-anim="corner" data-enter-ms="1500"
+        data-exit-ms="400">
+
+        <!-- 1. HEADER SWITCHER -->
+        <div class="header-grid tkd-scoreboard-grid">
+            <div class="chip-id" data-bind="id_formatted">003</div>
+            <div class="chip-label-switcher">
+                <!-- Normal Match Label -->
+                <div class="chip-label match-label" data-bind-format="category:category">Seniors Men -68kg</div>
+                <!-- Break Timer Label (Hidden by default) -->
+                <div class="chip-label break-label">BREAK <span data-bind="clk" style="margin-left:6px;">0:59</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. COLLAPSIBLE ROWS WRAPPER -->
+        <div class="rows-collapser">
+            <div class="rows-inner">
+                <div class="row-wrapper with-color scoreboard">
+                    <!-- BLUE ROW -->
+                    <div class="color-bar bg-green"></div>
+                    <div class="row-content scoreboard">
+                        <div class="competitor-info">
+                            <div class="res-country" data-bind-format="blue.flag3:upper">HUN</div>
+                            <img class="flag-sm" data-bind-img="blue.flag2" src="https://flagcdn.com/w40/hu.png"
+                                alt="Flag">
+                            <div class="res-name" style="font-weight:bold;" data-bind="blue.name">Natalia Zagiová
+                            </div>
+                        </div>
+                    </div>
+                    <div class="score-elements" id="blue-dynamic-scores">
+                        <div class="point-box"><i class="main">10</i></div>
+                    </div>
+
+                    <!-- MATCH CLOCK -->
+                    <div class="header-grid tkd-time-row clip-reveal"
+                        style="display:grid; grid-template-columns:auto auto 1fr;height:36px;">
+                        <div class="chip-label wide" data-bind="clk">1:30</div>
+                        <div class="chip-id" data-bind-format="round:round">1st</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PREVIOUS RESULTS -->
+    <div class="anchor-bottom-center" id="widget-previous-results" data-anim="reveal">
+        <div class="header-label">Round Results</div>
+        <div class="header-grid">
+            <div class="header-content">
+                <div class="header-country">KOR</div>
+                <img class="flag-lg" src="https://flagcdn.com/w80/kr.png" alt="South Korea">
+                <div class="header-name">PARK Taejoon</div>
+                <div class="header-seed"></div>
+                <img class="header-logo" src="assets/icons/watermark.png" alt="Logo">
+            </div>
+        </div>
+        <div class="results-container">
+            <div class="row-wrapper results">
+                <div class="color-bar bg-green"></div>
+                <div class="row-content">
+                    <div class="res-name" data-bind-format="blue.flag3:upper">Round 1</div>
+                    <div class="res-seed" data-bind="blue.name">(Geumgeang)</div>
+                    <i></i>
+                    <i class="main" data-bind="blue.points">7.3</i>
+                </div>
+                <div class="point-box">
+                    <i class="main" data-bind="blue.trunk">2.48</i>
+                </div>
+                <div class="point-box"><i class="main" data-bind="blue.punch">2.21</i></div>
+                <div class="point-box composed">
+                    <i class="main" data-bind="blue.head">3</i>
+                    <i class="small" data-bind="blue.rotation_head">5</i>
+                </div>
+            </div>
+        </div>
+        <div class="results-container">
+            <div class="row-wrapper results">
+                <div class="color-bar bg-green"></div>
+                <div class="row-content">
+                    <div class="res-name" data-bind-format="blue.flag3:upper">Round 2</div>
+                    <div class="res-seed" data-bind="blue.name">(Koryo)</div>
+                    <i></i>
+                    <i class="main" data-bind="blue.points">8</i>
+                    <i class="small" data-bind="blue.hits">5</i>
+                </div>
+                <div class="point-box composed">
+                    <i class="main" data-bind="blue.trunk">2</i>
+                    <i class="small" data-bind="blue.rotation_trunk">0</i>
+                </div>
+                <div class="point-box"><i class="main" data-bind="blue.punch">2</i></div>
+                <div class="point-box composed">
+                    <i class="main" data-bind="blue.head">0</i>
+                    <i class="small" data-bind="blue.rotation_head">0</i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WINNER -->
+    <div class="anchor-bottom-center is-hidden" id="widget-winner" data-anim="reveal" data-enter-ms="1200"
+        data-exit-ms="380">
+        <div class="header-label" data-bind="header_line">101 Man's -58kg</div>
+        <div class="header-grid">
+            <div class="header-content">
+                <div class="header-name">Winner</div>
+                <div class="header-seed" data-bind="title"></div>
+                <img class="header-logo" src="assets/icons/watermark.png" alt="Logo">
+            </div>
+        </div>
+        <div class="results-container">
+            <div class="row-wrapper with-color">
+                <div class="color-bar bg-blue" data-bind-color="win"></div>
+                <div class="row-content grid-result">
+                    <div class="res-country" data-bind-format="win_flag3:upper">KOR</div>
+                    <img class="flag-sm" data-bind-img="win_flag2" src="https://flagcdn.com/w40/kr.png" alt="">
+                    <div class="res-name" data-bind="win_name">Park Taejoon</div>
+                    <div class="res-round">WINNER</div>
+                    <div class="res-score"></div>
+                    <div class="res-outcome" data-bind="id_formatted">101</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TICKER (universal chrome) -->
+    <div id="widget-ticker">
+        <div class="ticker-content" id="ticker-wrapper">
+            <span class="ticker-text" id="ticker-msg">BREAKING NEWS: MATCH DELAYED DUE TO TECHNICAL
+                DIFFICULTIES...</span>
+        </div>
+    </div>
+
+    <!-- SUBSCRIBE CARD (universal chrome) -->
+    <div class="anchor-bottom-right subscribe-card is-hidden" id="widget-yt">
+        <div class="subscribe-header">
+            <div class="subscribe-color-bar"></div>
+            <div class="subscribe-content">
+                <svg class="subscribe-logo" viewBox="0 0 90 63" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M88.1 9.9C87.1 6.3 84.3 3.5 80.7 2.5C73.6 0.6 45 0.6 45 0.6C45 0.6 16.4 0.6 9.3 2.5C5.7 3.5 2.9 6.3 1.9 9.9C0 17 0 31.5 0 31.5C0 31.5 0 46 1.9 53.1C2.9 56.7 5.7 59.5 9.3 60.5C16.4 62.4 45 62.4 45 62.4C45 62.4 73.6 62.4 80.7 60.5C84.3 59.5 87.1 56.7 88.1 53.1C90 46 90 31.5 90 31.5C90 31.5 90 17 88.1 9.9Z"
+                        fill="#FF0000" />
+                    <path d="M36 45L59.4 31.5L36 18V45Z" fill="white" />
+                </svg>
+                <div class="subscribe-name">Like & Subscribe</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { bootOverlay } from './static/js/core/app.js';
+        import { MockSocket } from './static/js/core/mock-socket.js'; // adjust path to your mock-socket.js
+        import { attachConsoleTools } from './static/js/core/console-tools.js';
+        import { taekwondoPlugin } from './static/js/sports/taekwondo/taekwondo.plugin.js';
+        import * as fixtures from './static/js/fixtures.js';
+
+        // 1. Create mock socket
+        const mockSocket = new MockSocket();
+
+        // 2. Pass socket override into bootOverlay
+        const overlay = bootOverlay(taekwondoPlugin, { socket: mockSocket });
+
+        // 3. Attach console tools
+        attachConsoleTools(overlay, fixtures);
+    </script>
+
+    <!-- <script type="module">
+        import { bootOverlay } from './static/js/core/app.js';
+        import { taekwondoPlugin } from './static/js/sports/taekwondo/taekwondo.plugin.js';
+
+        bootOverlay(taekwondoPlugin, { socketUrl: 'http://localhost:8000/truevar' });
+    </script> -->
+
+</body>
+
+</html>

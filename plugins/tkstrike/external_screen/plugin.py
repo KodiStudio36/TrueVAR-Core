@@ -2,7 +2,7 @@ import asyncio
 from typing import Optional
 from fastapi import APIRouter
 
-from plugins.base_plugin import BasePlugin
+from plugins.base_plugin import BasePlugin, Namespace
 from plugins.gstreamer_core.extensions.tkstrike_external_screen_extension import TkStrikeExternalScreenExtension
 from plugins.tkstrike.external_screen.display_manager import DisplayManager
 from plugins.tkstrike.external_screen.settings import TkStrikeExternalScreenSettings
@@ -45,6 +45,8 @@ class TkStrikeExternalScreenPlugin(BasePlugin):
 
     @property
     def settings_schema(self): return TkStrikeExternalScreenSettings
+
+    namespace: str = Namespace.TKSTRIKE
 
     # ------------------------------------------------------------------ lifecycle
 

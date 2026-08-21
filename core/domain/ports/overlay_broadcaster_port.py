@@ -1,5 +1,15 @@
 import socketio
 from typing import Any
+from datetime import datetime
+
+def _json_safe(value):
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    return value
 
 class OverlayBroadcaster:
     def __init__(self, sio: socketio.AsyncServer):
@@ -23,4 +33,4 @@ class OverlayBroadcaster:
         Generic pass-through to Socket.IO. 
         No domain knowledge (like "SHOW_NEXT_ROUND" or Taekwondo logic) lives here.
         """
-        await self.sio.emit(event_name, data, namespace="/truevar")
+        await self.sio.emit(event_name, _json_safe(data), namespace="/truevar")

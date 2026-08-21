@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Type
-from plugins.base_plugin import BasePlugin
+from plugins.base_plugin import BasePlugin, Namespace
 
 class BoutCntrlSettings(BaseModel):
     allow_remote_control: bool = Field(default=True, description="Allows external web panels to override game states.")
@@ -37,6 +37,8 @@ class BoutCntrlPlugin(BasePlugin):
     @property
     def settings_schema(self) -> Type[BaseModel]: 
         return BoutCntrlSettings
+    
+    namespace: str = Namespace.BOUT_CNTRL
 
     async def start(self) -> None:
         self.logger.info("Bout Control engine successfully initialized and ready.")

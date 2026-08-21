@@ -1,11 +1,14 @@
 import os
+from sqlite3 import dbapi2
 from fastapi import APIRouter
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel as PydanticBody
 
+from plugins.base_plugin import Namespace
 from plugins.livestream.base_extension import BaseLivestreamExtension
-from plugins.tkstrike.livestream_extension.automation import TaekwondoStreamAutomation
-from plugins.tkstrike.livestream_extension.settings import TaekwondoSettings
+from plugins.tkstrike.listener.plugin import TkStrikeListenerPlugin
+from plugins.tkstrike.livestream_extension.automation import TkStrikeStreamAutomation
+from plugins.tkstrike.livestream_extension.settings import TkStrikeSettings
 
 
 class _BroadcastRequest(PydanticBody):
@@ -15,7 +18,7 @@ class _BroadcastRequest(PydanticBody):
 class TkStrikeLivestreamExtension(BaseLivestreamExtension):
     def __init__(self, core_context: dict, logger):
         super().__init__(core_context, logger)
-        self.automation: TaekwondoStreamAutomation | None = None
+        self.automation: TkStrikeStreamAutomation | None = None
         self._subscriptions: list[tuple] = []
 
     @property
@@ -25,7 +28,11 @@ class TkStrikeLivestreamExtension(BaseLivestreamExtension):
     def requires_internet(self) -> bool: return False
 
     @property
-    def settings_schema(self): return TaekwondoSettings
+    def settings_schema(self): return TkStrikeSettings
+
+    dependencies = ["TkStrikeListenerPlugin"]
+
+    namespace: str = Namespace.TKSTRIKE
 
     @property
     def obs_collection_name(self) -> str:
@@ -35,7 +42,7 @@ class TkStrikeLivestreamExtension(BaseLivestreamExtension):
     def i3_workspace(self) -> int:
         return self.core_context["settings_manager"].get_settings(self.name).i3_workspace
 
-    async def on_settings_changed(self, new_settings: TaekwondoSettings) -> None:
+    async def on_settings_changed(self, new_settings: TkStrikeSettings) -> None:
         self.logger.info("Taekwondo livestream config changed — restarting.")
         await self.stop()
         await self.start()
@@ -45,14 +52,19 @@ class TkStrikeLivestreamExtension(BaseLivestreamExtension):
         broadcaster  = self.core_context.get("overlay_broadcaster")
         bus          = self.core_context.get("event_bus")
         settings     = self.core_context["settings_manager"].get_settings(self.name)
+        db = self.core_context.get("db")
+        tournament = self.core_context.get("tournament")
+        tournament_id = tournament.id if tournament else None
 
-        self.automation = TaekwondoStreamAutomation(obs_adapter, broadcaster, settings, self.logger)
+        self.automation = TkStrikeStreamAutomation(obs_adapter, broadcaster, settings, self.logger, db=db, tournament_id=tournament_id)
 
         if bus:
             self._subscriptions = [
                 # Scoreboard data
                 ("scoreboard.stable_update",  self.automation.on_stable_update),
                 ("scoreboard.clock_update",   self.automation.on_clock_update),
+                ("scoreboard.BLUE_SCORE",   self.automation.on_blue_scored),
+                ("scoreboard.RED_SCORE",   self.automation.on_red_scored),
                 # Fight lifecycle (all Daedo state engine events)
                 ("scoreboard.NEW_FIGHT",      self.automation.on_new_fight),
                 ("scoreboard.START_FIGHT",    self.automation.on_start_fight),
@@ -120,6 +132,6 @@ class TkStrikeLivestreamExtension(BaseLivestreamExtension):
                 self.automation.trigger_youtube_subscribe()
             return {"triggered": True}
 
-        static_dir = os.path.join(os.path.dirname(__file__), "static")
+        static_dir = "ui/livestream"
         router.mount("/overlay", StaticFiles(directory=static_dir, html=True), name="tkd_overlay")
         return router

@@ -110,23 +110,21 @@ class GStreamerCorePlugin(BasePlugin):
                 f"v4l2src device=/dev/video{settings.scoreboard_device} ! "
                 f"image/jpeg,width=1280,height=720,framerate=30/1"
             )
-        else:
-            source = "videotestsrc"
 
-        parts.append(
-            f"{source} ! jpegdec ! videoconvert ! "
-            f"video/x-raw,width=1280,height=720,framerate=30/1,format=NV12 ! "
-            f"tee name=tee_src0"
-        )
-        # Fixed branch: IVR shared memory
-        parts.append(
-            f"tee_src0. ! "
-            f"queue max-size-buffers=30 max-size-bytes=0 max-size-time=0 leaky=upstream ! "
-            f"shmsink socket-path={base_dir}/camera0_shm_socket "
-            f"wait-for-connection=false shm-size=200000000 buffer-time=0"
-        )
-        # Extension branches for source 0
-        parts.extend(self._pipeline_manager.get_branches_for_source(0, settings))
+            parts.append(
+                f"{source} ! jpegdec ! videoconvert ! "
+                f"video/x-raw,width=1280,height=720,framerate=30/1,format=NV12 ! "
+                f"tee name=tee_src0"
+            )
+            # Fixed branch: IVR shared memory
+            parts.append(
+                f"tee_src0. ! "
+                f"queue max-size-buffers=30 max-size-bytes=0 max-size-time=0 leaky=upstream ! "
+                f"shmsink socket-path={base_dir}/camera0_shm_socket "
+                f"wait-for-connection=false shm-size=200000000 buffer-time=0"
+            )
+            # Extension branches for source 0
+            parts.extend(self._pipeline_manager.get_branches_for_source(0, settings))
 
         # ---- Sources 1..n: IP cameras ----
         for idx, ip in enumerate(settings.camera_ips, start=1):

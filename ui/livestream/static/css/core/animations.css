@@ -1,0 +1,403 @@
+/* =========================================================
+   CORE ANIMATION GROUPS
+
+   The two legacy stylesheets had four IDENTICAL animation
+   patterns copy-pasted under four different prefixes
+   (sb-, fb-, rr-, win-). This file keeps exactly those four
+   patterns, but expressed ONCE and applied via a
+   [data-anim="..."] attribute on the widget root. Any widget
+   in any sport gets one of these for free:
+
+     data-anim="corner"   → the "slide id in, drop bar, reveal
+                             row" scoreboard-corner entrance
+                             (was sb-*)
+     data-anim="reveal"   → the "rectangle rises & expands
+                             behind the header, then fades to
+                             reveal it" pattern (was rr-* / win-*)
+     data-anim="bars"     → "color bars rise, content slides in"
+                             (was fb-*)
+     data-anim="pop"      → simple rise + expand + text slide-in,
+                             used by small badges (was vr-*)
+
+   JS only ever toggles .is-entering / .is-exiting / .is-animating
+   on the widget root — it never needs to know which pattern is
+   behind those classes. Adding a 5th pattern later means adding
+   ONE new [data-anim="..."] block here, not touching JS.
+   ========================================================= */
+
+/* Keep display correct while classed as animating (elements are
+   normally hidden with .is-hidden{display:none}). */
+[data-anim].is-animating {
+    display: block !important;
+}
+
+[data-anim="pop"].is-animating {
+    display: inline-flex !important;
+}
+
+/* ---------------------------------------------------------
+   PATTERN: corner  (top-left "scoreboard" style widgets)
+   Children expected: .chip-id, .chip-label, .color-bar,
+   .row-content (as many as needed)
+   --------------------------------------------------------- */
+[data-anim="corner"] .chip-id {
+    position: relative;
+    z-index: 10;
+}
+
+[data-anim="corner"] .chip-label {
+    position: relative;
+    z-index: 5;
+}
+
+[data-anim="corner"] .row-wrapper {
+    position: relative;
+    z-index: 1;
+}
+
+[data-anim="corner"].is-entering .chip-id,
+[data-anim="corner"].is-entering .chip-label,
+[data-anim="corner"].is-entering .row-content {
+    opacity: 0;
+}
+
+[data-anim="corner"].is-entering .color-bar {
+    transform: scaleY(0);
+    transform-origin: top;
+}
+
+[data-anim="corner"].is-entering .chip-id {
+    animation: anim-slide-in-left var(--t-base) var(--ease-out) forwards;
+}
+
+[data-anim="corner"].is-entering .chip-label {
+    animation: anim-slide-out-right var(--t-base) var(--ease-out) 0.2s forwards;
+}
+
+[data-anim="corner"].is-entering .color-bar {
+    z-index: 10;
+    animation: anim-drop-down var(--t-fast) var(--ease-out) 0.45s forwards;
+}
+
+[data-anim="corner"].is-entering .row-content {
+    z-index: 5;
+    animation: anim-fade-slide-right var(--t-base) var(--ease-soft) 0.6s forwards;
+}
+
+[data-anim="corner"].is-exiting {
+    animation: anim-retract var(--t-base) var(--ease-snap) forwards;
+}
+
+/* Optional extra reveal for a sub-region added after the main
+   sequence settles (e.g. a live clock chip) — sports opt in by
+   adding class "clip-reveal" to that element. */
+[data-anim="corner"].is-entering .clip-reveal {
+    animation: anim-clip-reveal 0.2s var(--ease-out) 0.9s both;
+}
+
+@keyframes anim-slide-in-left {
+    from {
+        transform: translateX(-100px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes anim-slide-out-right {
+    from {
+        transform: translateX(-60px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes anim-drop-down {
+    to {
+        transform: scaleY(1);
+    }
+}
+
+@keyframes anim-fade-slide-right {
+    from {
+        transform: translateX(-30px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes anim-retract {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateX(-100px);
+        opacity: 0;
+    }
+}
+
+@keyframes anim-clip-reveal {
+    from {
+        clip-path: inset(0 0 100% 0);
+        opacity: 0;
+    }
+
+    to {
+        clip-path: inset(0 0 0 0);
+        opacity: 1;
+    }
+}
+
+/* ---------------------------------------------------------
+   PATTERN: reveal  (bottom-center result/winner style widgets)
+   Children expected: .header-grid, .header-label, .results-container
+   --------------------------------------------------------- */
+[data-anim="reveal"] .header-grid {
+    position: relative;
+    z-index: 10;
+}
+
+[data-anim="reveal"] .header-label {
+    position: relative;
+    z-index: 1;
+}
+
+[data-anim="reveal"] .results-container {
+    position: relative;
+    z-index: 1;
+}
+
+[data-anim="reveal"].is-entering .header-content,
+[data-anim="reveal"].is-entering .header-label,
+[data-anim="reveal"].is-entering .results-container {
+    opacity: 0;
+}
+
+[data-anim="reveal"].is-entering .header-grid::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    background-color: var(--bg-panel);
+    z-index: 20;
+    animation: anim-rect-header var(--t-rise) var(--ease-out) forwards;
+}
+
+[data-anim="reveal"].is-entering .header-content {
+    animation: anim-fade-in 0.1s linear 0.45s forwards;
+}
+
+[data-anim="reveal"].is-entering .header-label {
+    animation: anim-pop-up var(--t-base) var(--ease-out) 0.55s forwards;
+}
+
+[data-anim="reveal"].is-entering .results-container {
+    animation: anim-fade-slide-down var(--t-slow) var(--ease-soft) 0.6s forwards;
+}
+
+[data-anim="reveal"].is-exiting {
+    animation: anim-fade-out-drop var(--t-base) ease forwards;
+}
+
+@keyframes anim-rect-header {
+    0% {
+        transform: translate(-50%, 250px);
+        width: 8px;
+        height: 100%;
+        opacity: 1;
+    }
+
+    25% {
+        transform: translate(-50%, 0);
+        width: 8px;
+        height: 100%;
+        opacity: 1;
+    }
+
+    50%,
+    80% {
+        transform: translate(-50%, 0);
+        width: 100%;
+        height: 100%;
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, 0);
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+    }
+}
+
+@keyframes anim-fade-in {
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes anim-pop-up {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes anim-fade-slide-down {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes anim-fade-out-drop {
+    from {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translate(-50%, 30px);
+    }
+}
+
+/* ---------------------------------------------------------
+   PATTERN: bars  (fighter intro / competitor vs. bars)
+   Children expected: .color-bar, .row-content inside .bar-item
+   --------------------------------------------------------- */
+[data-anim="bars"].is-entering .color-bar {
+    z-index: 10;
+    transform: scaleY(0);
+    transform-origin: bottom;
+    animation: anim-bar-rise var(--t-base) var(--ease-out) forwards;
+}
+
+[data-anim="bars"].is-entering .row-content {
+    z-index: 5;
+    opacity: 0;
+    transform: translateX(-30px);
+    animation: anim-content-slide var(--t-slow) var(--ease-soft) 0.35s forwards;
+}
+
+[data-anim="bars"].is-exiting {
+    animation: anim-fade-out-drop var(--t-base) ease forwards;
+}
+
+@keyframes anim-bar-rise {
+    to {
+        transform: scaleY(1);
+    }
+}
+
+@keyframes anim-content-slide {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ---------------------------------------------------------
+   PATTERN: pop  (small floating badges, e.g. instant replay)
+   Children expected: .replay-body, .replay-title, .replay-sub
+   --------------------------------------------------------- */
+[data-anim="pop"].is-entering {
+    animation: anim-pop-rise 1s var(--ease-out) forwards;
+}
+
+[data-anim="pop"].is-entering .replay-body {
+    overflow: hidden;
+    animation: anim-pop-expand 0.45s var(--ease-out) 0.42s both;
+    max-width: 0;
+}
+
+[data-anim="pop"].is-entering .replay-title {
+    animation: anim-pop-slide 0.35s ease-out 0.6s both;
+}
+
+[data-anim="pop"].is-entering .replay-sub {
+    animation: anim-pop-slide 0.35s ease-out 0.72s both;
+}
+
+[data-anim="pop"].is-exiting {
+    animation: anim-pop-fade-out 0.35s ease forwards;
+}
+
+@keyframes anim-pop-rise {
+    0% {
+        transform: translate(0, 140px);
+        opacity: 0;
+    }
+
+    20% {
+        transform: translate(0, 0);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+}
+
+@keyframes anim-pop-expand {
+    from {
+        max-width: 0;
+    }
+
+    to {
+        max-width: 400px;
+    }
+}
+
+@keyframes anim-pop-slide {
+    from {
+        opacity: 0;
+        transform: translateX(-16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes anim-pop-fade-out {
+    from {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translate(-50%, 16px);
+    }
+}

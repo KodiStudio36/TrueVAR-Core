@@ -3,7 +3,7 @@ import time
 import sys
 
 TARGET_IP = "127.0.0.1"
-TARGET_PORT = 5000  # Match your plugin schema configuration
+TARGET_PORT = 8080  # Match your plugin schema configuration
 
 def send_packet(sock, payload: str):
     print(f"Blasting to target: {payload}")

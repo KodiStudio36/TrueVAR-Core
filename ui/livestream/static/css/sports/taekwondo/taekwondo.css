@@ -1,0 +1,55 @@
+/* =========================================================
+   SPORT PACKAGE: Taekwondo
+   Everything here is additive to core/*.css. A new sport
+   (judo, fencing, boxing...) gets its own folder like this
+   one and, ideally, touches nothing outside it.
+   ========================================================= */
+
+/* Point-category icons used in the round-results legend */
+.icon-points {
+    --icon-src: url('../../../assets/icons/points.png');
+}
+
+.icon-trunk {
+    --icon-src: url('../../../assets/icons/vest-icon.png');
+    width: 20px;
+    height: 20px;
+}
+
+.icon-head {
+    --icon-src: url('../../../assets/icons/helm-icon.png');
+    width: 21px;
+    height: 21px;
+}
+
+.icon-punch {
+    --icon-src: url('../../../assets/icons/punch-icon.png');
+    width: 20px;
+    height: 20px;
+}
+
+.icon-penalty {
+    --icon-src: url('../../../assets/icons/penalty-icon.png');
+    --icon-color: #ffcc00;
+    width: 21px;
+    height: 21px;
+}
+
+/* Round-results header is a taller, stacked variant of the
+   generic header-grid, to make room for the legend row. */
+[data-widget="round-results"] .header-grid {
+    height: calc(62px + 16px);
+}
+
+/* Live scoreboard corner box needs two fighter rows side by
+   side plus a clock/round chip below them — taekwondo-only
+   shape, so it lives here rather than in core. */
+.tkd-scoreboard-grid {
+    display: grid;
+    height: 36px;
+    grid-template-columns: auto auto 1fr;
+}
+
+.tkd-time-row {
+    grid-column: 1 / -1;
+}

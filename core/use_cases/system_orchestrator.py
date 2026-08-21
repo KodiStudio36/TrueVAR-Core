@@ -6,6 +6,7 @@ from core.domain.entities import SystemStatus, Tournament
 from core.event_bus import EventBus
 from core.use_cases.plugin_factory import PluginFactory
 from core.use_cases.settings_manager import SettingsManager
+from plugins.base_plugin import PluginState
 from plugins.plugin_registry import PluginRegistry
 
 from plugins.gstreamer_core.plugin import GStreamerCorePlugin
@@ -19,9 +20,12 @@ class SystemOrchestrator:
         self.network_adapter = network_adapter
         self.root_logger = root_logger
 
-        # Keyed by instance.name so individual plugins can be addressed
-        # by the dashboard (restart/detach/settings).
         self.active_plugins: dict[str, "BasePlugin"] = {}
+        # Tracks plugin classes whose start() raised, keyed by class name,
+        # so the dashboard can notify the operator and offer a retry —
+        # without this, a failed plugin just silently vanishes (it's never
+        # added to active_plugins, so it looks identical to "never attached").
+        self.failed_plugins: dict[str, dict] = {}
         self._booted: bool = False
         self._shared_context: Optional[dict] = None
 
@@ -31,9 +35,6 @@ class SystemOrchestrator:
 
     @property
     def is_booted(self) -> bool:
-        # A real flag rather than len(active_plugins) > 0 — detaching every
-        # plugin shouldn't make the system look un-booted and eligible for
-        # a fresh boot_tournament()/boot_offline() call.
         return self._booted
 
     async def run_preflight_async(self, device_license_key: str) -> dict:
@@ -42,6 +43,8 @@ class SystemOrchestrator:
         self.system_status.network_alive = self.network_adapter.ping_internet()
 
         case_data = None
+
+        self._license_key = device_license_key
 
         if self.system_status.network_alive:
             try:
@@ -112,6 +115,7 @@ class SystemOrchestrator:
 
     async def _safe_load_plugins(self, fastapi_app, plugins_to_load: list, shared_context: dict):
         for plugin_class in plugins_to_load:
+            class_name = plugin_class.__name__
             try:
                 plugin_logger = self.root_logger.bind(plugin=plugin_class.__name__.lower())
                 instance = plugin_class(core_context=shared_context, logger=plugin_logger)
@@ -140,14 +144,28 @@ class SystemOrchestrator:
                 if custom_router:
                     fastapi_app.include_router(custom_router)
 
+                instance.set_status(PluginState.STARTING)
                 await instance.start()
+                # If the plugin never touched its own status, assume a clean
+                # start means it's active — keeps old plugins meaningful on
+                # the dashboard without requiring every one to be rewritten.
+                if instance.get_status().state in (PluginState.IDLE, PluginState.STARTING):
+                    instance.set_status(PluginState.ACTIVE)
+
                 self.active_plugins[instance.name] = instance
+                self.failed_plugins.pop(class_name, None)
                 self.root_logger.info(f"Loaded Plugin: {instance.name}")
 
             except Exception as e:
                 self.root_logger.error(
                     f"FATAL: Failed to load plugin {plugin_class.__name__}", exception=str(e)
                 )
+                self.failed_plugins[class_name] = {
+                    "class_name": class_name,
+                    "namespace": getattr(plugin_class, "namespace", "uncategorized"),
+                    "error": str(e),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
 
     async def boot_tournament(
         self, fastapi_app, tournament_id: str, court_id: str = None, license_key: str = None
@@ -189,6 +207,7 @@ class SystemOrchestrator:
             tournament.settings["provider"],
             tournament.settings["mode"],
             tournament.settings["isStream"],
+            tournament.isRegistrationOpen,
         )
 
         shared_context = {
@@ -241,19 +260,34 @@ class SystemOrchestrator:
             raise ValueError(f"Plugin '{plugin_name}' is not currently attached.")
 
         self.root_logger.info(f"Restarting plugin: {plugin_name}")
+        instance.set_status(PluginState.STARTING, "Restarting...")
         await instance.stop()
         await instance.start()
+        if instance.get_status().state in (PluginState.IDLE, PluginState.STARTING):
+            instance.set_status(PluginState.ACTIVE)
         self.root_logger.info(f"Plugin restarted: {plugin_name}")
         return {"name": plugin_name, "status": "restarted"}
 
     async def detach_plugin(self, plugin_name: str) -> dict:
-        instance = self.active_plugins.pop(plugin_name, None)
+        instance = self.active_plugins.get(plugin_name)
         if not instance:
             raise ValueError(f"Plugin '{plugin_name}' is not currently attached.")
 
+        this_class_name = type(instance).__name__
+        dependents = [
+            p.name for p in self.active_plugins.values()
+            if p is not instance and this_class_name in type(p).dependencies
+        ]
+        if dependents:
+            raise ValueError(
+                f"Cannot detach '{plugin_name}' — required by: {', '.join(dependents)}"
+            )
+
+        del self.active_plugins[plugin_name]
         self.root_logger.info(f"Detaching plugin: {plugin_name}")
         try:
             await instance.stop()
+            instance.set_status(PluginState.STOPPED)
         except Exception as e:
             self.root_logger.error(f"Error stopping plugin during detach: {plugin_name}", exception=e)
 
@@ -271,11 +305,16 @@ class SystemOrchestrator:
         if any(type(p) is plugin_class for p in self.active_plugins.values()):
             raise ValueError(f"An instance of '{class_name}' is already attached.")
 
+        active_class_names = {type(p).__name__ for p in self.active_plugins.values()}
+        missing = [d for d in plugin_class.dependencies if d not in active_class_names]
+        if missing:
+            raise ValueError(
+                f"Cannot attach '{class_name}' — missing dependencies: {', '.join(missing)}"
+            )
+
         self.root_logger.info(f"Attaching new plugin: {class_name}")
         await self._safe_load_plugins(fastapi_app, [plugin_class], self._shared_context)
 
-        # _safe_load_plugins logs and swallows failures rather than raising,
-        # so confirm the plugin actually made it in before reporting success.
         attached = next((p for p in self.active_plugins.values() if type(p) is plugin_class), None)
         if attached is None:
             raise ValueError(f"Plugin '{class_name}' failed to start — check server logs.")
@@ -283,26 +322,86 @@ class SystemOrchestrator:
         return {"name": attached.name, "class_name": class_name, "status": "attached"}
 
     def get_dashboard_status(self) -> dict:
-        loaded = [
-            {
+        active_class_names = {type(p).__name__ for p in self.active_plugins.values()}
+        active_classes = set(type(p) for p in self.active_plugins.values())
+
+        loaded = []
+        for instance in self.active_plugins.values():
+            status = instance.get_status()
+            this_class_name = type(instance).__name__
+            dependents = [
+                p.name for p in self.active_plugins.values()
+                if p is not instance and this_class_name in type(p).dependencies
+            ]
+            loaded.append({
                 "name": instance.name,
-                "class_name": type(instance).__name__,
+                "class_name": this_class_name,
+                "namespace": type(instance).namespace,
                 "requires_internet": instance.requires_internet,
+                "status": status.state.value,
+                "message": status.message,
+                "dependencies": type(instance).dependencies,
+                "required_by": dependents,
+            })
+
+        available = []
+        for class_name, cls in PluginRegistry.all().items():
+            if cls in active_classes:
+                continue
+            deps = [
+                {"class_name": d, "satisfied": d in active_class_names}
+                for d in cls.dependencies
+            ]
+            available.append({
+                "class_name": class_name,
+                "namespace": cls.namespace,
+                "dependencies": deps,
+            })
+
+        if self.system_status.is_offline_mode or not self._shared_context or self._shared_context["tournament"] is None:
+            tournament_info = {"mode": "offline"}
+        else:
+            tournament_info = {
+                "mode": "online",
+                "tournament_id": self._shared_context["tournament"].id,
+                "tournament_name": getattr(self._shared_context["tournament"], "title", None),
+                "court_id": self._shared_context["court_id"],
             }
-            for instance in self.active_plugins.values()
-        ]
-        active_classes = {type(instance) for instance in self.active_plugins.values()}
-        available = [
-            class_name
-            for class_name, cls in PluginRegistry.all().items()
-            if cls not in active_classes
-        ]
+
         return {
-            "is_offline_mode": self.system_status.is_offline_mode,
-            "active_tournament_id": self.system_status.active_tournament_id,
+            "tournament": tournament_info,
             "loaded_plugins": loaded,
-            "available_plugins": sorted(available),
+            "available_plugins": sorted(available, key=lambda p: (p["namespace"], p["class_name"])),
+            "failed_plugins": sorted(self.failed_plugins.values(), key=lambda p: p["timestamp"]),
         }
+
+    # ------------------------------------------------------------------ dashboard: back to tournament selection
+
+    async def reset_to_tournament_selection(self) -> dict:
+        """
+        Undoes the current tournament binding and fully shuts the system
+        down so the frontend can send the user back to the selection
+        screen. Mirrors what _validate_case_binding does for a stale
+        binding, but triggered on demand instead of at preflight.
+        """
+        if self._license_key:
+            print("jjj")
+            try:
+                await self.db_adapter.clear_case_binding(self._license_key)
+                self.root_logger.info(
+                    f"Cleared case binding for license {self._license_key} (user requested change)."
+                )
+            except Exception as e:
+                self.root_logger.error("Failed to clear case binding on reset", exception=e)
+
+        print("hahaha")
+        await self.shutdown_system()
+
+        self.system_status = SystemStatus()
+        self._shared_context = None
+
+        self.root_logger.info("System reset — returning to tournament selection.")
+        return {"status": "reset"}
 
     # ------------------------------------------------------------------
 
@@ -322,5 +421,6 @@ class SystemOrchestrator:
         await asyncio.gather(*tasks, return_exceptions=True)
 
         self.active_plugins.clear()
+        self.failed_plugins.clear()
         self._booted = False
         self.root_logger.info("SystemOrchestrator clean shutdown complete.")

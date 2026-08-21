@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>TrueVAR - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-900 text-white p-8">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
+            <h1 class="text-3xl font-bold">System Status</h1>
+            <div id="tournamentInfo" class="text-right"></div>
+        </div>
+
+        <div id="failureBanner" class="hidden mb-6 space-y-2"></div>
+
+        <div class="grid grid-cols-3 gap-6 mb-6">
+            <div class="bg-gray-800 p-6 rounded-lg col-span-1">
+                <h3 class="text-xl font-bold mb-4 text-green-400">Active Plugins</h3>
+                <div id="pluginList" class="space-y-4">
+                    <p class="text-gray-400 italic">Polling engine...</p>
+                </div>
+
+                <h3 class="text-xl font-bold mt-6 mb-4 text-purple-400">Attach Plugin</h3>
+                <div id="availableList" class="space-y-4">
+                    <p class="text-gray-400 italic">Loading...</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-lg col-span-2">
+                <h3 class="text-xl font-bold mb-4 text-blue-400">Live System Logs</h3>
+                <div id="logConsole" class="bg-black p-4 rounded h-64 overflow-y-auto font-mono text-sm text-green-500">
+                    System initialized. Waiting for stream...
+                </div>
+
+                <div id="settingsPanel"
+                    class="hidden bg-gray-950 border border-gray-700 mt-4 p-4 rounded max-h-96 overflow-y-auto">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 id="settingsTitle" class="font-bold text-yellow-400">Plugin Settings</h4>
+                        <button onclick="closeSettings()" class="text-gray-400 hover:text-white">✕</button>
+                    </div>
+                    <div id="settingsBody" class="text-sm text-gray-300"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STATE_COLORS = {
+            active: "bg-green-500",
+            starting: "bg-blue-400 animate-pulse",
+            waiting: "bg-yellow-400 animate-pulse",
+            error: "bg-red-500",
+            stopped: "bg-gray-500",
+            idle: "bg-gray-500",
+        };
+
+        const NAMESPACE_LABELS = {
+            core: "Core",
+            scoring: "Scoring",
+            streaming: "Streaming",
+            replay: "Replay",
+            storage: "Storage",
+            uncategorized: "Uncategorized",
+        };
+
+        function log(msg) {
+            const c = document.getElementById("logConsole");
+            c.innerHTML += `<div>&gt; ${msg}</div>`;
+            c.scrollTop = c.scrollHeight;
+        }
+
+        function loadedTooltip(p) {
+            let lines = [`Namespace: ${NAMESPACE_LABELS[p.namespace] || p.namespace}`, `Status: ${p.status}`];
+            if (p.message) lines.push(`Message: ${p.message}`);
+            lines.push(p.dependencies.length ? `Depends on: ${p.dependencies.join(", ")}` : "Depends on: (none)");
+            lines.push(p.required_by.length ? `Required by: ${p.required_by.join(", ")}` : "Required by: (nothing)");
+            return lines.join("\n");
+        }
+
+        function availableTooltip(p) {
+            if (p.dependencies.length === 0) return "No dependencies — ready to attach.";
+            return p.dependencies.map(d => `${d.satisfied ? "✓" : "✗"} ${d.class_name}`).join("\n");
+        }
+
+        function groupByNamespace(items, nsKey) {
+            const groups = {};
+            items.forEach(item => {
+                const ns = item[nsKey] || "uncategorized";
+                if (!groups[ns]) groups[ns] = [];
+                groups[ns].push(item);
+            });
+            return groups;
+        }
+
+        function renderTournamentInfo(t) {
+            const el = document.getElementById("tournamentInfo");
+            if (t.mode === "offline") {
+                el.innerHTML = `
+            <div class="flex items-center gap-3 justify-end">
+                <span class="px-4 py-1 rounded-full text-sm font-bold bg-yellow-600 text-white">OFFLINE</span>
+                <button onclick="changeTournament()" class="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded">
+                    Choose
+                </button>
+            </div>`;
+                return;
+            }
+            el.innerHTML = `
+        <div class="flex items-center gap-3 justify-end">
+            <div class="text-right">
+                <div class="text-lg font-bold">${t.tournament_name || "Unnamed Tournament"}</div>
+                <div class="text-sm text-gray-400">ID: ${t.tournament_id} &nbsp;·&nbsp; Court ${t.court_id ?? "—"}</div>
+            </div>
+            <button onclick="changeTournament()" class="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded">
+                Change
+            </button>
+        </div>`;
+        }
+
+        async function changeTournament() {
+            if (!confirm("This will stop all running plugins and take you back to tournament selection. Continue?")) return;
+            log("Resetting — returning to tournament selection...");
+            const res = await fetch("/api/system/change-tournament", { method: "POST" });
+            if (res.ok) {
+                window.location.href = "/";
+            } else {
+                log("Failed to reset system.");
+            }
+        }
+
+        // Tracks class_names we've already logged a failure for, so the log
+        // console gets one entry per new failure rather than one every poll.
+        let seenFailures = new Set();
+
+        function renderFailures(failed) {
+            const el = document.getElementById("failureBanner");
+            failed = failed || [];
+
+            if (failed.length === 0) {
+                el.classList.add("hidden");
+                el.innerHTML = "";
+                seenFailures.clear();
+                return;
+            }
+
+            const currentNames = new Set(failed.map(f => f.class_name));
+            seenFailures.forEach(name => {
+                if (!currentNames.has(name)) seenFailures.delete(name);
+            });
+
+            el.classList.remove("hidden");
+            el.innerHTML = failed.map(f => {
+                if (!seenFailures.has(f.class_name)) {
+                    log(`⚠ ${f.class_name} failed to load: ${f.error}`);
+                    seenFailures.add(f.class_name);
+                }
+                return `
+                <div class="bg-red-900/40 border border-red-600 rounded-lg px-4 py-3 flex items-center justify-between">
+                    <div>
+                        <span class="font-bold text-red-400">⚠ ${f.class_name} failed to attach</span>
+                        <span class="text-xs text-gray-400 ml-2">(${NAMESPACE_LABELS[f.namespace] || f.namespace})</span>
+                        <div class="text-sm text-gray-300 mt-1">${f.error}</div>
+                    </div>
+                    <button onclick="attachPlugin('${f.class_name}')"
+                        class="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded font-bold whitespace-nowrap ml-4">
+                        Retry Attach
+                    </button>
+                </div>`;
+            }).join("");
+        }
+
+        async function fetchStatus() {
+            const res = await fetch("/api/plugins/status");
+            const data = await res.json();
+
+            renderTournamentInfo(data.tournament);
+            renderFailures(data.failed_plugins);
+
+            const list = document.getElementById("pluginList");
+            list.innerHTML = "";
+            if (data.loaded_plugins.length === 0) {
+                list.innerHTML = '<p class="text-gray-400 italic">No plugins attached.</p>';
+            }
+            const loadedGroups = groupByNamespace(data.loaded_plugins, "namespace");
+            Object.keys(loadedGroups).sort().forEach(ns => {
+                let html = `<div><div class="text-xs uppercase tracking-wide text-gray-500 mb-1">${NAMESPACE_LABELS[ns] || ns}</div><ul class="space-y-2">`;
+                loadedGroups[ns].forEach(p => {
+                    const dotColor = STATE_COLORS[p.status] || "bg-gray-500";
+                    const canDetach = p.required_by.length === 0;
+                    html += `
+                <li class="flex items-center justify-between bg-gray-700/40 rounded px-2 py-1" title="${loadedTooltip(p)}">
+                    <button onclick="openSettings('${p.name}')" class="flex items-center text-left hover:underline">
+                        <span class="w-2 h-2 rounded-full mr-2 ${dotColor}"></span> ${p.name}
+                    </button>
+                    <span class="space-x-2">
+                        <button onclick="restartPlugin('${p.name}')" class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded">Restart</button>
+                        <button onclick="detachPlugin('${p.name}')"
+                            class="text-xs px-2 py-1 rounded ${canDetach ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-600 cursor-not-allowed'}"
+                            ${canDetach ? '' : 'disabled title="Other plugins depend on this"'}>
+                            Detach
+                        </button>
+                    </span>
+                </li>`;
+                });
+                html += `</ul></div>`;
+                list.innerHTML += html;
+            });
+
+            const avail = document.getElementById("availableList");
+            avail.innerHTML = "";
+            if (data.available_plugins.length === 0) {
+                avail.innerHTML = '<p class="text-gray-500 italic">Everything is attached.</p>';
+            }
+            const availGroups = groupByNamespace(data.available_plugins, "namespace");
+            Object.keys(availGroups).sort().forEach(ns => {
+                let html = `<div><div class="text-xs uppercase tracking-wide text-gray-500 mb-1">${NAMESPACE_LABELS[ns] || ns}</div><ul class="space-y-2">`;
+                availGroups[ns].forEach(p => {
+                    const canAttach = p.dependencies.every(d => d.satisfied);
+                    html += `
+                <li class="flex items-center justify-between bg-gray-700/20 rounded px-2 py-1" title="${availableTooltip(p)}">
+                    <span class="text-sm text-gray-300">${p.class_name}</span>
+                    <button onclick="attachPlugin('${p.class_name}')"
+                        class="text-xs px-2 py-1 rounded ${canAttach ? 'bg-purple-600 hover:bg-purple-500' : 'bg-gray-600 cursor-not-allowed'}"
+                        ${canAttach ? '' : 'disabled'}>
+                        Attach
+                    </button>
+                </li>`;
+                });
+                html += `</ul></div>`;
+                avail.innerHTML += html;
+            });
+        }
+
+        async function restartPlugin(name) {
+            log(`Restarting ${name}...`);
+            const res = await fetch(`/api/plugins/${name}/restart`, { method: "POST" });
+            log(res.ok ? `${name} restarted.` : `Failed to restart ${name}.`);
+            fetchStatus();
+        }
+
+        async function detachPlugin(name) {
+            if (!confirm(`Detach ${name}? It will stop running.`)) return;
+            log(`Detaching ${name}...`);
+            const res = await fetch(`/api/plugins/${name}/detach`, { method: "POST" });
+            if (!res.ok) {
+                const err = await res.json();
+                log(`Failed to detach ${name}: ${err.detail}`);
+            } else {
+                log(`${name} detached.`);
+            }
+            fetchStatus();
+        }
+
+        async function attachPlugin(className) {
+            log(`Attaching ${className}...`);
+            const res = await fetch(`/api/plugins/attach`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ class_name: className }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                log(`Failed to attach ${className}: ${err.detail}`);
+            } else {
+                log(`${className} attached.`);
+            }
+            fetchStatus();
+        }
+
+        // ------------------------------------------------------------------ auto-generated settings form
+
+        // pydantic v2 emits nested models either as a direct $ref or as
+        // allOf: [{$ref}] depending on version/context — handle both.
+        function resolveSchema(fieldSchema, rootSchema) {
+            if (fieldSchema.$ref) {
+                const refName = fieldSchema.$ref.split("/").pop();
+                return rootSchema.$defs?.[refName] || {};
+            }
+            if (fieldSchema.allOf?.length === 1 && fieldSchema.allOf[0].$ref) {
+                const refName = fieldSchema.allOf[0].$ref.split("/").pop();
+                return rootSchema.$defs?.[refName] || {};
+            }
+            return fieldSchema;
+        }
+
+        function inputForField(path, fieldSchema, value) {
+            const label = fieldSchema.title || path.split(".").pop();
+            const desc = fieldSchema.description
+                ? `<p class="text-xs text-gray-500 mb-1">${fieldSchema.description}</p>` : "";
+
+            if (fieldSchema.type === "boolean") {
+                return `
+            <div class="mb-3">
+                <label class="flex items-center gap-2 text-sm font-medium">
+                    <input type="checkbox" name="${path}" ${value ? "checked" : ""} class="accent-purple-500">
+                    ${label}
+                </label>
+                ${desc}
+            </div>`;
+            }
+            if (fieldSchema.type === "integer" || fieldSchema.type === "number") {
+                return `
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">${label}</label>
+                <input type="number" name="${path}" value="${value ?? ""}"
+                    step="${fieldSchema.type === "integer" ? "1" : "any"}"
+                    class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm">
+                ${desc}
+            </div>`;
+            }
+            if (fieldSchema.type === "array") {
+                // Only handles arrays of primitives (string/number/integer/boolean),
+                // one value per line. Arrays of objects aren't supported yet —
+                // see note below.
+                const itemType = fieldSchema.items?.type;
+                const lines = Array.isArray(value) ? value.join("\n") : "";
+                return `
+            <div class="mb-3">
+                <label class="block text-sm font-medium mb-1">${label}</label>
+                <textarea name="${path}" data-field-type="array" data-item-type="${itemType || 'string'}"
+                    rows="${Math.max(2, (Array.isArray(value) ? value.length : 2))}"
+                    class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm font-mono">${lines}</textarea>
+                <p class="text-xs text-gray-500 mt-0.5">One value per line.</p>
+                ${desc}
+            </div>`;
+            }
+            // default: string / anything unrecognized falls back to text
+            return `
+        <div class="mb-3">
+            <label class="block text-sm font-medium mb-1">${label}</label>
+            <input type="text" name="${path}" value="${value ?? ""}"
+                class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm">
+            ${desc}
+        </div>`;
+        }
+
+        function renderSchemaForm(schema, values, rootSchema, prefix = "") {
+            let html = "";
+            const props = schema.properties || {};
+            for (const [key, fieldSchema] of Object.entries(props)) {
+                const path = prefix ? `${prefix}.${key}` : key;
+                const fieldValue = values ? values[key] : undefined;
+                const resolved = resolveSchema(fieldSchema, rootSchema);
+
+                if (resolved.type === "object" && resolved.properties) {
+                    html += `
+                        <fieldset class="border border-gray-700 rounded p-3 mb-3">
+                            <legend class="text-xs uppercase tracking-wide text-gray-400 px-1">${fieldSchema.title || key}</legend>
+                            ${renderSchemaForm(resolved, fieldValue || {}, rootSchema, path)}
+                        </fieldset>`;
+                } else {
+                    html += inputForField(path, fieldSchema.type ? fieldSchema : resolved, fieldValue);
+                }
+            }
+            return html;
+        }
+
+        // Walks every <input> (not FormData) so unchecked checkboxes are
+        // still captured as `false` instead of being silently omitted.
+        function formToNestedObject(formEl) {
+            const result = {};
+            formEl.querySelectorAll("input, textarea").forEach(field => {
+                const path = field.name.split(".");
+                let cursor = result;
+                for (let i = 0; i < path.length - 1; i++) {
+                    cursor[path[i]] = cursor[path[i]] || {};
+                    cursor = cursor[path[i]];
+                }
+                const leaf = path[path.length - 1];
+
+                if (field.dataset.fieldType === "array") {
+                    const itemType = field.dataset.itemType;
+                    const items = field.value.split("\n").map(s => s.trim()).filter(s => s.length > 0);
+                    cursor[leaf] = itemType === "integer" || itemType === "number"
+                        ? items.map(Number)
+                        : items;
+                } else if (field.type === "checkbox") {
+                    cursor[leaf] = field.checked;
+                } else if (field.type === "number") {
+                    cursor[leaf] = field.value === "" ? null : Number(field.value);
+                } else {
+                    cursor[leaf] = field.value;
+                }
+            });
+            return result;
+        }
+
+        let currentSettingsPlugin = null;
+
+        async function openSettings(name) {
+            currentSettingsPlugin = name;
+            const res = await fetch(`/api/plugins/${name}/settings`);
+            if (!res.ok) {
+                log(`Failed to load settings for ${name}.`);
+                return;
+            }
+            const data = await res.json();
+
+            document.getElementById("settingsTitle").innerText = `Settings — ${name}`;
+            const body = document.getElementById("settingsBody");
+
+            if (data.custom_ui) {
+                // Hook for a future hand-built settings UI — the plugin
+                // opted out of the auto-form via BasePlugin.settings_ui.
+                body.innerHTML = `<p class="text-sm text-gray-400">Custom settings UI (${data.custom_ui}) not wired up yet.</p>`;
+            } else {
+                body.innerHTML = `
+                    <form id="settingsForm">
+                        ${renderSchemaForm(data.schema, data.values, data.schema)}
+                        <button type="submit" class="mt-1 px-4 py-1.5 bg-green-600 hover:bg-green-500 rounded text-sm font-bold">
+                            Save
+                        </button>
+                    </form>`;
+                document.getElementById("settingsForm").addEventListener("submit", saveSettings);
+            }
+
+            document.getElementById("settingsPanel").classList.remove("hidden");
+        }
+
+        async function saveSettings(e) {
+            e.preventDefault();
+            const values = formToNestedObject(e.target);
+            const res = await fetch(`/api/plugins/${currentSettingsPlugin}/settings`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ values }),
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                log(`Failed to save settings for ${currentSettingsPlugin}: ${JSON.stringify(err.detail)}`);
+            } else {
+                log(`Settings saved for ${currentSettingsPlugin}.`);
+                fetchStatus();
+            }
+        }
+
+        function closeSettings() {
+            document.getElementById("settingsPanel").classList.add("hidden");
+            currentSettingsPlugin = null;
+        }
+
+        fetchStatus();
+        setInterval(fetchStatus, 5000);
+    </script>
+</body>
+
+</html>
