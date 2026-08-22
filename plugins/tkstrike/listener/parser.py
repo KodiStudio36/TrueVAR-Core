@@ -261,21 +261,12 @@ class TkStrikeStateEngine:
         self.data["win"] = winner
         print(f"🏆 [EVENT] WIN -> Winner: {winner.upper()}")
         self.on_stable_update(self.data)
-        # A deep copy, not just a shallow one: self.data["blue"]/["red"]
-        # are nested dicts, and on_scoreboard/on_penalty mutate them
-        # UNCONDITIONALLY — the `if self.data["state"] in [...]` check
-        # in those handlers only guards whether they publish a stable
-        # update, not whether they write into these dicts. A stray
-        # scoreboard command arriving after WIN (state flips to
-        # INIT_STATE right below, but that doesn't stop the mutation)
-        # could otherwise corrupt whatever snapshot a subscriber reads
-        # later, since a shallow copy would still share those same
-        # nested dict objects.
-        self.on_event_trigger("WIN", copy.deepcopy(self.data))
-        self.data["state"] = INIT_STATE
 
     def on_win_data(self, parts):
         self.data["win_score"], self.data["win_type"] = parts[2].lower().split(" ")
+
+        self.on_event_trigger("WIN", copy.deepcopy(self.data))
+        self.data["state"] = INIT_STATE
 
     # --- Helper Lifecycles ---
     def evaluate_match_init(self):

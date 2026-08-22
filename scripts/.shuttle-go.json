@@ -1,0 +1,24 @@
+{
+    "apps": [
+        {
+            "name": "Instant Video Replay",
+            "match_window_titles": [
+                "Instant Video Replay"
+            ],
+            "slow_jog": 200,
+            "bindings": {
+                "JogL": "0xff51 // One frame left (left arrow)",
+                "JogR": "0xff53 // One frame right (right arrow)",
+                "SlowJogL": "0xff51 // One frame left (left arrow)",
+                "SlowJogR": "0xff53 // One frame right (right arrow)",
+                "S-3": "0xffe2+0xff51 // One second left (left arrow)",
+                "S3": "0xffe2+0xff53 // One second right (right arrow)",
+                "F5": "space // Play/Pause",
+                "F6": "e // Change camera engle",
+                "F7": "w // Change camera engle",
+                "F8": "r // Open video replay",
+                "F9": "n // Start/Stop recording"
+            }
+        }
+    ]
+}

@@ -1,5 +1,5 @@
 {
-    "is_scoreboard": false,
+    "is_scoreboard": true,
     "scoreboard_device": 0,
     "debug": true,
     "network_ip": "192.168.0.",

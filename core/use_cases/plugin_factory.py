@@ -5,6 +5,7 @@ from plugins.gstreamer_core.plugin import GStreamerCorePlugin
 from plugins.ivr.plugin import IVRPlugin
 from plugins.bout_cntrl.livestream_extension.plugin import BoutCntrlLivestreamExtension
 from plugins.livestream.plugin import LivestreamCorePlugin
+from plugins.shuttle_xpress.plugin import ShuttleXpressPlugin
 from plugins.tkstrike.livestream_extension.plugin import TkStrikeLivestreamExtension
 from plugins.tkstrike.external_screen.plugin import TkStrikeExternalScreenPlugin
 from plugins.tkstrike.listener.plugin import TkStrikeListenerPlugin
@@ -50,8 +51,8 @@ class PluginFactory:
 
         if provider == DAEDO:
             stack.append(TkStrikeListenerPlugin)
-            # stack.append(TkStrikeExternalScreenPlugin)
-            # stack.append(IVRPlugin)
+            stack.append(IVRPlugin)
+            stack.append(ShuttleXpressPlugin)
 
             if is_public_register == True:
                 stack.append(TkStrikeServerPlugin)
@@ -59,17 +60,19 @@ class PluginFactory:
             if mode == INTEGRATED_TKSTRIKE:
                 stack.append(TkStrikePlugin)
 
+            if mode == EXTERNAL_TKSTRIKE: ...
+                # stack.append(TkStrikeExternalScreenPlugin)
 
         elif provider == BOUT_CNTRL:
             stack.append(BoutCntrlPlugin)
             
-        # if is_stream:
-        #     stack.append(LivestreamCorePlugin)
+        if is_stream:
+            stack.append(LivestreamCorePlugin)
 
-        #     if provider == DAEDO:
-        #         stack.append(TkStrikeLivestreamExtension)
+            if provider == DAEDO:
+                stack.append(TkStrikeLivestreamExtension)
 
-        #     elif provider == BOUT_CNTRL:
-        #         stack.append(BoutCntrlLivestreamExtension)
+            elif provider == BOUT_CNTRL:
+                stack.append(BoutCntrlLivestreamExtension)
             
         return stack

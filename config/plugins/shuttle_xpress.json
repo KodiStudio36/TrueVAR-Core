@@ -1,0 +1,10 @@
+{
+    "device_path": "/dev/input/by-id/usb-Contour_Design_ShuttleXpress-event-mouse",
+    "vendor_id": "0b33",
+    "product_id": "0020",
+    "shuttle_go_path": "/home/kodi/Documents/programs/var/shuttle-go/shuttle-go",
+    "config_path": null,
+    "poll_interval_seconds": 5.0,
+    "restart_backoff_min_seconds": 1.0,
+    "restart_backoff_max_seconds": 30.0
+}
