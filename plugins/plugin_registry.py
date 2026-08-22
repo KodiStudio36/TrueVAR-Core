@@ -6,10 +6,12 @@ from plugins.gstreamer_core.plugin import GStreamerCorePlugin
 from plugins.ivr.plugin import IVRPlugin
 from plugins.bout_cntrl.livestream_extension.plugin import BoutCntrlLivestreamExtension
 from plugins.livestream.plugin import LivestreamCorePlugin
+from plugins.shuttle_xpress.plugin import ShuttleXpressPlugin
 from plugins.tkstrike.livestream_extension.plugin import TkStrikeLivestreamExtension
 from plugins.tkstrike.external_screen.plugin import TkStrikeExternalScreenPlugin
 from plugins.tkstrike.listener.plugin import TkStrikeListenerPlugin
 from plugins.bout_cntrl.bout_cntrl.plugin import BoutCntrlPlugin
+from plugins.tkstrike.server.plugin import TkStrikeServerPlugin
 from plugins.tkstrike.tkstrike.plugin import TkStrikePlugin
 
 
@@ -20,9 +22,11 @@ class PluginRegistry:
             GStreamerCorePlugin,
             FirebaseSyncPlugin,
             IVRPlugin,
+            ShuttleXpressPlugin,
             TkStrikeListenerPlugin,
             TkStrikeExternalScreenPlugin,
             TkStrikePlugin,
+            TkStrikeServerPlugin,
             TkStrikeLivestreamExtension,
             BoutCntrlPlugin,
             BoutCntrlLivestreamExtension,
