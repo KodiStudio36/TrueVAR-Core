@@ -6,7 +6,7 @@ from pydantic import BaseModel as PydanticBody
 
 from plugins.base_plugin import Namespace
 from plugins.livestream.base_extension import BaseLivestreamExtension
-from plugins.tkstrike.listener.plugin import TkStrikeListenerPlugin
+from plugins.tkstrike.listener.gen3.plugin import TkStrikeListenerGen3Plugin
 from plugins.tkstrike.livestream_extension.automation import TkStrikeStreamAutomation
 from plugins.tkstrike.livestream_extension.settings import TkStrikeSettings
 
@@ -22,7 +22,7 @@ class TkStrikeLivestreamExtension(BaseLivestreamExtension):
         self._subscriptions: list[tuple] = []
 
     @property
-    def name(self) -> str: return "tkstrike_livestream"
+    def name(self) -> str: return "TkStrike Livestream Extension"
 
     @property
     def requires_internet(self) -> bool: return False
@@ -30,7 +30,7 @@ class TkStrikeLivestreamExtension(BaseLivestreamExtension):
     @property
     def settings_schema(self): return TkStrikeSettings
 
-    dependencies = ["TkStrikeListenerPlugin"]
+    dependencies = []
 
     namespace: str = Namespace.TKSTRIKE
 

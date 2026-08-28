@@ -8,17 +8,17 @@ from core.use_cases.serial_device_resolver import (
     SerialDeviceResolver, MSP430_USB, DeviceNotFoundError,
 )
 from plugins.base_plugin import BasePlugin, Namespace
-from plugins.tkstrike.tkstrike.settings import TkStrikeSettings
+from plugins.tkstrike.tkstrike.gen2.settings import TkStrikeSettings
 
 
-class TkStrikePlugin(BasePlugin):
+class TkStrikeGen2Plugin(BasePlugin):
     def __init__(self, core_context: dict, logger):
         super().__init__(core_context, logger)
         self._settings: Optional[TkStrikeSettings] = None
         self._bootstrapper = ApplicationBootstrapper(logger)
 
     @property
-    def name(self) -> str: return "tkstrike"
+    def name(self) -> str: return "TkStrike Gen2 Application"
 
     @property
     def requires_internet(self) -> bool: return False

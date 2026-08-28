@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
-class TkStrikeServerSettings(BaseModel):
+class TkStrikeServerGen3Settings(BaseModel):
     """Settings for TkStrikeServerPlugin — same plugin name/key as before
     (`tkstrike_server`), so existing persisted settings still load. This
     version serves the actual WT/daedo OVR JSON:API surface (GET /matches,

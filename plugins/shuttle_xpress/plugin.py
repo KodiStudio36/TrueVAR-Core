@@ -40,7 +40,7 @@ class ShuttleXpressPlugin(BasePlugin):
 
     @property
     def name(self) -> str:
-        return "shuttle_xpress"
+        return "Shuttle Xpress"
 
     @property
     def requires_internet(self) -> bool:

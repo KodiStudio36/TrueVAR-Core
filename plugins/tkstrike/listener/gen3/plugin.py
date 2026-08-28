@@ -2,12 +2,12 @@ import asyncio
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from plugins.base_plugin import BasePlugin, Namespace
-from plugins.tkstrike.listener.listener import TkStrikeListener
-from plugins.tkstrike.listener.settings import TkStrikeListenerSettings
-from plugins.tkstrike.listener.history import ScoreboardHistory
+from plugins.tkstrike.listener.gen3.listener import TkStrikeListener
+from plugins.tkstrike.listener.gen3.settings import TkStrikeListenerSettings
+from plugins.tkstrike.listener.gen3.history import ScoreboardHistory
 
 
-class TkStrikeListenerPlugin(BasePlugin):
+class TkStrikeListenerGen3Plugin(BasePlugin):
     """Owns the hardware UDP socket and publishes all scoreboard events to the bus.
 
     No other plugin needs to know the listener exists — they subscribe to
@@ -25,7 +25,7 @@ class TkStrikeListenerPlugin(BasePlugin):
         self.history: ScoreboardHistory | None = None
 
     @property
-    def name(self) -> str: return "tkstrike_listener"
+    def name(self) -> str: return "TkStrike Gen3 Listener"
 
     @property
     def requires_internet(self) -> bool: return False

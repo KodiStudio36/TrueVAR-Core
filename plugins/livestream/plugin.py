@@ -16,7 +16,7 @@ class LivestreamCorePlugin(BasePlugin):
         self.templates = Jinja2Templates(directory="ui/templates")
 
     @property
-    def name(self) -> str: return "livestream_core"
+    def name(self) -> str: return "Livestream Core Plugin"
 
     @property
     def requires_internet(self) -> bool: return False

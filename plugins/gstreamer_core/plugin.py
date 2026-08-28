@@ -31,7 +31,7 @@ class GStreamerCorePlugin(BasePlugin):
             Gst.init(None)
 
     @property
-    def name(self) -> str: return "gstreamer_core"
+    def name(self) -> str: return "GStreamer Core Plugin"
 
     @property
     def requires_internet(self) -> bool: return False

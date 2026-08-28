@@ -1,0 +1,7 @@
+{
+    "main_display": "DP-1",
+    "external_display": "HDMI-1",
+    "target_workspace": 6,
+    "window_title": "python",
+    "window_delay": 1.5
+}

@@ -56,7 +56,7 @@ class FirebaseSyncPlugin(BasePlugin):
 
     @property
     def name(self) -> str:
-        return "firebase_sync"
+        return "Firebase Database Sync"
 
     @property
     def requires_internet(self) -> bool:

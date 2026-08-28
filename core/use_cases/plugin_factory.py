@@ -8,10 +8,10 @@ from plugins.livestream.plugin import LivestreamCorePlugin
 from plugins.shuttle_xpress.plugin import ShuttleXpressPlugin
 from plugins.tkstrike.livestream_extension.plugin import TkStrikeLivestreamExtension
 from plugins.tkstrike.external_screen.plugin import TkStrikeExternalScreenPlugin
-from plugins.tkstrike.listener.plugin import TkStrikeListenerPlugin
+from plugins.tkstrike.listener.gen3.plugin import TkStrikeListenerGen3Plugin
 from plugins.bout_cntrl.bout_cntrl.plugin import BoutCntrlPlugin
-from plugins.tkstrike.server.plugin import TkStrikeServerPlugin
-from plugins.tkstrike.tkstrike.plugin import TkStrikePlugin
+from plugins.tkstrike.server.gen3.plugin import TkStrikeServerGen3Plugin
+from plugins.tkstrike.tkstrike.gen2.plugin import TkStrikeGen2Plugin
 
 # === Taekwondo ===============
 TAEKWONDO = "Taekwondo".lower()
@@ -50,18 +50,18 @@ class PluginFactory:
         stack = [GStreamerCorePlugin, FirebaseSyncPlugin] # FirebaseSyncPlugin
 
         if provider == DAEDO:
-            stack.append(TkStrikeListenerPlugin)
+            stack.append(TkStrikeListenerGen3Plugin)
             stack.append(IVRPlugin)
             stack.append(ShuttleXpressPlugin)
 
             if is_public_register == True:
-                stack.append(TkStrikeServerPlugin)
+                stack.append(TkStrikeServerGen3Plugin)
 
             if mode == INTEGRATED_TKSTRIKE:
-                stack.append(TkStrikePlugin)
+                stack.append(TkStrikeGen2Plugin)
 
-            if mode == EXTERNAL_TKSTRIKE: ...
-                # stack.append(TkStrikeExternalScreenPlugin)
+            if mode == EXTERNAL_TKSTRIKE:
+                stack.append(TkStrikeExternalScreenPlugin)
 
         elif provider == BOUT_CNTRL:
             stack.append(BoutCntrlPlugin)

@@ -38,7 +38,7 @@ class TkStrikeExternalScreenPlugin(BasePlugin):
         self._move_task: Optional[asyncio.Task] = None
 
     @property
-    def name(self) -> str: return "tkstrike_external_screen"
+    def name(self) -> str: return "TkStrike External Screen"
 
     @property
     def requires_internet(self) -> bool: return False
