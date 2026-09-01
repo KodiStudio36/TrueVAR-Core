@@ -89,43 +89,52 @@ class TkStrikeStateEngine:
         if handler:
             handler(parts)
 
-    def normalize_category(self, category_str: str, subcategory_str: str):
-        # 1. Combine and clean the strings into a single, uniform uppercase string
+    import re
+
+    def normalize_category(self, category_str: str, subcategory_str: str) -> str:
+        # 1. Clean and combine inputs into a single lowercase string
         category = category_str.lower().strip() if category_str else ""
         subcategory = subcategory_str.lower().strip() if subcategory_str else ""
         combined = f"{category} {subcategory}"
 
-        # 2. Identify Age Division
-        division = "seniors" # Default fallback
-        if "jun" in combined:
-            division = "juniors"
+        # 2. Identify Age Division (check specific pupil divisions before generic pupils)
+        if re.search(r'\bpupils?\s*1\b|\bpupils?1\b', combined):
+            division = "pupils 1"
+        elif re.search(r'\bpupils?\s*2\b|\bpupils?2\b', combined):
+            division = "pupils 2"
         elif "youn" in combined:
             division = "youngercadets"
         elif "cad" in combined or "kad" in combined:
             division = "cadets"
+        elif "jun" in combined:
+            division = "juniors"
         elif "pup" in combined or "chi" in combined:
             division = "pupils"
+        else:
+            division = "seniors"
 
-        # 3. Identify Gender
+        # 3. Identify Gender (uses word boundaries \b to avoid matching "w" in "weight" or "f" in "off")
         gender = "men" # Default fallback
-        if (
-            "w" in category or 
-            "f" in category or 
-            "z" in category or
-            "ž" in category
-        ):
+        if re.search(r'\b(f|w|z|ž|female|women|woman|ženy|zeny)\b', combined):
             gender = "women"
 
-        # 4. Extract Weight Class
-        weight_sign = "plus" if ("plus" in category or "+" in category) else "under"
+        # 4. Extract Weight Sign
+        weight_sign = "plus" if ("plus" in combined or "+" in combined) else "under"
 
-        number_match = re.search(r'\d+', category)
+        # 5. Extract Weight Class Number (targets numbers near weight indicators like "45kg" or "-45")
+        number_match = re.search(r'(\d+)\s*kg', combined)
+        if not number_match:
+            number_match = re.search(r'(?:[+\-]|plus|under)\s*(\d+)', combined)
+        if not number_match:
+            # Fallback: look for digits in subcategory first, then category
+            number_match = re.search(r'\b(\d+)\b', f"{subcategory} {category}")
+
         if number_match:
-            weight_num = number_match.group(0)
+            weight_num = number_match.group(1)
         else:
             return f"{division}_{gender}_unknown"
 
-        # 5. Construct the strictly formatted key
+        # 6. Construct the strictly formatted key
         return f"{division}_{gender}_{weight_sign}_{weight_num}kg"
 
     # --- Parser Action Methods ---
@@ -145,10 +154,10 @@ class TkStrikeStateEngine:
         if self.complete_data_counter == 0: 
             self.reset_data()
         self.data["blue"].update({
-            "name": parts[1], "flag2": ALPHA3_TO_ALPHA2.get(parts[3], "un").lower(), "flag3": parts[3],
+            "name": parts[2], "flag2": ALPHA3_TO_ALPHA2.get(parts[3], "un").lower(), "flag3": parts[3],
         })
         self.data["red"].update({
-            "name": parts[5], "flag2": ALPHA3_TO_ALPHA2.get(parts[7], "un").lower(), "flag3": parts[7],
+            "name": parts[6], "flag2": ALPHA3_TO_ALPHA2.get(parts[7], "un").lower(), "flag3": parts[7],
         })
         self.evaluate_match_init()
 

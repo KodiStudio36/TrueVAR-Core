@@ -35,11 +35,11 @@ class TkStrikeServerGen2Settings(BaseModel):
 
     # --- Defaults used to synthesize match-configurations, since Firebase
     #     doesn't currently store an official WT rules config per match. ---
-    default_rules: str = Field(default="CONVENTIONAL", description="CONVENTIONAL or BESTOF3.")
+    default_rules: str = Field(default="BESTOF3", description="CONVENTIONAL or BESTOF3.")
     default_rounds: int = Field(default=3, ge=1, le=5)
-    default_round_time: str = Field(default="02:00")
-    default_rest_time: str = Field(default="01:00")
+    default_round_time: str = Field(default="01:30")
+    default_rest_time: str = Field(default="00:30")
     default_injury_time: str = Field(default="01:00")
-    default_max_penalties: int = Field(default=10, ge=1, le=30)
-    default_golden_point_enabled: bool = Field(default=True)
+    default_max_penalties: int = Field(default=15, ge=1, le=30)
+    default_golden_point_enabled: bool = Field(default=False)
     default_golden_point_time: str = Field(default="01:00")

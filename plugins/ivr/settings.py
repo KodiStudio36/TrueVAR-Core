@@ -18,7 +18,7 @@ class KeyBindSettings(BaseModel):
 class IVRSettings(BaseModel):
     ws_host:        str  = Field(default="localhost",          description="IVR WebSocket host")
     ws_port:        int  = Field(default=8765,                 description="IVR WebSocket port")
-    app_path:       str = Field(default="/home/kodi/Documents/programs/var/TrueVAR-IVR/main.py", description="Path to external application")
+    app_path:       str = Field(default="/home/truevar/Documents/TrueVAR-IVR/main.py", description="Path to external application")
     window_class:   str = Field(default="truevar_ivr",                      description="WM_CLASS name for the window manager")
     workspace:      int = Field(default=3,                              description="Target i3 workspace")
     fps:            int  = Field(default=30,                   description="Recording frame rate")

@@ -1,8 +1,8 @@
 from pydantic import BaseModel, Field
 
 class TkStrikeSettings(BaseModel):
-    wine_prefix:        str   = Field(default="/home/kodi/Documents/programs/var/TKStrike/pfx")
-    app_dir:            str   = Field(default="/home/kodi/Documents/programs/var/TKStrike/pfx/drive_c/users/kodi/AppData/Local/tkStrikeGen2")
+    wine_prefix:        str   = Field(default="/home/truevar/Documents/TKStrike/pfx")
+    app_dir:            str   = Field(default="/home/truevar/Documents/TKStrike/pfx/drive_c/users/kodi/AppData/Local/tkStrikeGen2")
     exe_name:           str   = Field(default="tkStrikeGen2.exe")
     window_class:       str   = Field(default="tkstrikegen2.exe")
     workspace:          int   = Field(default=2)

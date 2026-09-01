@@ -19,7 +19,7 @@ class ShuttleXpressSettings(BaseModel):
 
     # Path to the shuttle-go binary. Relative paths are resolved against
     # cwd of the parent process, so prefer an absolute path in production.
-    shuttle_go_path: str = "/home/kodi/Documents/programs/var/shuttle-go/shuttle-go"
+    shuttle_go_path: str = "/home/truevar/Documents/shuttle-go/shuttle-go"
 
     # Optional path to a shuttle-go key-binding config file. Passed as
     # `-config <path>` when set; omitted entirely otherwise so shuttle-go
