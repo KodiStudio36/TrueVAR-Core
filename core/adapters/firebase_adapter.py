@@ -178,6 +178,42 @@ class FirebaseAdapter(DatabasePort):
 
         await asyncio.to_thread(_save)
 
+    async def fetch_match_state(
+        self, sport_id: str, discipline_id: str, match_id: str
+    ) -> dict | None:
+        """
+        Reads a single archived match doc at:
+            sports/{sport_id}/disciplines/{discipline_id}/matches/{match_id}
+
+        match_id is expected to already be the full, tournament-scoped id
+        (same convention as save_match_state — e.g. "{tournamentId}_{101}").
+
+        Used by FirebaseSyncPlugin._archive_match to check, before writing,
+        whether this match already has bracket/roster-sourced identity data
+        (blue/red.entryId) — that's the signal it uses to decide whether to
+        merge just the live-scoring result on top, or do a full write. A
+        plain read (not a watch) is intentional here: this only needs to
+        run once per WIN event, not stay subscribed.
+
+        Returns None if no doc exists yet at that id — a completely normal
+        outcome for a guest/analytics-only fight the bracket system never
+        pre-created, not an error.
+        """
+        def _fetch():
+            doc = (
+                self.firestore_db.collection('sports').document(sport_id)
+                .collection('disciplines').document(discipline_id)
+                .collection('matches').document(match_id)
+                .get()
+            )
+            if not doc.exists:
+                return None
+            data = doc.to_dict()
+            data['id'] = doc.id
+            return data
+
+        return await asyncio.to_thread(_fetch)
+
     async def fetch_previous_fights(
         self, sport_id: str, discipline_id: str, tournament_id: str, athlete_name: str, limit: int = 5
     ) -> list[dict]:

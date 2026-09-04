@@ -2,9 +2,9 @@ import asyncio
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from plugins.base_plugin import BasePlugin, Namespace
-from plugins.tkstrike.listener.gen3.listener import TkStrikeListener
-from plugins.tkstrike.listener.gen3.settings import TkStrikeListenerSettings
-from plugins.tkstrike.listener.gen3.history import ScoreboardHistory
+from plugins.tkstrike.listener.gen2.listener import TkStrikeListener
+from plugins.tkstrike.listener.gen2.settings import TkStrikeListenerSettings
+from plugins.tkstrike.listener.gen2.history import ScoreboardHistory
 
 
 class TkStrikeListenerGen2Plugin(BasePlugin):

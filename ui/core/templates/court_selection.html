@@ -55,27 +55,37 @@
             });
         }
 
+        let booting = false;
         async function bindAndBoot(courtId) {
+            if (booting) return;
+            booting = true;
             const key = localStorage.getItem("truevar_license");
             document.getElementById("bootingOverlay").classList.remove("hidden");
 
-            const res = await fetch("/api/system/boot", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    mode: "online",
-                    tournament_id: tournamentId,
-                    court_id: courtId,
-                    license_key: key,
-                }),
-            });
+            try {
+                const res = await fetch("/api/system/boot", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        mode: "online",
+                        tournament_id: tournamentId,
+                        court_id: courtId,
+                        license_key: key,
+                    }),
+                });
 
-            if (res.ok) {
-                window.location.href = "/dashboard";
-            } else {
+                if (res.ok) {
+                    window.location.href = "/dashboard";
+                } else {
+                    document.getElementById("bootingOverlay").classList.add("hidden");
+                    const err = await res.json();
+                    alert("Boot failed: " + JSON.stringify(err));
+                    booting = false;
+                }
+            } catch (e) {
                 document.getElementById("bootingOverlay").classList.add("hidden");
-                const err = await res.json();
-                alert("Boot failed: " + JSON.stringify(err));
+                alert("Network error while booting: " + e.message);
+                booting = false;
             }
         }
 

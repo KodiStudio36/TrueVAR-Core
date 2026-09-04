@@ -33,7 +33,11 @@ async def restart_plugin(plugin_name: str, request: Request):
 async def detach_plugin(plugin_name: str, request: Request):
     orchestrator = request.app.state.orchestrator
     try:
-        return await orchestrator.detach_plugin(plugin_name)
+        # detach_plugin now also unregisters the plugin's FastAPI routes
+        # (settings router + custom router) so a later re-attach doesn't
+        # leave two competing route entries bound to different instances —
+        # see SystemOrchestrator._remove_plugin_routes.
+        return await orchestrator.detach_plugin(plugin_name, request.app)
     except ValueError as e:
         status_code = 404 if "not currently attached" in str(e) else 409
         raise HTTPException(status_code=status_code, detail=str(e))

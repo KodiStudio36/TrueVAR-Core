@@ -9,6 +9,20 @@ from plugins.base_plugin import BasePlugin
 from plugins.firebase_sync.settings import FirebaseSyncSettings
 
 MATCH_NOTIFY_TIMEOUT_SECONDS = 5.0
+MATCH_PROCESS_TIMEOUT_SECONDS = 10.0
+
+# TODO: replace with the actual deployed URL of the processMatchResult
+# function once you deploy it (see functions_index.js) — this is NOT a
+# real endpoint, just following the same naming/host pattern as the
+# existing notifymatchstart URL below.
+PROCESS_MATCH_RESULT_URL = "https://processmatchresult-fv4r3klxxa-ey.a.run.app"
+
+# Same header value already used for notifyMatchStart — kept identical
+# so both calls authenticate against the same INTERNAL_SECRET on the
+# Cloud Functions side. Worth eventually moving out of source into
+# settings/env rather than hardcoding, same as the existing one below.
+INTERNAL_SECRET_HEADER_VALUE = "ov0Xpo0IJaZ2scWTt6Q40sov0Xpo0IJaZ2scWTt6Q40sxtA5cnAGhB0CAB4i0AEIM="
+
 
 def _json_safe(value):
     if isinstance(value, datetime):
@@ -18,6 +32,7 @@ def _json_safe(value):
     if isinstance(value, list):
         return [_json_safe(v) for v in value]
     return value
+
 
 class FirebaseSyncPlugin(BasePlugin):
     """
@@ -33,6 +48,19 @@ class FirebaseSyncPlugin(BasePlugin):
     a match still archives correctly even if it's the very last fight of
     the day with no "next match" to trigger off of. Archived as:
         sports/{sport_id}/disciplines/{discipline_id}/matches/{tournamentId}_{match_id}
+
+    After archiving, this plugin explicitly POSTs to the
+    processMatchResult Cloud Function (see functions_index.js) to run
+    medal/athlete-stat/bracket-propagation logic. That used to happen
+    automatically via a Firestore onDocumentWritten trigger, but that
+    trigger fired on EVERY write to a match doc — including the
+    scheduler's initial "ready" doc creation and this very function's
+    own resultsProcessed write-back — the large majority of which did
+    no real work but were still billed invocations. Calling it directly,
+    exactly once per real completion, avoids that overhead. The
+    trade-off: there is no more automatic catch-all — any OTHER system
+    that completes a match (an admin dashboard override, a walkover set
+    outside this listener's flow) must call that same endpoint itself.
     """
 
     def __init__(self, core_context: dict, logger):
@@ -50,6 +78,7 @@ class FirebaseSyncPlugin(BasePlugin):
 
         self._push_count = 0
         self._history_count = 0
+        self._process_trigger_count = 0
         self._last_error: Optional[str] = None
 
     # ------------------------------------------------------------------ identity
@@ -194,7 +223,7 @@ class FirebaseSyncPlugin(BasePlugin):
                 resp = await client.post(
                     "https://notifymatchstart-fv4r3klxxa-ey.a.run.app",
                     json={"match_id": match_id, "athletes": athletes, "court_id": self._court_id, "tournament_id": self._tournament_id},
-                    headers={"X-Internal-Secret": "ov0Xpo0IJaZ2scWTt6Q40sov0Xpo0IJaZ2scWTt6Q40sxtA5cnAGhB0CAB4i0AEIM="},
+                    headers={"X-Internal-Secret": INTERNAL_SECRET_HEADER_VALUE},
                 )
                 resp.raise_for_status()
             self._notify_count = getattr(self, "_notify_count", 0) + 1
@@ -213,46 +242,123 @@ class FirebaseSyncPlugin(BasePlugin):
             )
             return
 
-        payload = dict(state)
+        doc_id = f"{self._tournament_id}_{match_id}" if self._tournament_id else match_id
+        db = self.core_context["db"]
 
-        # Transient live-scoring fields don't belong in the archived record.
+        # Look at what's already there before deciding what we're allowed
+        # to touch. If blue/red already carry entryId, this match came
+        # from the bracket/roster system — that's the only place entryId
+        # can come from, since the UDP scoreboard feed never produces it.
+        existing = None
+        try:
+            existing = await db.fetch_match_state(self._sport_id, self._discipline_id, doc_id)
+        except Exception as exc:
+            self.logger.warning(
+                "FirebaseSync: could not read existing match doc before archiving — "
+                "falling back to full write",
+                exception=exc, doc_id=doc_id,
+            )
+
+        is_bracket_managed = bool(
+            existing
+            and (existing.get("blue", {}).get("entryId") or existing.get("red", {}).get("entryId"))
+        )
+
+        payload = dict(state)
         payload.pop("clk", None)
         payload.pop("state", None)
         payload.pop("fight_started", None)
 
-        payload["tournamentId"] = self._tournament_id
-        payload["tournamentName"] = getattr(self._tournament, "title", None)
-        # end_time is intentionally NOT set here — save_match_state() stamps it
-        # with datetime.now() at the moment the document is actually written.
-        payload["athletes"] = [
-            state.get("blue", {}).get("name"),
-            state.get("red", {}).get("name"),
-        ]
-        # The cloud function's onMatchCompleted trigger fires on the
-        # transition INTO status "completed" — without this, a guest
-        # fight would archive all its result data but never actually
-        # register as "done" to anything watching for it.
-        payload["status"] = "completed"
-
-        # Tournament-scoped id — a bare match_id like "101" is only
-        # unique WITHIN one tournament's own numbering; two concurrent
-        # guest fights on different tournaments could otherwise collide
-        # on the exact same document. This mirrors the same
-        # "{tournamentId}_{match_id}" composition the scheduled-match
-        # path already uses (see commit_brackets_endpoint), even though
-        # a guest fight has no pre-existing scheduled doc to merge onto
-        # — there's still real value in guest and scheduled fights never
-        # being able to collide with each other on id alone.
-        doc_id = f"{self._tournament_id}_{match_id}" if self._tournament_id else match_id
+        if is_bracket_managed:
+            # This match's identity — names, category, roster links,
+            # country, bracket position — is authoritative and came from
+            # the bracket system. The scoreboard hardware only ever
+            # transcribes a short, operator-typed version of some of
+            # these (abbreviated names, a re-derived category string in
+            # a different format entirely) and must never overwrite the
+            # real thing. Write ONLY what the listener is actually the
+            # source of truth for: the live scoring result.
+            merge_payload = {
+                "round": payload.get("round"),
+                "win": payload.get("win"),
+                "win_score": payload.get("win_score"),
+                "win_type": payload.get("win_type"),
+                "status": "completed",
+                "resultsProcessed": False,
+                "blue": {"points": payload.get("blue", {}).get("points")},
+                "red": {"points": payload.get("red", {}).get("points")},
+            }
+            self.logger.info(
+                "FirebaseSync: bracket-managed match — writing results only, "
+                "preserving existing identity/roster fields",
+                doc_id=doc_id,
+            )
+        else:
+            # No pre-existing bracket record for this match — we're the
+            # only source of truth (livestream/analytics-only
+            # tournament), so archive everything the listener observed,
+            # same as before.
+            merge_payload = payload
+            merge_payload["status"] = "completed"
+            merge_payload["resultsProcessed"] = False
+            merge_payload["tournamentId"] = self._tournament_id
+            merge_payload["tournamentName"] = getattr(self._tournament, "title", None)
+            merge_payload["athletes"] = [
+                state.get("blue", {}).get("name"),
+                state.get("red", {}).get("name"),
+            ]
 
         try:
-            await self.core_context["db"].save_match_state(
-                self._sport_id, self._discipline_id, doc_id, payload
-            )
+            await db.save_match_state(self._sport_id, self._discipline_id, doc_id, merge_payload)
             self._history_count += 1
+            self._last_error = None
         except Exception as exc:
             self._last_error = str(exc)
             self.logger.error("FirebaseSync: save_match_state (history) failed", exception=exc)
+            return  # don't trigger processing on a write we know failed
+
+        await self._trigger_result_processing(doc_id)
+
+    async def _trigger_result_processing(self, doc_id: str) -> None:
+        """
+        Tells the processMatchResult Cloud Function to run medal/athlete-
+        stat/bracket-propagation logic for this match NOW, via direct
+        HTTP call — replacing the old onDocumentWritten Firestore
+        trigger, which fired on every write to a match doc (initial
+        bracket scheduling, the result merge, AND the function's own
+        resultsProcessed write-back), most of which did no real work but
+        still counted as a billed invocation. This call only happens
+        once, right after we know a result was actually just archived.
+
+        The function re-reads the match doc itself and claims it via a
+        Firestore transaction before processing (see
+        claimMatchForProcessing in functions_index.js), so a retried or
+        duplicate call here is safe — it can't double-run the medal/
+        propagation logic; a duplicate just gets back
+        {"processed": false, "reason": "already_processed"} or similar.
+        """
+        try:
+            async with httpx.AsyncClient(timeout=MATCH_PROCESS_TIMEOUT_SECONDS) as client:
+                resp = await client.post(
+                    PROCESS_MATCH_RESULT_URL,
+                    json={
+                        "sport_id": self._sport_id,
+                        "discipline_id": self._discipline_id,
+                        "match_id": doc_id,
+                    },
+                    headers={"X-Internal-Secret": INTERNAL_SECRET_HEADER_VALUE},
+                )
+                resp.raise_for_status()
+            self._process_trigger_count += 1
+            self._last_error = None
+        except Exception as exc:
+            self._last_error = str(exc)
+            self.logger.error(
+                "FirebaseSync: processMatchResult trigger failed — match was archived "
+                "but medals/athlete-stats/bracket-propagation will NOT run until this "
+                "is retried",
+                exception=exc, doc_id=doc_id,
+            )
 
     # ------------------------------------------------------------------ HTTP router
 

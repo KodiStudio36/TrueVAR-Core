@@ -12,8 +12,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from plugins.base_plugin import BasePlugin, Namespace
-from plugins.tkstrike.server.gen3.settings import TkStrikeServerGen3Settings
-from plugins.tkstrike.server.gen3.jsonapi_util import (
+from plugins.tkstrike.server.gen2.settings import TkStrikeServerGen2Settings
+from plugins.tkstrike.server.gen2.jsonapi_util import (
     build_document, error_document, parse_filters, resource,
 )
 
@@ -164,7 +164,7 @@ def _parse_category_code(code: Optional[str]) -> tuple[str, Optional[str]]:
     return division, gender
 
 
-def _default_live_state(settings: TkStrikeServerGen3Settings) -> dict:
+def _default_live_state(settings: TkStrikeServerGen2Settings) -> dict:
     return {
         "status": "available",
         "score": {"home": 0, "away": 0},
@@ -229,7 +229,7 @@ def _apply_action(live: dict, attributes: dict) -> None:
 class TkStrikeServerGen2Plugin(BasePlugin):
     def __init__(self, core_context: dict, logger):
         super().__init__(core_context, logger)
-        self._settings: Optional[TkStrikeServerGen3Settings] = None
+        self._settings: Optional[TkStrikeServerGen2Settings] = None
 
         self._tournament = None
         self._tournament_id: Optional[str] = None
@@ -254,7 +254,7 @@ class TkStrikeServerGen2Plugin(BasePlugin):
 
     @property
     def settings_schema(self):
-        return TkStrikeServerGen3Settings
+        return TkStrikeServerGen2Settings
 
     namespace: str = Namespace.TKSTRIKE
 
@@ -305,7 +305,7 @@ class TkStrikeServerGen2Plugin(BasePlugin):
             self._watch = None
         self.logger.warning("TkStrikeServer plugin stopped.")
 
-    async def on_settings_changed(self, new_settings: TkStrikeServerGen3Settings) -> None:
+    async def on_settings_changed(self, new_settings: TkStrikeServerGen2Settings) -> None:
         self.logger.info("TkStrikeServer settings changed — restarting.")
         await self.stop()
         self._settings = new_settings

@@ -21,13 +21,21 @@ class SystemOrchestrator:
         self.root_logger = root_logger
 
         self.active_plugins: dict[str, "BasePlugin"] = {}
-        # Tracks plugin classes whose start() raised, keyed by class name,
-        # so the dashboard can notify the operator and offer a retry —
-        # without this, a failed plugin just silently vanishes (it's never
-        # added to active_plugins, so it looks identical to "never attached").
         self.failed_plugins: dict[str, dict] = {}
         self._booted: bool = False
         self._shared_context: Optional[dict] = None
+        self._license_key: Optional[str] = None
+
+        # Tracks which Starlette Route objects each plugin added to the app
+        # (settings router + custom router combined), keyed by instance.name,
+        # so they can be removed on stop/detach instead of accumulating as
+        # dead, stale-instance-bound routes that keep matching requests.
+        self._plugin_routes: dict[str, list] = {}
+
+        # Guards boot_tournament / boot_offline / reset so two overlapping
+        # requests (e.g. a double-click, or a stale tab retrying) can't
+        # interleave and corrupt _shared_context / active_plugins.
+        self._boot_lock = asyncio.Lock()
 
         self.system_status = SystemStatus()
         self.settings_manager = SettingsManager(self.settings_adapter)
@@ -43,7 +51,6 @@ class SystemOrchestrator:
         self.system_status.network_alive = self.network_adapter.ping_internet()
 
         case_data = None
-
         self._license_key = device_license_key
 
         if self.system_status.network_alive:
@@ -113,9 +120,12 @@ class SystemOrchestrator:
         )
         return tournament_dt >= start_of_today
 
+    # ------------------------------------------------------------------ plugin (de)registration
+
     async def _safe_load_plugins(self, fastapi_app, plugins_to_load: list, shared_context: dict):
         for plugin_class in plugins_to_load:
             class_name = plugin_class.__name__
+            routes_before = list(fastapi_app.router.routes)
             try:
                 plugin_logger = self.root_logger.bind(plugin=plugin_class.__name__.lower())
                 instance = plugin_class(core_context=shared_context, logger=plugin_logger)
@@ -144,11 +154,16 @@ class SystemOrchestrator:
                 if custom_router:
                     fastapi_app.include_router(custom_router)
 
+                # Record exactly which Route objects this plugin added (settings
+                # router + custom router together) so they can be cleanly
+                # unregistered later instead of lingering as dead, stale-closure
+                # routes that still win the match against newer ones.
+                self._plugin_routes[instance.name] = [
+                    r for r in fastapi_app.router.routes if r not in routes_before
+                ]
+
                 instance.set_status(PluginState.STARTING)
                 await instance.start()
-                # If the plugin never touched its own status, assume a clean
-                # start means it's active — keeps old plugins meaningful on
-                # the dashboard without requiring every one to be rewritten.
                 if instance.get_status().state in (PluginState.IDLE, PluginState.STARTING):
                     instance.set_status(PluginState.ACTIVE)
 
@@ -167,90 +182,131 @@ class SystemOrchestrator:
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
 
+    def _remove_plugin_routes(self, fastapi_app, plugin_name: str) -> None:
+        routes = self._plugin_routes.pop(plugin_name, None)
+        if not routes or fastapi_app is None:
+            return
+        fastapi_app.router.routes = [
+            r for r in fastapi_app.router.routes if r not in routes
+        ]
+
+    async def _stop_and_clear(self, fastapi_app) -> None:
+        """
+        Stops every active plugin, unregisters its HTTP routes from the live
+        FastAPI app, and clears local bookkeeping. Does NOT touch
+        system_status, DB bindings, or the license key — callers decide that.
+        Safe to call with an empty active_plugins set.
+        """
+        tasks = []
+        for plugin in self.active_plugins.values():
+            self.root_logger.info(f"Preparing shutdown for plugin: {plugin.name}")
+            tasks.append(plugin.stop())
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        for plugin_name in list(self._plugin_routes.keys()):
+            self._remove_plugin_routes(fastapi_app, plugin_name)
+
+        self.active_plugins.clear()
+        self.failed_plugins.clear()
+        self._booted = False
+
+    # ------------------------------------------------------------------ boot
+
     async def boot_tournament(
         self, fastapi_app, tournament_id: str, court_id: str = None, license_key: str = None
     ):
-        if self.is_booted:
-            self.root_logger.warning("System already booted — skipping re-boot.")
-            return
+        async with self._boot_lock:
+            tournament: Tournament = next(
+                (t for t in self.system_status.active_tournaments if t.id == tournament_id), None
+            )
 
-        tournament: Tournament = next(
-            (t for t in self.system_status.active_tournaments if t.id == tournament_id), None
-        )
+            if not tournament:
+                tournament = await self.db_adapter.fetch_tournament_by_id(tournament_id)
+                if tournament:
+                    self.system_status.active_tournaments.append(tournament)
 
-        if not tournament:
-            tournament = await self.db_adapter.fetch_tournament_by_id(tournament_id)
-            if tournament:
-                self.system_status.active_tournaments.append(tournament)
+            if tournament and not self._is_tournament_current(tournament):
+                self.root_logger.warning(f"Tournament {tournament_id} is stale — treating as not found.")
+                tournament = None
 
-        if tournament and not self._is_tournament_current(tournament):
-            self.root_logger.warning(f"Tournament {tournament_id} is stale — treating as not found.")
-            tournament = None
+            if not tournament:
+                if license_key:
+                    try:
+                        await self.db_adapter.clear_case_binding(license_key)
+                        self.root_logger.info(f"Cleared stale/missing binding for license {license_key}.")
+                    except Exception as e:
+                        self.root_logger.error("Failed to clear stale case binding", exception=e)
+                self.root_logger.error(f"Cannot boot — tournament {tournament_id} not found or stale.")
+                raise ValueError("Tournament not found or stale")
 
-        if not tournament:
+            # Only tear down the previous session once we know the new one is
+            # valid — a bad request shouldn't kill a working court.
+            if self.is_booted:
+                self.root_logger.info(
+                    "Re-boot requested while already booted — tearing down previous session first."
+                )
+                await self._stop_and_clear(fastapi_app)
+
+            self.system_status.active_tournament_id = tournament.id
+            self.system_status.is_offline_mode = False
+            self.root_logger.info(f"Booting system for {tournament.title} ({tournament.discipline})")
+
+            plugins_to_load = PluginFactory.build_stack(
+                tournament.sport,
+                tournament.discipline,
+                tournament.settings["provider"],
+                tournament.settings["mode"],
+                tournament.settings["isStream"],
+                tournament.isRegistrationOpen,
+            )
+
+            shared_context = {
+                "db": self.db_adapter,
+                "settings_manager": self.settings_manager,
+                "network_adapter": self.network_adapter,
+                "tournament": tournament,
+                "court_id": court_id,
+                "fastapi_app": fastapi_app,
+                "sio": fastapi_app.state.sio,
+                "event_bus": self.event_bus,
+            }
+            self._shared_context = shared_context
             if license_key:
-                try:
-                    await self.db_adapter.clear_case_binding(license_key)
-                    self.root_logger.info(f"Cleared stale/missing binding for license {license_key}.")
-                except Exception as e:
-                    self.root_logger.error("Failed to clear stale case binding", exception=e)
-            self.root_logger.error(f"Cannot boot — tournament {tournament_id} not found or stale.")
-            raise ValueError("Tournament not found or stale")
+                self._license_key = license_key
 
-        self.system_status.active_tournament_id = tournament.id
-        self.system_status.is_offline_mode = False
-        self.root_logger.info(f"Booting system for {tournament.title} ({tournament.discipline})")
-
-        plugins_to_load = PluginFactory.build_stack(
-            tournament.sport,
-            tournament.discipline,
-            tournament.settings["provider"],
-            tournament.settings["mode"],
-            tournament.settings["isStream"],
-            tournament.isRegistrationOpen,
-        )
-
-        shared_context = {
-            "db": self.db_adapter,
-            "settings_manager": self.settings_manager,
-            "network_adapter": self.network_adapter,
-            "tournament": tournament,
-            "court_id": court_id,
-            "fastapi_app": fastapi_app,
-            "sio": fastapi_app.state.sio,
-            "event_bus": self.event_bus,
-        }
-        self._shared_context = shared_context
-
-        await self._safe_load_plugins(fastapi_app, plugins_to_load, shared_context)
-        self._booted = True
-        self.root_logger.info("Online Tournament fully booted.")
+            await self._safe_load_plugins(fastapi_app, plugins_to_load, shared_context)
+            self._booted = True
+            self.root_logger.info("Online Tournament fully booted.")
 
     async def boot_offline(self, fastapi_app):
-        if self.is_booted:
-            self.root_logger.warning("System already booted — skipping re-boot.")
-            return
+        async with self._boot_lock:
+            if self.is_booted:
+                self.root_logger.info(
+                    "Re-boot (offline) requested while already booted — tearing down previous session first."
+                )
+                await self._stop_and_clear(fastapi_app)
 
-        self.system_status.is_offline_mode = True
-        self.root_logger.info("Booting system in OFFLINE mode")
+            self.system_status.is_offline_mode = True
+            self.root_logger.info("Booting system in OFFLINE mode")
 
-        plugins_to_load = [GStreamerCorePlugin, IVRPlugin]
+            plugins_to_load = [GStreamerCorePlugin, IVRPlugin]
 
-        shared_context = {
-            "db": self.db_adapter,
-            "settings_manager": self.settings_manager,
-            "network_adapter": self.network_adapter,
-            "tournament": None,
-            "court_id": None,
-            "fastapi_app": fastapi_app,
-            "sio": fastapi_app.state.sio,
-            "event_bus": self.event_bus,
-        }
-        self._shared_context = shared_context
+            shared_context = {
+                "db": self.db_adapter,
+                "settings_manager": self.settings_manager,
+                "network_adapter": self.network_adapter,
+                "tournament": None,
+                "court_id": None,
+                "fastapi_app": fastapi_app,
+                "sio": fastapi_app.state.sio,
+                "event_bus": self.event_bus,
+            }
+            self._shared_context = shared_context
 
-        await self._safe_load_plugins(fastapi_app, plugins_to_load, shared_context)
-        self._booted = True
-        self.root_logger.info("Offline System fully booted.")
+            await self._safe_load_plugins(fastapi_app, plugins_to_load, shared_context)
+            self._booted = True
+            self.root_logger.info("Offline System fully booted.")
 
     # ------------------------------------------------------------------ dashboard: dynamic plugin control
 
@@ -259,6 +315,9 @@ class SystemOrchestrator:
         if not instance:
             raise ValueError(f"Plugin '{plugin_name}' is not currently attached.")
 
+        # Note: restart reuses the SAME instance (stop() then start() on it),
+        # so its routes — captured once at attach time — stay valid. No route
+        # re-registration needed here.
         self.root_logger.info(f"Restarting plugin: {plugin_name}")
         instance.set_status(PluginState.STARTING, "Restarting...")
         await instance.stop()
@@ -268,7 +327,7 @@ class SystemOrchestrator:
         self.root_logger.info(f"Plugin restarted: {plugin_name}")
         return {"name": plugin_name, "status": "restarted"}
 
-    async def detach_plugin(self, plugin_name: str) -> dict:
+    async def detach_plugin(self, plugin_name: str, fastapi_app) -> dict:
         instance = self.active_plugins.get(plugin_name)
         if not instance:
             raise ValueError(f"Plugin '{plugin_name}' is not currently attached.")
@@ -290,6 +349,8 @@ class SystemOrchestrator:
             instance.set_status(PluginState.STOPPED)
         except Exception as e:
             self.root_logger.error(f"Error stopping plugin during detach: {plugin_name}", exception=e)
+
+        self._remove_plugin_routes(fastapi_app, plugin_name)
 
         self.root_logger.warning(f"Plugin detached: {plugin_name}")
         return {"name": plugin_name, "status": "detached"}
@@ -379,48 +440,40 @@ class SystemOrchestrator:
 
     async def reset_to_tournament_selection(self) -> dict:
         """
-        Undoes the current tournament binding and fully shuts the system
-        down so the frontend can send the user back to the selection
-        screen. Mirrors what _validate_case_binding does for a stale
-        binding, but triggered on demand instead of at preflight.
+        Undoes the current tournament binding (clears it in the DB) and
+        fully tears the running session down so the frontend can send the
+        user back to the selection screen.
         """
-        if self._license_key:
-            print("jjj")
-            try:
-                await self.db_adapter.clear_case_binding(self._license_key)
-                self.root_logger.info(
-                    f"Cleared case binding for license {self._license_key} (user requested change)."
-                )
-            except Exception as e:
-                self.root_logger.error("Failed to clear case binding on reset", exception=e)
+        async with self._boot_lock:
+            if self._license_key:
+                try:
+                    await self.db_adapter.clear_case_binding(self._license_key)
+                    self.root_logger.info(
+                        f"Cleared case binding for license {self._license_key} (user requested change)."
+                    )
+                except Exception as e:
+                    self.root_logger.error("Failed to clear case binding on reset", exception=e)
 
-        print("hahaha")
-        await self.shutdown_system()
+            fastapi_app = self._shared_context.get("fastapi_app") if self._shared_context else None
+            await self._stop_and_clear(fastapi_app)
 
-        self.system_status = SystemStatus()
-        self._shared_context = None
+            self.system_status = SystemStatus()
+            self._shared_context = None
 
-        self.root_logger.info("System reset — returning to tournament selection.")
-        return {"status": "reset"}
+            self.root_logger.info("System reset — returning to tournament selection.")
+            return {"status": "reset"}
 
     # ------------------------------------------------------------------
 
     async def shutdown_system(self):
-        self.root_logger.info("SystemOrchestrator initiating system-wide shutdown sequence...")
-
-        if not self.active_plugins:
-            self.root_logger.info("No active plugins to shut down.")
-            self._booted = False
-            return
-
-        tasks = []
-        for plugin in self.active_plugins.values():
-            self.root_logger.info(f"Preparing shutdown for plugin: {plugin.name}")
-            tasks.append(plugin.stop())
-
-        await asyncio.gather(*tasks, return_exceptions=True)
-
-        self.active_plugins.clear()
-        self.failed_plugins.clear()
-        self._booted = False
-        self.root_logger.info("SystemOrchestrator clean shutdown complete.")
+        """Full shutdown, e.g. on app exit. Public entry point used outside
+        the boot/reset flow, so it acquires the lock itself."""
+        async with self._boot_lock:
+            self.root_logger.info("SystemOrchestrator initiating system-wide shutdown sequence...")
+            fastapi_app = self._shared_context.get("fastapi_app") if self._shared_context else None
+            if not self.active_plugins:
+                self.root_logger.info("No active plugins to shut down.")
+                self._booted = False
+                return
+            await self._stop_and_clear(fastapi_app)
+            self.root_logger.info("SystemOrchestrator clean shutdown complete.")

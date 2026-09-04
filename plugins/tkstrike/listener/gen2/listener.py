@@ -1,6 +1,6 @@
 import asyncio
 from core.domain.ports.listener_port import BaseListener
-from plugins.tkstrike.listener.gen3.parser import TkStrikeStateEngine
+from plugins.tkstrike.listener.gen2.parser import TkStrikeStateEngine
 
 class TkStrikeUDPLifecycleProtocol(asyncio.DatagramProtocol):
     """Low-level AsyncIO datagram socket engine."""
