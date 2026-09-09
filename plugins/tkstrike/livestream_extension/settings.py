@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 class TkStrikeSettings(BaseModel):
     # --- OBS integration ---
-    obs_collection: str = Field(default="Taekwondo",             description="OBS scene collection name")
+    obs_collection: str = Field(default="TrueVAR Kyorugi",             description="OBS scene collection name")
     i3_workspace:   int = Field(default=2,                       description="i3 workspace for OBS window")
 
     # Scene names — configurable so no hardcoded strings live in code

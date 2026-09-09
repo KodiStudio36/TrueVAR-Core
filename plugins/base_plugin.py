@@ -12,6 +12,7 @@ class Namespace:
     CORE = "Core"
     TKSTRIKE = "TkStrike"
     BOUT_CNTRL = "Bout Cntrl"
+    UNIVERSAL = "Universal"
 
 class PluginState(str, Enum):
     IDLE = "idle"           # instantiated, not started yet

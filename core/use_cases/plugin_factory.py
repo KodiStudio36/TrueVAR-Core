@@ -6,12 +6,16 @@ from plugins.ivr.plugin import IVRPlugin
 from plugins.bout_cntrl.livestream_extension.plugin import BoutCntrlLivestreamExtension
 from plugins.livestream.plugin import LivestreamCorePlugin
 from plugins.shuttle_xpress.plugin import ShuttleXpressPlugin
+from plugins.tkstrike.listener.gen2.plugin import TkStrikeListenerGen2Plugin
 from plugins.tkstrike.livestream_extension.plugin import TkStrikeLivestreamExtension
 from plugins.tkstrike.external_screen.plugin import TkStrikeExternalScreenPlugin
 from plugins.tkstrike.listener.gen3.plugin import TkStrikeListenerGen3Plugin
 from plugins.bout_cntrl.bout_cntrl.plugin import BoutCntrlPlugin
+from plugins.tkstrike.server.gen2.plugin import TkStrikeServerGen2Plugin
 from plugins.tkstrike.server.gen3.plugin import TkStrikeServerGen3Plugin
 from plugins.tkstrike.tkstrike.gen2.plugin import TkStrikeGen2Plugin
+from plugins.universal.integrated_livestream_extension.plugin import UniversalIntegratedLivestreamExtension
+from plugins.universal.integrated_livestream_extension.settings import UniversalIntegratedLivestreamSettings
 
 # === Taekwondo ===============
 TAEKWONDO = "Taekwondo".lower()
@@ -24,8 +28,9 @@ POOMSAE = "Poomsae".lower()
 DAEDO = "DAEDO"
 
 # modes
-INTEGRATED_TKSTRIKE = "Integrated TkStrike"
-EXTERNAL_TKSTRIKE = "External TkStrike"
+EXTERNAL_TKSTRIKE_GEN3 = "External TkStrike Gen3"
+INTEGRATED_TKSTRIKE_GEN2 = "Integrated TkStrike Gen2"
+EXTERNAL_TKSTRIKE_GEN2 = "External TkStrike Gen2"
 
 
 # === Box =====================
@@ -41,6 +46,13 @@ BOUT_CNTRL = "Bout Cntrl"
 INTEGRATED_BOUT_CNTRL = "Integrated Bout Cntrl"
 
 
+# === Universal Livestream ====
+UNIVERSAL = "Universal".lower()
+
+INTEGRATED_UNIVERSAL = "Integrated Universal Livestream"
+EXTERNAL_UNIVERSAL = "External Universal Livestream"
+
+
 class PluginFactory:
     @staticmethod
     def build_stack(sport: str, discipline: str, provider: str, mode: str, is_stream: bool, is_public_register) -> List[Type[BasePlugin]]:
@@ -50,18 +62,29 @@ class PluginFactory:
         stack = [GStreamerCorePlugin, FirebaseSyncPlugin] # FirebaseSyncPlugin
 
         if provider == DAEDO:
-            stack.append(TkStrikeListenerGen3Plugin)
             stack.append(IVRPlugin)
             stack.append(ShuttleXpressPlugin)
 
-            if is_public_register == True:
-                stack.append(TkStrikeServerGen3Plugin)
 
-            if mode == INTEGRATED_TKSTRIKE:
-                stack.append(TkStrikeGen2Plugin)
+            if "Gen3" in mode:
+                if is_public_register == True:
+                    stack.append(TkStrikeServerGen3Plugin)
 
-            if mode == EXTERNAL_TKSTRIKE:
-                stack.append(TkStrikeExternalScreenPlugin)
+                if mode == EXTERNAL_TKSTRIKE_GEN3:
+                    stack.append(TkStrikeListenerGen3Plugin)
+                    stack.append(TkStrikeExternalScreenPlugin)
+
+            else:
+                if is_public_register == True:
+                    stack.append(TkStrikeServerGen2Plugin)
+
+                if mode == INTEGRATED_TKSTRIKE_GEN2:
+                    stack.append(TkStrikeListenerGen2Plugin)
+                    stack.append(TkStrikeGen2Plugin)
+
+                if mode == EXTERNAL_TKSTRIKE_GEN2:
+                    stack.append(TkStrikeListenerGen2Plugin)
+                    stack.append(TkStrikeExternalScreenPlugin)
 
         elif provider == BOUT_CNTRL:
             stack.append(BoutCntrlPlugin)
@@ -74,5 +97,11 @@ class PluginFactory:
 
             elif provider == BOUT_CNTRL:
                 stack.append(BoutCntrlLivestreamExtension)
+
+            elif mode == INTEGRATED_UNIVERSAL:
+                stack.append(UniversalIntegratedLivestreamExtension)
+            
+            elif mode == EXTERNAL_UNIVERSAL:
+                pass
             
         return stack

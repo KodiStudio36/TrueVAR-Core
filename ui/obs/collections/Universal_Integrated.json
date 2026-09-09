@@ -6,16 +6,13 @@
             "name": "Main Scene"
         },
         {
-            "name": "Main View \\w scoreboard - Tool"
-        },
-        {
             "name": "Main View  - Tool"
         },
         {
             "name": "Audio - Tool"
         }
     ],
-    "name": "Boxing Manual",
+    "name": "Universal Integrated",
     "groups": [],
     "quick_transitions": [
         {
@@ -42,6 +39,14 @@
     ],
     "transitions": [
         {
+            "name": "TrueVAR Stinger",
+            "id": "obs_stinger_transition",
+            "settings": {
+                "transition_point": 350,
+                "path": "/home/kodi/Documents/programs/var/TrueVAR/obs/truevar-stinger.webm"
+            }
+        },
+        {
             "name": "Move",
             "id": "move_transition",
             "settings": {
@@ -60,14 +65,6 @@
                 "curve_in": 0.0,
                 "switch_percentage": 50
             }
-        },
-        {
-            "name": "TrueVAR Stinger",
-            "id": "obs_stinger_transition",
-            "settings": {
-                "transition_point": 350,
-                "path": "/home/kodi/Documents/programs/var/TrueVAR/obs/truevar-stinger.webm"
-            }
         }
     ],
     "saved_projectors": [],
@@ -76,7 +73,7 @@
     "transition_duration": 650,
     "preview_locked": false,
     "scaling_enabled": false,
-    "scaling_level": -1,
+    "scaling_level": -5,
     "scaling_off_x": 0.0,
     "scaling_off_y": 0.0,
     "virtual-camera": {
@@ -262,7 +259,7 @@
             "id": "scene",
             "versioned_id": "scene",
             "settings": {
-                "id_counter": 15,
+                "id_counter": 18,
                 "custom_size": false,
                 "items": [
                     {
@@ -376,14 +373,14 @@
                         "private_settings": {}
                     },
                     {
-                        "name": "Main View \\w scoreboard - Tool",
-                        "source_uuid": "269247ee-6228-4fa0-9fbc-0b9d247c9e63",
+                        "name": "Main View  - Tool",
+                        "source_uuid": "79c2a451-c15b-426c-8a64-dac158f67cd3",
                         "visible": true,
                         "locked": false,
                         "rot": 0.0,
                         "scale_ref": {
-                            "x": 1920.0,
-                            "y": 1080.0
+                            "x": 1280.0,
+                            "y": 720.0
                         },
                         "align": 5,
                         "bounds_type": 0,
@@ -393,7 +390,7 @@
                         "crop_top": 0,
                         "crop_right": 0,
                         "crop_bottom": 0,
-                        "id": 5,
+                        "id": 16,
                         "group_item_backup": false,
                         "pos": {
                             "x": 0.0,
@@ -484,6 +481,61 @@
                             "duration": 0
                         },
                         "private_settings": {}
+                    },
+                    {
+                        "name": "Scoreboard",
+                        "source_uuid": "9f680cf1-b773-4562-9477-2a38a0cb89fd",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1280.0,
+                            "y": 720.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 18,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 20.0,
+                            "y": 20.0
+                        },
+                        "pos_rel": {
+                            "x": -1.7222222089767456,
+                            "y": -0.9444444179534912
+                        },
+                        "scale": {
+                            "x": 0.19062499701976776,
+                            "y": 0.19074073433876038
+                        },
+                        "scale_rel": {
+                            "x": 0.19062499701976776,
+                            "y": 0.19074073433876038
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
                     }
                 ]
             },
@@ -504,10 +556,12 @@
                 "libobs.hide_scene_item.7": [],
                 "libobs.show_scene_item.11": [],
                 "libobs.hide_scene_item.11": [],
-                "libobs.show_scene_item.5": [],
-                "libobs.hide_scene_item.5": [],
                 "libobs.show_scene_item.9": [],
-                "libobs.hide_scene_item.9": []
+                "libobs.hide_scene_item.9": [],
+                "libobs.show_scene_item.16": [],
+                "libobs.hide_scene_item.16": [],
+                "libobs.show_scene_item.18": [],
+                "libobs.hide_scene_item.18": []
             },
             "deinterlace_mode": 0,
             "deinterlace_field_order": 0,
@@ -609,155 +663,6 @@
         },
         {
             "prev_ver": 536870916,
-            "name": "Main View \\w scoreboard - Tool",
-            "uuid": "269247ee-6228-4fa0-9fbc-0b9d247c9e63",
-            "id": "scene",
-            "versioned_id": "scene",
-            "settings": {
-                "id_counter": 18,
-                "custom_size": false,
-                "items": [
-                    {
-                        "name": "Main View  - Tool",
-                        "source_uuid": "79c2a451-c15b-426c-8a64-dac158f67cd3",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0.0,
-                        "scale_ref": {
-                            "x": 1280.0,
-                            "y": 720.0
-                        },
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 15,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 0.0,
-                            "y": 0.0
-                        },
-                        "pos_rel": {
-                            "x": -1.7777777910232544,
-                            "y": -1.0
-                        },
-                        "scale": {
-                            "x": 1.0,
-                            "y": 1.0
-                        },
-                        "scale_rel": {
-                            "x": 1.0,
-                            "y": 1.0
-                        },
-                        "bounds": {
-                            "x": 0.0,
-                            "y": 0.0
-                        },
-                        "bounds_rel": {
-                            "x": 0.0,
-                            "y": 0.0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
-                        "name": "TrueVAR Webserver",
-                        "source_uuid": "f3c21e14-3932-4a9c-9991-dad28e170f55",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0.0,
-                        "scale_ref": {
-                            "x": 1280.0,
-                            "y": 720.0
-                        },
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 17,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 0.0,
-                            "y": 0.0
-                        },
-                        "pos_rel": {
-                            "x": -1.7777777910232544,
-                            "y": -1.0
-                        },
-                        "scale": {
-                            "x": 1.0,
-                            "y": 1.0
-                        },
-                        "scale_rel": {
-                            "x": 1.0,
-                            "y": 1.0
-                        },
-                        "bounds": {
-                            "x": 0.0,
-                            "y": 0.0
-                        },
-                        "bounds_rel": {
-                            "x": 0.0,
-                            "y": 0.0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    }
-                ]
-            },
-            "mixers": 0,
-            "sync": 0,
-            "flags": 0,
-            "volume": 1.0,
-            "balance": 0.5,
-            "enabled": true,
-            "muted": false,
-            "push-to-mute": false,
-            "push-to-mute-delay": 0,
-            "push-to-talk": false,
-            "push-to-talk-delay": 0,
-            "hotkeys": {
-                "OBSBasic.SelectScene": [],
-                "libobs.show_scene_item.15": [],
-                "libobs.hide_scene_item.15": [],
-                "libobs.show_scene_item.17": [],
-                "libobs.hide_scene_item.17": []
-            },
-            "deinterlace_mode": 0,
-            "deinterlace_field_order": 0,
-            "monitoring_type": 0,
-            "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
-            "private_settings": {
-                "transition": "",
-                "transition_duration": 300
-            }
-        },
-        {
-            "prev_ver": 536870916,
             "name": "Microphone",
             "uuid": "5ff20b5c-1fad-4c63-9e00-edb85084373f",
             "id": "pulse_input_capture",
@@ -766,7 +671,7 @@
                 "device_id": "default"
             },
             "mixers": 255,
-            "sync": 0,
+            "sync": 1000000000,
             "flags": 0,
             "volume": 0.1281130462884903,
             "balance": 0.5,
@@ -789,17 +694,15 @@
         },
         {
             "prev_ver": 536870916,
-            "name": "TrueVAR Webserver",
-            "uuid": "f3c21e14-3932-4a9c-9991-dad28e170f55",
-            "id": "browser_source",
-            "versioned_id": "browser_source",
+            "name": "Scoreboard",
+            "uuid": "9f680cf1-b773-4562-9477-2a38a0cb89fd",
+            "id": "xshm_input_v2",
+            "versioned_id": "xshm_input_v2",
             "settings": {
-                "url": "http://127.0.0.1:8000/overlay",
-                "width": 1280,
-                "height": 720,
-                "reroute_audio": false
+                "screen": 0,
+                "show_cursor": false
             },
-            "mixers": 255,
+            "mixers": 0,
             "sync": 0,
             "flags": 0,
             "volume": 1.0,
@@ -810,71 +713,11 @@
             "push-to-mute-delay": 0,
             "push-to-talk": false,
             "push-to-talk-delay": 0,
-            "hotkeys": {
-                "libobs.mute": [],
-                "libobs.unmute": [],
-                "libobs.push-to-mute": [],
-                "libobs.push-to-talk": [],
-                "ObsBrowser.Refresh": []
-            },
+            "hotkeys": {},
             "deinterlace_mode": 0,
             "deinterlace_field_order": 0,
             "monitoring_type": 0,
-            "private_settings": {},
-            "filters": [
-                {
-                    "prev_ver": 536870916,
-                    "name": "Render Delay",
-                    "uuid": "b7662d15-ed71-4452-bd83-bb42c3f82734",
-                    "id": "gpu_delay",
-                    "versioned_id": "gpu_delay",
-                    "settings": {
-                        "delay_ms": 500
-                    },
-                    "mixers": 0,
-                    "sync": 0,
-                    "flags": 0,
-                    "volume": 1.0,
-                    "balance": 0.5,
-                    "enabled": true,
-                    "muted": false,
-                    "push-to-mute": false,
-                    "push-to-mute-delay": 0,
-                    "push-to-talk": false,
-                    "push-to-talk-delay": 0,
-                    "hotkeys": {},
-                    "deinterlace_mode": 0,
-                    "deinterlace_field_order": 0,
-                    "monitoring_type": 0,
-                    "private_settings": {}
-                },
-                {
-                    "prev_ver": 536870916,
-                    "name": "Render Delay 2",
-                    "uuid": "13a9d925-c287-4c5e-b488-3088d99f27a0",
-                    "id": "gpu_delay",
-                    "versioned_id": "gpu_delay",
-                    "settings": {
-                        "delay_ms": 500
-                    },
-                    "mixers": 0,
-                    "sync": 0,
-                    "flags": 0,
-                    "volume": 1.0,
-                    "balance": 0.5,
-                    "enabled": true,
-                    "muted": false,
-                    "push-to-mute": false,
-                    "push-to-mute-delay": 0,
-                    "push-to-talk": false,
-                    "push-to-talk-delay": 0,
-                    "hotkeys": {},
-                    "deinterlace_mode": 0,
-                    "deinterlace_field_order": 0,
-                    "monitoring_type": 0,
-                    "private_settings": {}
-                }
-            ]
+            "private_settings": {}
         },
         {
             "prev_ver": 536870916,

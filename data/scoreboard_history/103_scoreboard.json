@@ -2,35 +2,143 @@
   {
     "t": 0.0,
     "round": 1,
-    "clk": "2:00",
+    "clk": "1:30",
     "blue_points": 0,
     "blue_penalties": 0,
     "red_points": 0,
     "red_penalties": 0
   },
   {
-    "t": 0.002,
+    "t": 0.004,
     "round": 1,
-    "clk": "1:59",
+    "clk": "1:29",
     "blue_points": 0,
     "blue_penalties": 0,
     "red_points": 0,
     "red_penalties": 0
   },
   {
-    "t": 2.326,
+    "t": 1.0,
+    "round": 1,
+    "clk": "1:28",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 2.488,
+    "round": 1,
+    "clk": "1:28",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 2.649,
+    "round": 1,
+    "clk": "1:28",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 4.678,
     "round": 1,
     "clk": "0:00",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 6.336,
+    "round": 1,
+    "clk": "0:29",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 7.336,
+    "round": 1,
+    "clk": "0:28",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 8.336,
+    "round": 1,
+    "clk": "0:27",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 8.837,
+    "round": 2,
+    "clk": "0:27",
     "blue_points": 0,
     "blue_penalties": 0,
     "red_points": 0,
     "red_penalties": 0
   },
   {
-    "t": 12.529,
-    "round": 1,
-    "clk": "1:00",
+    "t": 9.715,
+    "round": 2,
+    "clk": "1:30",
     "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 9.718,
+    "round": 2,
+    "clk": "1:29",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 10.716,
+    "round": 2,
+    "clk": "1:28",
+    "blue_points": 0,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 11.282,
+    "round": 2,
+    "clk": "1:28",
+    "blue_points": 2,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 11.473,
+    "round": 2,
+    "clk": "1:28",
+    "blue_points": 4,
+    "blue_penalties": 0,
+    "red_points": 0,
+    "red_penalties": 0
+  },
+  {
+    "t": 13.196,
+    "round": 2,
+    "clk": "0:00",
+    "blue_points": 4,
     "blue_penalties": 0,
     "red_points": 0,
     "red_penalties": 0
