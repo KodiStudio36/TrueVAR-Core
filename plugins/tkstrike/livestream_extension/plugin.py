@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel as PydanticBody
 
 from plugins.base_plugin import Namespace
-from plugins.livestream.base_extension import BaseLivestreamExtension
+from plugins.core.livestream.base_extension import BaseLivestreamExtension
 from plugins.tkstrike.listener.gen3.plugin import TkStrikeListenerGen3Plugin
 from plugins.tkstrike.livestream_extension.automation import TkStrikeStreamAutomation
 from plugins.tkstrike.livestream_extension.settings import TkStrikeSettings

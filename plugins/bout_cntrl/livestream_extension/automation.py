@@ -3,7 +3,7 @@ from typing import Optional
 
 from core.domain.ports.overlay_broadcaster_port import OverlayBroadcaster
 from plugins.bout_cntrl.livestream_extension.settings import BoutCntrlSettings
-from plugins.livestream.base_automation import BaseAutomationEngine
+from plugins.core.livestream.base_automation import BaseAutomationEngine
 
 
 class BoutCntrlAutomation(BaseAutomationEngine):

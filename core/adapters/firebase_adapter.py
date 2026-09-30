@@ -355,3 +355,109 @@ class FirebaseAdapter(DatabasePort):
             return result
 
         return await asyncio.to_thread(_fetch)
+
+     
+    # ── ADD THESE TWO METHODS TO YOUR EXISTING FirebaseAdapter CLASS ───────────
+    # Place them right after push_live_state — same RTDB path, same pattern.
+    # Everything else in FirebaseAdapter is untouched; this is purely additive.
+
+    async def update_live_state(self, tournament_id: str, court_id: str, data: dict) -> None:
+        """
+        Partial update (RTDB .update(), NOT .set()) of the SAME
+        /tournaments/{tournament_id}/courts/{court_id}/match_data path
+        push_live_state writes to.
+
+        push_live_state's plain .set() REPLACES the whole node — correct
+        when a brand new match is selected (any previous match's data at
+        that path genuinely shouldn't persist), but wrong for anything
+        smaller: a future judge-scoring app is expected to write scores
+        into this same match_data tree (e.g. under corners/blue/judges),
+        and a .set() from the operator panel at the wrong moment would
+        silently erase that. Use update_live_state for any change that
+        should touch ONLY the keys present in `data` — stage transitions,
+        timer resets, etc. — and reserve push_live_state for "this is
+        genuinely a new match, wipe the slate."
+
+        Note RTDB .update() is a SHALLOW merge: it only protects sibling
+        top-level keys not mentioned in `data`. If `data` itself contains
+        a nested dict under one of its keys, that nested dict is still
+        replaced wholesale, not deep-merged. Fine for this plugin's own
+        writes (it only ever touches top-level stage/timer keys), just
+        worth knowing before reusing this for anything nested.
+        """
+        def _update():
+            ref = db.reference(f'tournaments/{tournament_id}/courts/{court_id}/match_data')
+            ref.update(data)
+        await asyncio.to_thread(_update)
+
+    async def fetch_live_state(self, tournament_id: str, court_id: str) -> dict | None:
+        """
+        One-shot read of the SAME match_data path push_live_state /
+        update_live_state write to. Used to check what a scoring app may
+        have written there (e.g. judge scores) since this plugin last
+        pushed, without holding open a persistent RTDB listener — a
+        plain poll (see PoomsaeControlPlugin._poll_loop) is enough for
+        "has every judge submitted yet", which doesn't need sub-second
+        latency.
+        """
+        def _fetch():
+            ref = db.reference(f'tournaments/{tournament_id}/courts/{court_id}/match_data')
+            return ref.get()
+        return await asyncio.to_thread(_fetch)
+
+    async def fetch_judges_registry(self, tournament_id: str, court_id: str) -> dict | None:
+        """
+        One-shot read of /tournaments/{tournament_id}/courts/{court_id}/
+        judges — a SEPARATE node from match_data, deliberately, because
+        it needs to survive match_data being wholesale-replaced every
+        time the operator selects a new match (see push_live_state's own
+        docstring: a new match is a genuine clean slate for match_data).
+        Judge identity/numbering ("Judge 1", "Judge 2", ...) is a
+        COURT-level, cross-match concept — the same three judges keep
+        the same numbers all day on that court, not just for one match.
+
+        Written by the judge app itself (via an RTDB transaction on this
+        same path, so two judges connecting at the same instant can't
+        race each other into the same number — see judge_app's
+        FirebaseJudgeRegistryRepository), never by this plugin. This
+        method only ever reads it, to resolve a judgeId into the number
+        the operator panel displays.
+
+        Shape: { judgeId: { number: int, connectedAt: <server timestamp> } }
+        """
+        def _fetch():
+            ref = db.reference(f'tournaments/{tournament_id}/courts/{court_id}/judges')
+            return ref.get()
+        return await asyncio.to_thread(_fetch)
+
+    async def create_judge_slot(self, tournament_id: str, court_id: str, number: int) -> None:
+        """
+        Creates/overwrites one judge slot at
+        /tournaments/{tournament_id}/courts/{court_id}/judges/{number} —
+        `number` IS the key (stringified), not a separate UUID. This
+        replaces an earlier design where the JUDGE APP itself minted a
+        UUID and registered it via an RTDB transaction; now the OPERATOR
+        explicitly creates each numbered slot via the "+ Add Judge"
+        button (see plugin.py's judge slot endpoints), and the resulting
+        QR code carries that number directly — so there's no longer any
+        concurrent "who gets to be Judge 1" race to guard against with a
+        transaction. Whichever plugin-side lock serializes concurrent
+        "+" clicks (see PoomsaeControlPlugin._judges_lock) is enough.
+        """
+        def _set():
+            # firebase_admin's PYTHON Admin SDK has no `ServerValue`
+            # class — that's a JS/web SDK convention that doesn't carry
+            # over. The Python SDK's actual mechanism for "let the
+            # server fill in its own timestamp" is this raw special-
+            # value dict, `{'.sv': 'timestamp'}`, passed as the field's
+            # value directly. Using db.ServerValue.TIMESTAMP (which
+            # doesn't exist) raised AttributeError at runtime here.
+            ref = db.reference(f'tournaments/{tournament_id}/courts/{court_id}/judges/{number}')
+            ref.set({'createdAt': {'.sv': 'timestamp'}})
+        await asyncio.to_thread(_set)
+
+    async def delete_judge_slot(self, tournament_id: str, court_id: str, number: int) -> None:
+        def _delete():
+            ref = db.reference(f'tournaments/{tournament_id}/courts/{court_id}/judges/{number}')
+            ref.delete()
+        await asyncio.to_thread(_delete)

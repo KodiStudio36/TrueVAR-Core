@@ -9,8 +9,8 @@ from pydantic import BaseModel
 
 from core.use_cases.application_bootstrapper import ApplicationBootstrapper
 from plugins.base_plugin import BasePlugin
-from plugins.gstreamer_core.plugin import GStreamerCorePlugin
-from plugins.ivr.settings import IVRSettings
+from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin
+from plugins.core.ivr.settings import IVRSettings
 
 
 class IVRPlugin(BasePlugin):

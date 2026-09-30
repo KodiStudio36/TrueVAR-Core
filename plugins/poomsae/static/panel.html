@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Poomsae Elimination — Control Panel</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root {
+            --bg: #0b0e14;
+            --panel: #12161f;
+            --panel-2: #171c27;
+            --border: #232a38;
+            --text: #e8ecf3;
+            --muted: #8b93a7;
+            --blue: #1d4ed8;
+            --blue-2: #2563eb;
+            --orange: #c2410c;
+            --orange-2: #ea580c;
+            --green: #16a34a;
+            --accent: #f43f5e;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Top bar ──────────────────────────────────────────────────── */
+        .topbar {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 0.6rem 1.25rem;
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .topbar-title {
+            font-weight: 700;
+            font-size: 1.05rem;
+            white-space: nowrap;
+        }
+
+        .nav-arrow {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 6px;
+            padding: 0.4rem 0.7rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .nav-arrow:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .topbar-center {
+            flex: 1;
+            text-align: center;
+            min-width: 0;
+        }
+
+        .topbar-category {
+            font-size: 0.85rem;
+            color: var(--muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .topbar-meta {
+            font-size: 0.78rem;
+            color: var(--muted);
+            margin-top: 0.1rem;
+        }
+
+        .topbar-meta .accent {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* ── Main layout: no left "next matches" sidebar — not needed here ── */
+        .main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 320px 1fr 300px;
+            gap: 1rem;
+            padding: 1rem;
+            min-height: 0;
+        }
+
+        .corners {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            min-height: 0;
+        }
+
+        /* Solo (cut-off) match: only the blue corner renders at all — see
+       renderCorners(). The .corner-blue/.corner-red split below is what
+       lets each corner flex to fill the space when the other is absent. */
+        .corner {
+            flex: 1;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            min-height: 0;
+        }
+
+        .corner-identity {
+            width: 260px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            padding: 1.25rem 1.25rem;
+            gap: 0.35rem;
+        }
+
+        .corner-blue .corner-identity {
+            background: linear-gradient(135deg, var(--blue), var(--blue-2));
+        }
+
+        .corner-red .corner-identity {
+            background: linear-gradient(135deg, var(--orange), var(--orange-2));
+        }
+
+        .corner-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .corner-club {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+
+        .corner-current-score {
+            font-size: 1.05rem;
+            margin-top: 0.6rem;
+            font-weight: 600;
+        }
+
+        .corner-scores {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            overflow-y: auto;
+        }
+
+        .score-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+
+        .score-table th,
+        .score-table td {
+            padding: 0.35rem 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .score-table th {
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .score-table .num {
+            text-align: right;
+        }
+
+        /* A judge slot that hasn't submitted for this round yet — shows the
+       default full-marks values (4.0 / 6.0 / 10.0), visually muted so
+       it reads as "not real data yet" at a glance. */
+        .score-default-row td {
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        /* A judge excluded from Total/Avg. Points by the "Remove highest &
+       lowest" scoring method — still shown (so the operator can see WHO
+       and WHY), just visually struck through. */
+        .score-trimmed-row td {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        .score-summary-row td {
+            color: var(--muted);
+        }
+
+        .score-summary-row:first-of-type td {
+            border-top: 2px solid var(--border);
+        }
+
+        .score-final-row td {
+            color: var(--text);
+            font-weight: 700;
+            border-bottom: none;
+        }
+
+        .score-waiting {
+            color: var(--muted);
+            font-size: 0.85rem;
+            padding: 1rem 0;
+            text-align: center;
+        }
+
+        /* ── Right: lifecycle ─────────────────────────────────────────── */
+        .lifecycle {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        /* Vertically scrollable list of every match sharing the CURRENT
+           match's category, in order — "what's next" at a glance. See
+           plugin.py's _category_matches. */
+        .queue-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            overflow-y: auto;
+            min-height: 0;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.6rem;
+        }
+
+        .queue-item {
+            padding: 0.6rem 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--panel-2);
+            cursor: pointer;
+            font-size: 0.82rem;
+        }
+
+        .queue-item:hover {
+            border-color: var(--muted);
+        }
+
+        .queue-item.active {
+            background: var(--blue-2);
+            border-color: var(--blue-2);
+        }
+
+        .queue-item-header {
+            display: flex;
+            justify-content: space-between;
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.25rem;
+        }
+
+        .queue-item.active .queue-item-header {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .queue-item-names {
+            font-weight: 600;
+        }
+
+        .queue-item.active .queue-item-names {
+            color: #fff;
+        }
+
+        .stage-pill {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            text-align: center;
+            background: var(--panel-2);
+            color: var(--muted);
+            border: 1px solid var(--border);
+            cursor: default;
+            user-select: none;
+        }
+
+        .stage-pill.clickable {
+            cursor: pointer;
+        }
+
+        .stage-pill.clickable:hover {
+            border-color: var(--muted);
+        }
+
+        .stage-pill.active {
+            background: var(--blue-2);
+            color: #fff;
+            border-color: var(--blue-2);
+        }
+
+        .stage-pill.done {
+            background: #14532d;
+            color: #bbf7d0;
+            border-color: #166534;
+        }
+
+        .stage-pill.final {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .stage-arrow {
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+
+        /* ── Bottom: timer + controls ─────────────────────────────────── */
+        .footer {
+            display: flex;
+            align-items: stretch;
+            gap: 0.75rem;
+            padding: 0 1rem 1rem;
+            flex-shrink: 0;
+        }
+
+        .timer {
+            flex: 1;
+            background: var(--green);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: .5rem 1.5rem;
+            color: #06240f;
+            /* black-ish — the RUNNING/active text color */
+            cursor: pointer;
+            user-select: none;
+            transition: filter 0.1s;
+        }
+
+        .timer:hover {
+            filter: brightness(1.08);
+        }
+
+        /* Always green — paused/disabled no longer change the background at
+       all, only the TEXT color, to white, which is the only signal now
+       for "not actively counting down". */
+        .timer.paused,
+        .timer.disabled {
+            color: #ffffff;
+        }
+
+        .timer.disabled {
+            cursor: default;
+        }
+
+        .timer.disabled:hover {
+            filter: none;
+        }
+
+        .timer-label {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .timer-sub {
+            font-size: 0.78rem;
+            opacity: 0.85;
+        }
+
+        .timer-clock {
+            font-size: 2.4rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .nav-icon-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .gear-icon {
+            font-weight: 800;
+            font-size: 1.05rem;
+            line-height: 1;
+        }
+
+        .judge-chips {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            padding: 1rem 1rem 0rem 1rem;
+        }
+
+        .judge-chip {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.4rem 1rem;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .judge-chip:hover {
+            border-color: var(--muted);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 1.5rem;
+        }
+
+        .modal-panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            width: min(90vw, 420px);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .qr-code-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border-radius: 10px;
+            padding: 1rem;
+            min-height: 232px;
+        }
+
+        .settings-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            margin-bottom: 1rem;
+            font-size: 0.82rem;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .settings-field select,
+        .settings-field input {
+            padding: 0.5rem 0.6rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel-2);
+            color: var(--text);
+            font-size: 0.9rem;
+            font-weight: 400;
+        }
+
+        .settings-save-btn {
+            width: 100%;
+            margin-top: 0.5rem;
+            background: var(--blue-2);
+            border-color: var(--blue-2);
+            color: #fff;
+            font-weight: 700;
+            padding: 0.6rem;
+        }
+
+        /* Sits next to the timer in the footer — deliberately styled like a
+       clear warning action (red), distinct from the always-green timer
+       next to it, since it's a destructive/one-way action per match
+       round. */
+        .restart-btn {
+            flex-shrink: 0;
+            background: var(--accent);
+            border: none;
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.95rem;
+            border-radius: 10px;
+            padding: 0 1.75rem;
+            cursor: pointer;
+        }
+
+        .restart-btn:hover:not(:disabled) {
+            filter: brightness(1.08);
+        }
+
+        /* Not applicable right now (side-by-side match, nothing live, or no
+           round running) — stays in place, just darkened and inert. */
+        .restart-btn:disabled,
+        .penalty-btn:disabled {
+            opacity: 0.35;
+            filter: grayscale(0.6) brightness(0.7);
+            cursor: not-allowed;
+        }
+
+        .penalty-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .penalty-btn {
+            border: none;
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.9rem;
+            border-radius: 10px;
+            padding: 0 1.25rem;
+            cursor: pointer;
+            background: #b45309;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.1rem;
+            line-height: 1.15;
+        }
+
+        .penalty-btn small {
+            font-weight: 600;
+            font-size: 0.72rem;
+            opacity: 0.85;
+            max-width: 9rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .penalty-btn.corner-blue-btn {
+            background: var(--blue-2);
+        }
+
+        .penalty-btn.corner-red-btn {
+            background: var(--orange-2);
+        }
+
+        .penalty-btn:hover:not(:disabled) {
+            filter: brightness(1.1);
+        }
+
+        .live-line {
+            font-size: 0.74rem;
+            margin-top: 0.15rem;
+        }
+
+        .live-line .live-dot {
+            display: inline-block;
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 50%;
+            background: var(--accent);
+            margin-right: 0.3rem;
+            vertical-align: middle;
+        }
+
+        .live-line button {
+            background: none;
+            border: none;
+            color: var(--accent);
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0;
+            font-size: inherit;
+            text-decoration: underline;
+        }
+
+        .not-live-note {
+            color: var(--muted);
+            font-size: 0.9rem;
+            padding: 2rem 1rem;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        .queue-live-tag {
+            background: var(--accent);
+            color: #fff;
+            border-radius: 4px;
+            padding: 0 0.35rem;
+            margin-left: 0.35rem;
+            font-size: 0.65rem;
+        }
+
+        .stage-pill.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .penalty-clear {
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 0.72rem;
+            padding: 0 0 0 0.3rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="topbar">
+        <div class="topbar-title">Poomsae Elimination</div>
+        <button class="nav-arrow nav-icon-btn" id="settingsBtn" onclick="openSettingsModal()"
+            title="Judge count, scoring method, restart deduction">
+            <span class="gear-icon">⚙</span> Settings
+        </button>
+        <button class="nav-arrow" id="prevCategoryBtn" onclick="changeCategory(-1)"
+            title="First match of the previous category">&laquo; Previous category</button>
+        <button class="nav-arrow" id="prevMatchBtn" onclick="changeMatch(-1)">&larr; Previous match</button>
+        <div class="topbar-center">
+            <div class="topbar-category" id="categoryLine">Loading…</div>
+            <div class="topbar-meta" id="metaLine"></div>
+            <div class="live-line" id="liveLine"></div>
+        </div>
+        <button class="nav-arrow" id="nextMatchBtn" onclick="changeMatch(1)">Next match &rarr;</button>
+        <button class="nav-arrow" id="nextCategoryBtn" onclick="changeCategory(1)"
+            title="First match of the next category">Next category &raquo;</button>
+        <button class="nav-arrow" id="reloadBtn" onclick="reloadSchedule()"
+            title="Re-read this court's matches after brackets were re-pushed from the website — stays on the current match">&#x21bb;
+            Reload schedule</button>
+    </div>
+
+    <div id="judgeChipsEl" class="judge-chips"></div>
+
+    <div id="settingsOverlay" class="modal-overlay hidden" onclick="if (event.target === this) closeSettingsModal()">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <span>Settings</span>
+                <button class="nav-arrow" onclick="closeSettingsModal()">Close</button>
+            </div>
+            <label class="settings-field">
+                <span>Number of judges</span>
+                <select id="settingsJudgeCount">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                </select>
+            </label>
+            <label class="settings-field">
+                <span>Scoring method</span>
+                <select id="settingsScoringMethod">
+                    <option value="sum_all">Count all judges</option>
+                    <option value="trim_high_low">Remove highest &amp; lowest</option>
+                </select>
+            </label>
+            <label class="settings-field">
+                <span>Automatic restart deduction</span>
+                <input type="number" id="settingsRestartDeduction" step="0.1" value="-0.6">
+            </label>
+            <label class="settings-field">
+                <span>Penalty (per tap)</span>
+                <input type="number" id="settingsPenaltyDeduction" step="0.1" value="-0.3">
+            </label>
+            <button class="nav-arrow settings-save-btn" onclick="saveSettings()">Save</button>
+        </div>
+    </div>
+
+    <div id="connectJudgeOverlay" class="modal-overlay hidden"
+        onclick="if (event.target === this) closeConnectJudgeModal()">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <span id="judgeQrModalTitle">Judge</span>
+                <button class="nav-arrow" onclick="closeConnectJudgeModal()">Close</button>
+            </div>
+            <p class="text-muted" style="font-size: 0.85rem; margin: 0 0 0.75rem;">
+                Open the judge app and scan this code — it tells that device it's THIS judge, on this court.
+            </p>
+            <div id="judgeQrCode" class="qr-code-box"></div>
+            <p class="text-muted" style="font-size: 0.72rem; margin-top: 0.75rem; text-align: center;"
+                id="judgeQrPayloadText"></p>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="queue-panel" id="queuePanelEl"></div>
+
+        <div class="corners" id="cornersEl"></div>
+
+        <div class="lifecycle" id="lifecycleEl"></div>
+    </div>
+
+    <div class="footer">
+        <button class="restart-btn" id="restartBtn" onclick="restartRound()"
+            title="Solo performance only: clears every judge's score for the CURRENT round — does not touch the timer — and applies the automatic restart deduction">Restart</button>
+        <div class="penalty-group" id="penaltyGroup"></div>
+        <div class="timer" id="timerEl" onclick="toggleTimer()">
+            <div>
+                <div class="timer-label" id="timerLabel">Preparation</div>
+                <div class="timer-sub" id="timerSub">Click a stage on the right to begin</div>
+            </div>
+            <div class="timer-clock" id="timerClock">—</div>
+        </div>
+    </div>
+
+    <script>
+        // ── State ────────────────────────────────────────────────────────
+        const STAGE_LABELS = { preparation: "Preparation", poomsae_1: "Poomsae 1", poomsae_2: "Poomsae 2", final_results: "Final Results" };
+        // Mirrors plugin.py's STAGE_TO_ROUND_KEY exactly — which RTDB child
+        // key under a judge's own entry holds THIS stage's scores. null for
+        // Preparation/Final Results, which have no active round to show a
+        // judges table for at all.
+        const STAGE_TO_ROUND_KEY = { poomsae_1: "poomsae1", poomsae_2: "poomsae2" };
+
+        // A real judge number is always a positive integer, 1 and up —
+        // plugin.py's add_judge() starts numbering at 1 and only ever
+        // increments, never produces 0 or negative. Number.isFinite() alone
+        // isn't enough of a filter: 0 IS finite, and a stray "0"-keyed
+        // entry left over from earlier testing (same category of issue as
+        // an earlier leftover UUID key) would otherwise render as a phantom
+        // "Judge 0". Used everywhere a judges/{key} or corners/*/judges/{key}
+        // object's keys get turned into numbers.
+        function isValidJudgeNumber(n) {
+            return Number.isFinite(n) && n >= 1 && Number.isInteger(n);
+        }
+
+        let state = null;           // last /state response
+        let countdownTimer = null;  // local setInterval handle — purely visual, never pushes anything over the network per tick
+
+        async function api(path, method = "GET", body) {
+            const opts = { method };
+            if (body !== undefined) {
+                opts.headers = { "Content-Type": "application/json" };
+                opts.body = JSON.stringify(body);
+            }
+            const res = await fetch(`/api/poomsae-control${path}`, opts);
+            if (!res.ok) {
+                const responseBody = await res.json().catch(() => ({}));
+                throw new Error(extractErrorDetail(responseBody, `Request failed (${res.status})`));
+            }
+            return res.json();
+        }
+
+        // FastAPI's error body shape varies: a plain string detail (most
+        // handlers) vs. a 422 validation error, where detail is an ARRAY of
+        // {loc, msg, type} objects — new Error(array) silently stringifies
+        // that into "[object Object],[object Object]" if not handled.
+        function extractErrorDetail(body, fallback) {
+            const detail = body && body.detail;
+            if (typeof detail === "string" && detail) return detail;
+            if (Array.isArray(detail) && detail.length > 0) {
+                return detail.map(d => {
+                    const loc = Array.isArray(d.loc) ? d.loc.join(".") : "";
+                    return loc ? `${loc}: ${d.msg}` : (d.msg || JSON.stringify(d));
+                }).join("; ");
+            }
+            return fallback;
+        }
+
+        async function loadState() {
+            try {
+                state = await api("/state");
+                render();
+            } catch (err) {
+                console.error("Failed to load state", err);
+            }
+        }
+
+        // ── Judge slots ──────────────────────────────────────────────────
+        // The OPERATOR now owns judge numbering entirely — "+ Add Judge"
+        // creates the next available numbered slot (see plugin.py's
+        // POST /judges, which fills gaps rather than always incrementing,
+        // so removing Judge 2 and re-adding gives back "Judge 2") and shows
+        // its QR code immediately. That QR payload carries the number
+        // directly — {"tournamentId", "courtId", "judgeNumber"} — so the
+        // judge app never has to mint or register its own identity; it just
+        // reads who it is straight off the scanned code. Clicking an
+        // existing chip re-shows that same judge's QR (e.g. if a judge's
+        // device needs to rescan); clicking its ✕ deletes the slot.
+        function openJudgeQrModal(number) {
+            if (!state || !state.tournamentId || !state.courtId) {
+                alert("Court isn't bound to a tournament yet — nothing to connect a judge to.");
+                return;
+            }
+            const payload = JSON.stringify({ tournamentId: state.tournamentId, courtId: state.courtId, judgeNumber: number });
+
+            document.getElementById("judgeQrModalTitle").textContent = `Judge ${number}`;
+            const box = document.getElementById("judgeQrCode");
+            box.innerHTML = "";
+            // QRCode() renders into the given element on construction; a
+            // fresh instance per open is simplest and avoids needing to
+            // track/clear a previous canvas across re-opens.
+            new QRCode(box, {
+                text: payload,
+                width: 220,
+                height: 220,
+                colorDark: "#0b0e14",
+                colorLight: "#ffffff",
+            });
+
+            document.getElementById("judgeQrPayloadText").textContent = payload;
+            document.getElementById("connectJudgeOverlay").classList.remove("hidden");
+        }
+
+        function closeConnectJudgeModal() {
+            document.getElementById("connectJudgeOverlay").classList.add("hidden");
+        }
+
+        // ── Settings modal ──────────────────────────────────────────────────
+        // Judge count is no longer built one at a time via a button — it's
+        // set here, and the backend reconciles the actual slot set to match
+        // (see plugin.py's _reconcile_judge_slots) whenever this is saved.
+        function openSettingsModal() {
+            const s = (state && state.settings) || {};
+            document.getElementById("settingsJudgeCount").value = s.judge_count ?? 3;
+            document.getElementById("settingsScoringMethod").value = s.scoring_method || "sum_all";
+            document.getElementById("settingsRestartDeduction").value = s.restart_deduction ?? -0.6;
+            document.getElementById("settingsPenaltyDeduction").value = s.penalty_deduction ?? -0.3;
+            document.getElementById("settingsOverlay").classList.remove("hidden");
+        }
+
+        function closeSettingsModal() {
+            document.getElementById("settingsOverlay").classList.add("hidden");
+        }
+
+        async function saveSettings() {
+            const payload = {
+                poomsae_seconds: (state && state.settings && state.settings.poomsae_seconds) || 90,
+                judge_count: parseInt(document.getElementById("settingsJudgeCount").value, 10),
+                scoring_method: document.getElementById("settingsScoringMethod").value,
+                restart_deduction: parseFloat(document.getElementById("settingsRestartDeduction").value),
+                penalty_deduction: parseFloat(document.getElementById("settingsPenaltyDeduction").value),
+            };
+            try {
+                await api("/settings", "POST", payload);
+                closeSettingsModal();
+                await loadState();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // ── Restart ──────────────────────────────────────────────────────────
+        // Clears every judge's score for the CURRENTLY ACTIVE round only —
+        // leaves the timer completely alone (no call to /timer/* here at
+        // all) — and records the automatic restart deduction. See
+        // plugin.py's _reset_round for exactly what gets written.
+        async function restartRound() {
+            if (!confirm("Reset this round? Every judge's score for the current round will be cleared and the automatic restart deduction applied. This does not affect the timer.")) return;
+            try {
+                await api("/round/reset", "POST");
+                await loadState();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        function renderJudgeChips() {
+            const el = document.getElementById("judgeChipsEl");
+            const registry = (state && state.judgesRegistry) || {};
+            // isValidJudgeNumber filters out any leftover non-numeric/zero
+            // key — see that function's own comment for why (stale entries
+            // from earlier judge-registration designs can still be sitting
+            // in Firebase).
+            const numbers = Object.keys(registry).map(Number).filter(isValidJudgeNumber).sort((a, b) => a - b);
+            // No remove button anymore — the judge COUNT is set once via
+            // Settings, not built/torn down one chip at a time, so there's
+            // nothing for an individual chip to remove on its own. Clicking
+            // a chip still re-opens that judge's QR code (e.g. to rescan on
+            // a different device).
+            el.innerHTML = numbers.map(n => `
+            <div class="judge-chip" onclick="openJudgeQrModal(${n})">
+                <span>Judge ${n}</span>
+            </div>
+        `).join("");
+        }
+
+        // Re-reads this court's schedule from Firestore (e.g. after the
+        // website re-pushed brackets). The plugin stays on the current
+        // match and keeps its stage and judge scores — see _reload_matches.
+        async function reloadSchedule() {
+            const btn = document.getElementById("reloadBtn");
+            btn.disabled = true;
+            try {
+                const res = await api("/reload", "POST");
+                await loadState();
+                btn.textContent = `\u21bb Reloaded (${res.total})`;
+                setTimeout(() => { btn.innerHTML = "&#x21bb; Reload schedule"; }, 2000);
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function changeCategory(direction) {
+            try {
+                await api(direction > 0 ? "/next-category" : "/previous-category", "POST");
+                await loadState();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        async function givePenalty(corner) {
+            try {
+                await api("/penalty", "POST", { corner });
+                await loadState();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        async function clearPenalty(corner) {
+            if (!confirm("Remove this athlete's penalties for the current round?")) return;
+            try {
+                await api("/penalty/clear", "POST", { corner });
+                await loadState();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        async function changeMatch(direction) {
+            try {
+                await api(direction > 0 ? "/next-match" : "/previous-match", "POST");
+                await loadState();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // Clicking a stage pill jumps DIRECTLY to that stage — forward or
+        // backward, any of the three manually-reachable stages (Preparation
+        // / Poomsae 1 / Poomsae 2). final_results has no click handler at
+        // all (see renderLifecycle) and the backend rejects it outright if
+        // somehow called anyway (see plugin.py's set_stage).
+        async function jumpToStage(stage) {
+            if (state?.isLive && stage === state?.stage) return; // already there — no-op
+            // Preparation on a match that isn't live puts it on the floor and
+            // the external screen, replacing whatever is live. Ask first if
+            // that match is still mid-round.
+            if (!state?.isLive && state?.liveMatch && ["poomsae_1", "poomsae_2"].includes(state.stage)) {
+                if (!confirm(`Match №${state.liveMatch.displayNumber} is still in ${STAGE_LABELS[state.stage]}. Replace it on the screen with this match?`)) return;
+            }
+            try {
+                await api(`/stage/${stage}`, "POST");
+                await loadState();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // Clicking any match in the queue panel jumps straight to it —
+        // the backend finds its index in the court's own schedule and
+        // re-runs the same "select this match" flow Previous/Next use.
+        async function jumpToMatch(matchId) {
+            if (state && state.match && state.match.id === matchId) return; // already showing it
+            try {
+                await api(`/jump-to-match/${encodeURIComponent(matchId)}`, "POST");
+                await loadState();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // ── Rendering ────────────────────────────────────────────────────
+        function render() {
+            renderJudgeChips(); // court-level — render regardless of whether a match is selected
+
+            if (!state || !state.match) {
+                document.getElementById("categoryLine").textContent = "No match scheduled on this court.";
+                document.getElementById("metaLine").textContent = "";
+                document.getElementById("cornersEl").innerHTML = "";
+                document.getElementById("lifecycleEl").innerHTML = "";
+                document.getElementById("queuePanelEl").innerHTML = "";
+                document.getElementById("liveLine").innerHTML = "";
+                renderActions(false, true, null, (state && state.settings) || {}, {});
+                return;
+            }
+
+            const m = state.match;
+            const live = state.live || {};
+            document.getElementById("categoryLine").textContent = (state.matchLabels && state.matchLabels.category) || m.categoryLabel || m.categoryCode || "";
+            const labels = state.matchLabels || {};
+            const isLive = !!state.isLive;
+            document.getElementById("metaLine").innerHTML =
+                `${escapeHtml(labels.roundPhase || m.roundPhase || "")} <span class="accent">№${escapeHtml(labels.displayNumber ?? m.displayNumber ?? "—")}</span> · Match ${state.index + 1} of ${state.total}`;
+
+            renderLiveLine(state.liveMatch, isLive);
+            renderActions(isLive, m.red == null, state.stage, state.settings || {}, state.selectedCorners || {});
+
+            document.getElementById("prevMatchBtn").disabled = state.index <= 0;
+            document.getElementById("nextMatchBtn").disabled = state.index + 1 >= state.total;
+            const nav = state.categoryNav || {};
+            document.getElementById("prevCategoryBtn").disabled = !nav.hasPrevious;
+            document.getElementById("nextCategoryBtn").disabled = !nav.hasNext;
+
+            // Live: real match_data with judge scores. Not live: just the
+            // selected match's names/clubs and a hint to click Preparation.
+            renderCorners(isLive ? (live.corners || {}) : (state.selectedCorners || {}), m.red == null, state.judgesRegistry || {},
+                isLive ? (STAGE_TO_ROUND_KEY[state.stage] || null) : null, (state.settings && state.settings.scoring_method) || "sum_all", isLive);
+            renderQueuePanel(state.categoryMatches || []);
+            renderLifecycle(isLive ? state.stage : null, isLive);
+            renderTimer(isLive ? live : { stageLabel: "Not live", notLive: true });
+        }
+
+        // "when it is cut off you will have there just the blue one" — a
+        // solo (cut-off) match has no red corner at all, so isSolo skips
+        // rendering the second panel entirely rather than showing an empty
+        // one. The blue panel gets the full height either way via flex.
+        function renderCorners(corners, isSolo, judgesRegistry, roundKey, scoringMethod, isLive) {
+            const el = document.getElementById("cornersEl");
+            const blue = corners.blue;
+            const red = corners.red;
+            el.innerHTML = renderCorner(blue, "blue", judgesRegistry, roundKey, scoringMethod, isLive) + (isSolo ? "" : renderCorner(red, "red", judgesRegistry, roundKey, scoringMethod, isLive));
+        }
+
+        function renderCorner(corner, side, judgesRegistry, roundKey, scoringMethod, isLive) {
+            if (!corner) return "";
+            const scoresHtml = !isLive
+                ? `<div class="not-live-note">Not on the floor yet.<br>Click <strong>Preparation</strong> to put this match on the external screen.</div>`
+                : (roundKey == null)
+                    ? `<div class="score-waiting">No active poomsae round</div>`
+                    : buildJudgesTable(corner.judges, judgesRegistry, roundKey, scoringMethod, corner.roundDeduction, corner.roundPenalty, side);
+            const currentTotal = corner.finalScore != null ? `Final Score: ${corner.finalScore}` : "";
+
+            return `
+            <div class="corner corner-${side}">
+                <div class="corner-identity">
+                    <div class="corner-name">${escapeHtml(corner.name || "—")}</div>
+                    <div class="corner-club">${escapeHtml(corner.clubName || "")}</div>
+                    ${currentTotal ? `<div class="corner-current-score">${escapeHtml(currentTotal)}</div>` : ""}
+                </div>
+                <div class="corner-scores">${scoresHtml}</div>
+            </div>
+        `;
+        }
+
+        // Rows = one per REGISTERED judge slot (judgesRegistry — the
+        // court-level registry Settings' "Number of judges" reconciles, see
+        // plugin.py's _reconcile_judge_slots — keyed by the judge's own
+        // number DIRECTLY, e.g. judges/1, judges/2). A judge who hasn't
+        // submitted anything for THIS round yet still gets a row, defaulting
+        // to full marks (Accuracy 4.0, Presentation 6.0, Total 10.0) rather
+        // than being omitted — this is what replaces the old "Waiting for
+        // judges…" placeholder with an actual table the operator can read
+        // at a glance, even before anyone's scored anything.
+        //
+        // scoringMethod ("sum_all" | "trim_high_low", set in Settings)
+        // decides which judges' scores feed the Total/Avg. Points rows:
+        // "trim_high_low" drops the single highest-Total and single
+        // lowest-Total judge (real WT-style outlier trimming) before
+        // averaging the rest — only when there are at least 3 judges, since
+        // trimming both ends of 1-2 judges would leave nothing or go
+        // negative. Trimmed judges still show their real row (struck
+        // through) so the operator can see who was excluded and why.
+        function buildJudgesTable(judgesMap, judgesRegistry, roundKey, scoringMethod, roundDeduction, roundPenalty, side) {
+            const registryNumbers = Object.keys(judgesRegistry || {}).map(Number).filter(isValidJudgeNumber);
+            const scoredNumbers = Object.keys(judgesMap || {}).map(Number).filter(isValidJudgeNumber);
+            // Union, not just the registry — a judge with real score data
+            // who somehow isn't (or no longer is) in the registry still
+            // gets a row rather than having their data silently hidden.
+            const allNumbers = [...new Set([...registryNumbers, ...scoredNumbers])].sort((a, b) => a - b);
+
+            const entries = allNumbers.map(number => {
+                const roundData = judgesMap && judgesMap[number] && judgesMap[number][roundKey];
+                const hasSubmittedData = !!roundData;
+                return {
+                    number,
+                    accuracy: hasSubmittedData ? roundData.accuracy : 4.0,
+                    presentation: hasSubmittedData ? roundData.presentation : 6.0,
+                    total: hasSubmittedData ? roundData.total : 10.0,
+                    isDefault: !hasSubmittedData,
+                };
+            });
+
+            let included = entries;
+            let trimmedNumbers = new Set();
+            if (scoringMethod === "trim_high_low" && entries.length >= 3) {
+                const sorted = [...entries].sort((a, b) => a.total - b.total);
+                const droppedLow = sorted[0], droppedHigh = sorted[sorted.length - 1];
+                trimmedNumbers = new Set([droppedLow.number, droppedHigh.number]);
+                included = entries.filter(e => !trimmedNumbers.has(e.number));
+            }
+
+            const rows = entries.map(e => {
+                const classes = [e.isDefault ? "score-default-row" : "", trimmedNumbers.has(e.number) ? "score-trimmed-row" : ""].filter(Boolean).join(" ");
+                return `
+            <tr class="${classes}">
+                <td>Judge ${e.number}</td>
+                <td class="num">${formatScore(e.accuracy)}</td>
+                <td class="num">${formatScore(e.presentation)}</td>
+                <td class="num">${formatScore(e.total)}</td>
+            </tr>
+        `;
+            }).join("");
+
+            const count = included.length || 1;
+            const sum = (key) => included.reduce((s, e) => s + (e[key] ?? 0), 0);
+            const totalAcc = sum("accuracy"), totalPres = sum("presentation"), totalTot = sum("total");
+            const avgAcc = totalAcc / count, avgPres = totalPres / count, avgTot = totalTot / count;
+
+            // Restart deduction (once per round) + penalties (per tap), both
+            // reset on every stage change — see plugin.py.
+            const restart = roundDeduction ? Number(roundDeduction) : 0;
+            const penalty = roundPenalty ? Number(roundPenalty) : 0;
+            const finalTotal = avgTot + restart + penalty;
+            const fmt = v => `${v > 0 ? "+" : ""}${v.toFixed(1)}`;
+            const parts = [];
+            if (restart) parts.push(`<span style="color:var(--accent);" title="Restart deduction">R ${fmt(restart)}</span>`);
+            if (penalty) parts.push(`<span style="color:#f59e0b;" title="Penalties">P ${fmt(penalty)}</span><button class="penalty-clear" title="Remove penalties" onclick="clearPenalty('${side}')">✕</button>`);
+            const deductionCell = parts.length
+                ? parts.join(" ")
+                : `<span class="text-muted" style="font-size:0.72rem;">No deductions</span>`;
+
+            return `
+            <table class="score-table">
+                <thead><tr><th></th><th class="num">Accuracy</th><th class="num">Presentation</th><th class="num">Total</th></tr></thead>
+                <tbody>
+                    ${rows}
+                    <tr class="score-summary-row">
+                        <td>Total</td><td class="num">${totalAcc.toFixed(2)}</td><td class="num">${totalPres.toFixed(2)}</td><td class="num">${totalTot.toFixed(1)}</td>
+                    </tr>
+                    <tr class="score-summary-row">
+                        <td>Avg. Points</td><td class="num">${avgAcc.toFixed(3)}</td><td class="num">${avgPres.toFixed(3)}</td><td class="num">${avgTot.toFixed(3)}</td>
+                    </tr>
+                    <tr class="score-final-row">
+                        <td>Final Score</td><td class="num">${deductionCell}</td><td></td><td class="num">${finalTotal.toFixed(3)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        `;
+        }
+
+        function formatScore(v) {
+            return (v === undefined || v === null) ? "—" : Number(v).toFixed(1);
+        }
+
+        // Vertically scrollable list of every match in the CURRENT
+        // match's category (see plugin.py's _category_matches) — the
+        // "order + what fight is next" panel. The active match is
+        // always highlighted and auto-scrolled into view so the
+        // operator never has to hunt for it in a long list.
+        function renderQueuePanel(categoryMatches) {
+            const el = document.getElementById("queuePanelEl");
+            el.innerHTML = categoryMatches.map(m => `
+                <div class="queue-item ${m.isActive ? "active" : ""}" title="${m.isLive ? "On the floor now" : "Select — click Preparation to put it on the floor"}" onclick="jumpToMatch(${escapeHtml(JSON.stringify(m.id))})">
+                    <div class="queue-item-header">
+                        <span>${escapeHtml(m.roundPhaseLabel || m.roundPhase || "")}${m.isLive ? `<span class="queue-live-tag">LIVE</span>` : ""}</span>
+                        <span>№${escapeHtml(m.displayNumberLabel ?? m.displayNumber ?? "—")}</span>
+                    </div>
+                    <div class="queue-item-names">
+                        ${escapeHtml(m.blueName || "—")}${m.redName ? " vs " + escapeHtml(m.redName) : ""}
+                    </div>
+                </div>
+            `).join("");
+
+            const activeEl = el.querySelector(".queue-item.active");
+            if (activeEl) activeEl.scrollIntoView({ block: "nearest" });
+        }
+
+        // Selected match NOT live: only Preparation is clickable (that's what
+        // puts it on the floor); nothing is highlighted. Live: as before —
+        // Preparation / Poomsae 1 / Poomsae 2 clickable, Final Results automatic.
+        function renderLifecycle(currentStage, isLive) {
+            const el = document.getElementById("lifecycleEl");
+            const order = ["preparation", "poomsae_1", "poomsae_2", "final_results"];
+            const currentIdx = isLive ? order.indexOf(currentStage) : -1;
+            el.innerHTML = order.map((stage, i) => {
+                const isFinal = stage === "final_results";
+                const clickable = !isFinal && (isLive || stage === "preparation");
+                let cls = "stage-pill";
+                if (isFinal) cls += " final";
+                else if (clickable) cls += " clickable";
+                else cls += " disabled";
+                if (i < currentIdx) cls += " done";
+                else if (i === currentIdx) cls += " active";
+                const arrow = i < order.length - 1 ? `<div class="stage-arrow">&darr;</div>` : "";
+                const onclick = clickable ? ` onclick="jumpToStage('${stage}')"` : "";
+                const title = !isLive && stage === "preparation" ? ` title="Put this match on the floor and the external screen"`
+                    : !clickable && !isFinal ? ` title="Click Preparation first"` : "";
+                return `<div class="${cls}"${onclick}${title}>${STAGE_LABELS[stage]}</div>${arrow}`;
+            }).join("");
+        }
+
+        // Which match is on the floor, when it isn't the one selected.
+        function renderLiveLine(liveMatch, isLive) {
+            const el = document.getElementById("liveLine");
+            if (isLive) {
+                el.innerHTML = `<span class="live-dot"></span>Live on screen`;
+            } else if (liveMatch) {
+                el.innerHTML = `<span class="live-dot"></span>Live: №${escapeHtml(liveMatch.displayNumber)} ${escapeHtml(liveMatch.category)} · <button onclick="jumpToMatch(${escapeHtml(JSON.stringify(liveMatch.id))})">go to live match</button>`;
+            } else {
+                el.innerHTML = `<span class="text-muted">Nothing live — select a match and click Preparation</span>`;
+            }
+        }
+
+        // Restart: solo performance only (darkened in a side-by-side match).
+        // Penalty: one button for solo, one per athlete side-by-side. Both
+        // only work on the live match during Poomsae 1 / Poomsae 2.
+        function renderActions(isLive, isSolo, stage, settings, corners) {
+            const inRound = isLive && ["poomsae_1", "poomsae_2"].includes(stage);
+            const restartBtn = document.getElementById("restartBtn");
+            const restart = settings.restart_deduction;
+            restartBtn.textContent = restart ? `Restart (${restart > 0 ? "+" : ""}${restart})` : "Restart";
+            restartBtn.disabled = !inRound || !isSolo;
+            restartBtn.title = !isSolo ? "Not available in a side-by-side match"
+                : !inRound ? "Available during Poomsae 1 / Poomsae 2 of the live match"
+                    : "Clears every judge's score for the CURRENT round — does not touch the timer — and applies the automatic restart deduction";
+
+            const penalty = settings.penalty_deduction ?? -0.3;
+            const amount = `${penalty > 0 ? "+" : ""}${penalty}`;
+            const disabled = inRound ? "" : "disabled";
+            const title = inRound ? "" : ` title="Available during Poomsae 1 / Poomsae 2 of the live match"`;
+            const name = c => escapeHtml(((corners || {})[c] || {}).name || (c === "blue" ? "Blue" : "Red"));
+            document.getElementById("penaltyGroup").innerHTML = isSolo
+                ? `<button class="penalty-btn" ${disabled}${title} onclick="givePenalty('blue')">Penalty (${amount})</button>`
+                : `<button class="penalty-btn corner-blue-btn" ${disabled}${title} onclick="givePenalty('blue')">Penalty (${amount})<small>${name("blue")}</small></button>
+                   <button class="penalty-btn corner-red-btn" ${disabled}${title} onclick="givePenalty('red')">Penalty (${amount})<small>${name("red")}</small></button>`;
+        }
+
+        // ── Timer ────────────────────────────────────────────────────────
+        // Manual start/pause, not auto-running — see plugin.py's TIMER MODEL
+        // comment. Three states this renders:
+        //   - disabled: Preparation / Final Results — no timer exists at all
+        //   - paused: a poomsae round is active but the operator hasn't
+        //     tapped the timer yet (or paused it mid-count) — shows the
+        //     frozen timerRemainingSeconds value, no ticking
+        //   - running: ticking countdown computed locally from
+        //     timerRemainingSeconds (the value AT the moment it was last
+        //     started) minus elapsed time since timerStartedAt — the same
+        //     "push the fact, not the tick" rule as everywhere else here.
+        function renderTimer(live) {
+            clearInterval(countdownTimer);
+            const timerEl = document.getElementById("timerEl");
+            const label = live.stageLabel || STAGE_LABELS[state.stage] || "";
+            document.getElementById("timerLabel").textContent = label;
+
+            const duration = live.stageDurationSeconds;
+            if (live.notLive) {
+                timerEl.className = "timer disabled";
+                document.getElementById("timerSub").textContent = "Click Preparation to put this match on the floor";
+                document.getElementById("timerClock").textContent = "—";
+                return;
+            }
+            if (duration == null) {
+                timerEl.className = "timer disabled";
+                document.getElementById("timerSub").textContent = "No timer for this stage";
+                document.getElementById("timerClock").textContent = "—";
+                return;
+            }
+
+            const baseline = live.timerRemainingSeconds != null ? live.timerRemainingSeconds : duration;
+
+            if (!live.timerRunning) {
+                timerEl.className = "timer paused";
+                document.getElementById("timerSub").textContent = "Click to start";
+                document.getElementById("timerClock").textContent = formatClock(Math.max(0, Math.round(baseline)));
+                return;
+            }
+
+            document.getElementById("timerSub").textContent = "Click to pause";
+            const startedAt = live.timerStartedAt ? new Date(live.timerStartedAt).getTime() : Date.now();
+
+            function tick() {
+                const elapsed = (Date.now() - startedAt) / 1000;
+                const remaining = Math.max(0, Math.round(baseline - elapsed));
+                document.getElementById("timerClock").textContent = formatClock(remaining);
+                timerEl.className = "timer"; // always plain/green+black while running — see the .timer CSS rule's own comment
+            }
+            tick();
+            countdownTimer = setInterval(tick, 1000);
+        }
+
+        // Toggles the timer for whichever poomsae round is currently active
+        // — a no-op for Preparation/Final Results (nothing to toggle) or
+        // before any match/round is loaded at all.
+        async function toggleTimer() {
+            const live = state && state.live;
+            if (!state || !state.isLive || !live || live.stageDurationSeconds == null) return;
+
+            try {
+                if (live.timerRunning) {
+                    // Compute the CURRENT remaining time client-side and
+                    // send it up so the paused value stored in match_data
+                    // is exact, not just "duration" again — see
+                    // TimerPausePayload's own doc comment on the backend.
+                    const baseline = live.timerRemainingSeconds != null ? live.timerRemainingSeconds : live.stageDurationSeconds;
+                    const startedAt = live.timerStartedAt ? new Date(live.timerStartedAt).getTime() : Date.now();
+                    const elapsed = (Date.now() - startedAt) / 1000;
+                    const remaining = Math.max(0, baseline - elapsed);
+                    await api("/timer/pause", "POST", { remainingSeconds: remaining });
+                } else {
+                    await api("/timer/start", "POST");
+                }
+                await loadState();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        function formatClock(totalSeconds) {
+            const m = Math.floor(totalSeconds / 60);
+            const s = totalSeconds % 60;
+            return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+        }
+
+        // Poll every couple seconds — cheap (reads this plugin's own local
+        // state plus one RTDB read), and is how externally-written judge
+        // scores show up on this panel without the operator doing anything.
+        loadState();
+        setInterval(loadState, 2000);
+    </script>
+</body>
+
+</html>

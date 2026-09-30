@@ -1,12 +1,12 @@
 from typing import Dict, Optional, Type
 
 from plugins.base_plugin import BasePlugin
-from plugins.firebase_sync.plugin import FirebaseSyncPlugin
-from plugins.gstreamer_core.plugin import GStreamerCorePlugin
-from plugins.ivr.plugin import IVRPlugin
+from plugins.core.firebase_sync.plugin import FirebaseSyncPlugin
+from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin
+from plugins.core.ivr.plugin import IVRPlugin
 from plugins.bout_cntrl.livestream_extension.plugin import BoutCntrlLivestreamExtension
-from plugins.livestream.plugin import LivestreamCorePlugin
-from plugins.shuttle_xpress.plugin import ShuttleXpressPlugin
+from plugins.core.livestream.plugin import LivestreamCorePlugin
+from plugins.core.shuttle_xpress.plugin import ShuttleXpressPlugin
 from plugins.tkstrike.listener.gen2.plugin import TkStrikeListenerGen2Plugin
 from plugins.tkstrike.livestream_extension.plugin import TkStrikeLivestreamExtension
 from plugins.tkstrike.external_screen.plugin import TkStrikeExternalScreenPlugin

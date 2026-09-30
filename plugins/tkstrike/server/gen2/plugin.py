@@ -144,33 +144,51 @@ def _organization_id_for(country: Optional[str]) -> Optional[str]:
     return f"org-{country.lower()}" if country else None
 
 
-def _parse_category_code(code: Optional[str]) -> tuple[str, Optional[str]]:
+def _parse_category_code(code: Optional[str]) -> tuple[Optional[str], Optional[str]]:
     if not code:
-        return "SENIOR", None
-    lowered = code.lower()
-    if "junior" in lowered:
-        division = "JUNIOR"
-    elif "cadet" in lowered:
-        division = "CADET"
-    else:
-        division = "SENIOR"
+        return None, None
 
-    if "female" in lowered or "women" in lowered:
+    # Normalize dividers (underscores, hyphens) into spaces
+    normalized = re.sub(r'[^a-z0-9]+', ' ', code.lower()).strip()
+    words = set(normalized.split())
+
+    # Division matching (multi-word categories checked before single-word ones)
+    if "younger cadet" in normalized or "younger cadets" in normalized:
+        division = "YOUNGER CADETS"
+    elif "pupil 1" in normalized or "pupils 1" in normalized or "puplis 1" in normalized:
+        division = "PUPILS 1"
+    elif "pupil 2" in normalized or "pupils 2" in normalized or "puplis 2" in normalized:
+        division = "PUPILS 2"
+    elif "cadet" in normalized or "cadets" in normalized:
+        division = "CADETS"
+    elif "junior" in normalized or "juniors" in normalized:
+        division = "JUNIORS"
+    elif "senior" in normalized or "seniors" in normalized:
+        division = "SENIORS"
+    elif "veteran" in normalized or "veterans" in normalized:
+        division = "VETERANS"
+    else:
+        division = None
+
+    # Gender matching via exact word set lookup
+    if any(term in words for term in ("female", "women", "woman", "females")):
         gender = "FEMALE"
-    elif "male" in lowered or "men" in lowered:
+    elif any(term in words for term in ("male", "men", "man", "males")):
         gender = "MALE"
     else:
         gender = None
+
     return division, gender
 
 
-def _default_live_state(settings: TkStrikeServerGen2Settings) -> dict:
+def _default_live_state(settings: TkStrikeServerGen2Settings, doc: Optional[dict] = None) -> dict:
+    doc = doc or {}
     return {
         "status": "available",
         "score": {"home": 0, "away": 0},
         "penalties": {"home": 0, "away": 0},
         "round": 1,
-        "roundTime": settings.default_round_time,
+        "roundTime": doc.get("roundTime") or settings.default_round_time,
         "result": None,
     }
 
@@ -316,7 +334,7 @@ class TkStrikeServerGen2Plugin(BasePlugin):
 
         for doc in matches:
             self._raw_matches[doc["id"]] = doc
-            self._live_state.setdefault(doc["id"], _default_live_state(self._settings))
+            self._live_state.setdefault(doc["id"], _default_live_state(self._settings, doc))
 
         current_ids = tuple(sorted(m["id"] for m in matches))
         stale_ids = [mid for mid in self._raw_matches if mid not in current_ids]
@@ -420,7 +438,7 @@ class TkStrikeServerGen2Plugin(BasePlugin):
             "rules": doc.get("rules") or s.default_rules,
             "rounds": doc.get("rounds") or s.default_rounds,
             "timing": {
-                "round": s.default_round_time,
+                "round": doc.get("roundTime") or s.default_round_time,
                 "rest": s.default_rest_time,
                 "injury": s.default_injury_time,
             },
@@ -447,7 +465,7 @@ class TkStrikeServerGen2Plugin(BasePlugin):
 
     def _match_resource(self, doc: dict) -> tuple[dict, list[tuple[str, dict]]]:
         match_id = doc["id"]
-        live = self._live_state.setdefault(match_id, _default_live_state(self._settings))
+        live = self._live_state.setdefault(match_id, _default_live_state(self._settings, doc))
         event_id = _event_id_for(doc)
         mc_id = _match_config_id_for(doc)
         ref_id = doc.get("refereeAssignmentId") or f"ref-{match_id}"
@@ -537,7 +555,7 @@ class TkStrikeServerGen2Plugin(BasePlugin):
             included_entries: list[dict] = []
 
             for doc in self._raw_matches.values():
-                live = self._live_state.get(doc["id"], _default_live_state(self._settings))
+                live = self._live_state.get(doc["id"], _default_live_state(self._settings, doc))
                 if live["status"] != "available":
                     continue
                 entry, related = self._match_resource(doc)

@@ -6,7 +6,7 @@ from pydantic import BaseModel as PydanticBody
 from plugins.base_plugin import Namespace
 from plugins.bout_cntrl.livestream_extension.automation import BoutCntrlAutomation
 from plugins.bout_cntrl.livestream_extension.settings import BoutCntrlSettings
-from plugins.livestream.base_extension import BaseLivestreamExtension
+from plugins.core.livestream.base_extension import BaseLivestreamExtension
 
 
 class _BroadcastRequest(PydanticBody):

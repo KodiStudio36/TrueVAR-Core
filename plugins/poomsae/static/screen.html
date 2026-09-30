@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Poomsae Elimination — Screen</title>
+    <style>
+        /* Shares the same color tokens as panel.html on purpose (visual
+       consistency between operator and audience views), but this file
+       is otherwise entirely self-contained — it duplicates the small
+       amount of aggregation logic it needs (judge averaging, scoring
+       method, deduction) rather than importing anything from panel.html,
+       since these are two independent static files with no shared
+       module system. Keep the two in sync by hand if that math ever
+       changes. */
+        :root {
+            --bg: #05070c;
+            --panel: #10141e;
+            --text: #e8ecf3;
+            --muted: #8b93a7;
+            --blue: #1d4ed8;
+            --blue-2: #2563eb;
+            --orange: #c2410c;
+            --orange-2: #ea580c;
+            --amber: #f59e0b;
+            --green: #16a34a;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* No logo here on purpose — "don't put there any logo in the top
+       right so there is more space" — this bar is text-only. */
+        .topbar {
+            padding: 1.1rem 2rem;
+            display: flex;
+            justify-content: flex-end;
+            align-items: baseline;
+            gap: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .topbar-category {
+            font-size: 2.1rem;
+            font-weight: 700;
+        }
+
+        .topbar-meta {
+            font-size: 2.1rem;
+            color: var(--muted);
+        }
+
+        .topbar-meta .accent {
+            color: var(--amber);
+            font-weight: 700;
+        }
+
+        .corners {
+            flex: 1;
+            display: flex;
+            gap: 1.5rem;
+            padding: 0 2rem;
+            min-height: 0;
+        }
+
+        /* Solo match: only .corner-blue renders at all — see renderScreen's
+       own isSolo check, same pattern as the admin panel. */
+        .corner {
+            flex: 1;
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .corner-blue {
+            background: linear-gradient(160deg, var(--blue-2), var(--blue) 70%);
+        }
+
+        .corner-red {
+            background: linear-gradient(160deg, var(--orange-2), var(--orange) 70%);
+        }
+
+        .corner-name {
+            text-align: center;
+            font-size: 2.6rem;
+            font-weight: 800;
+            padding: 1.25rem 1rem 0.25rem;
+        }
+
+        .corner-club {
+            text-align: center;
+            font-size: 1.4rem;
+            opacity: 0.85;
+            padding-bottom: 1rem;
+        }
+
+        .corner-body {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 450px 1fr;
+            align-items: center;
+            min-height: 0;
+            background: rgba(0, 0, 0, 0.28);
+        }
+
+        /* Per-judge table — deliberately NO "Total" (sum) row: "that is
+       completely useless information" per the request. Only the raw
+       per-judge Accuracy/Presentation numbers, then the averages below.
+       Each row is a big colored block (number badge + two bright
+       accuracy/presentation cells) — matching the reference design and
+       "everything needs to be big, visible from far away": this is
+       readable across a competition hall, not just up close. */
+        .judge-table-wrap {
+            overflow-y: hidden;
+            padding: 1.5rem 1.5rem 1.5rem 1.5rem;
+        }
+
+        /* 1. Set table to fill wrapper width */
+        .judge-table {
+            width: 100%;
+            border-spacing: 0 0.6rem;
+        }
+
+
+
+        .judge-table thead th {
+            color: rgba(255, 255, 255, 0.75);
+            font-weight: 700;
+            font-size: 1.15rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            text-align: center;
+            padding-bottom: 0.4rem;
+        }
+
+        .judge-table thead th:first-child {
+            visibility: hidden;
+        }
+
+        /* aligns above the number badge column */
+        .judge-table td {
+            font-size: 3rem;
+            font-weight: 800;
+            text-align: center;
+            padding: 0.5rem 0.75rem;
+        }
+
+        .judge-num-cell {
+            background: rgba(0, 0, 0, 0.55);
+            color: #fff;
+            width: 4.5rem;
+            border-radius: 12px 0 0 12px;
+        }
+
+        .judge-acc-cell {
+            background: #eab308;
+            color: #14110a;
+        }
+
+        .judge-pres-cell {
+            background: #f59e0b;
+            color: #14110a;
+            border-radius: 0 12px 12px 0;
+        }
+
+        /* Not yet submitted this round — same full-marks default shown
+       elsewhere in this app, just visually dimmed/italic here so it
+       reads as "not real yet" even from a distance. */
+        .judge-row-default .judge-acc-cell,
+        .judge-row-default .judge-pres-cell {
+            background: rgba(234, 179, 8, 0.35);
+            color: rgba(255, 255, 255, 0.75);
+            font-style: italic;
+        }
+
+        .judge-row-default .judge-pres-cell {
+            background: rgba(245, 158, 11, 0.35);
+        }
+
+        .judge-row-trimmed td {
+            text-decoration: line-through;
+            opacity: 0.45;
+        }
+
+        .avg-panel {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            padding: 1rem 0;
+            border-left: 2px solid rgba(255, 255, 255, 0.15);
+            align-self: stretch;
+        }
+
+        .avg-total {
+            font-size: 8.5rem;
+            font-weight: 900;
+            color: var(--amber);
+            line-height: 1;
+            text-align: center;
+        }
+
+        .avg-boxes {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        .avg-box {
+            width: 450px;
+            max-width: 100%;
+            border-radius: 14px;
+            padding: 0.9rem 0.5rem;
+            text-align: center;
+            border: 3px solid;
+        }
+
+        /* Fixed convention, independent of which corner (blue/red) this box
+       belongs to — Accuracy is always the red-tinted box, Presentation
+       always blue-tinted, matching the reference exactly. */
+        .avg-box-accuracy {
+            background: rgba(220, 38, 38, 0.25);
+            border-color: #dc2626;
+        }
+
+        .avg-box-presentation {
+            background: rgba(37, 99, 235, 0.25);
+            border-color: #2563eb;
+        }
+
+        .avg-box-label {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            font-weight: 700;
+        }
+
+        .avg-box-value {
+            font-size: 2.6rem;
+            font-weight: 900;
+        }
+
+        .waiting-msg {
+            margin: auto;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1.6rem;
+        }
+
+        /* Bottom timer — READ ONLY here (athletes don't control it, unlike
+       the operator panel's clickable version). Same always-green,
+       text-color-only state model as panel.html for visual consistency. */
+        .timer-bar {
+            flex-shrink: 0;
+            color: #ffffff;
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+        }
+
+        .timer-bar.inactive {
+            color: #ffffff;
+        }
+
+        .timer-bar-label {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .timer-bar-clock {
+            font-size: 5rem;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="topbar">
+        <div class="topbar-category" id="categoryLine">Loading…</div>
+        <div class="topbar-meta" id="metaLine"></div>
+    </div>
+
+    <div class="corners" id="cornersEl"></div>
+
+    <div class="timer-bar" id="timerBarEl">
+        <div class="timer-bar-label" id="timerBarLabel">Preparation</div>
+        <div class="timer-bar-clock" id="timerBarClock">—</div>
+    </div>
+
+    <script>
+        // Mirrors plugin.py's STAGE_TO_ROUND_KEY / STAGE_LABELS exactly —
+        // see panel.html's own copy of these same two constants for why
+        // they need to stay in lockstep with the backend.
+        const STAGE_LABELS = { preparation: "Preparation", poomsae_1: "Poomsae 1", poomsae_2: "Poomsae 2", final_results: "Final Results" };
+        const STAGE_TO_ROUND_KEY = { poomsae_1: "poomsae1", poomsae_2: "poomsae2" };
+
+        function isValidJudgeNumber(n) {
+            return Number.isFinite(n) && n >= 1 && Number.isInteger(n);
+        }
+
+        let countdownTimer = null;
+
+        async function loadState() {
+            try {
+                const res = await fetch("/api/poomsae-control/state");
+                if (!res.ok) return;
+                const state = await res.json();
+                render(state);
+            } catch (err) {
+                console.error("Failed to load state", err);
+            }
+        }
+
+        // The external screen shows ONLY the live match — match_data in
+        // RTDB, which the operator sets by clicking Preparation. Browsing
+        // matches on the operator panel never changes what's shown here.
+        function render(state) {
+            const live = state && state.live;
+            if (!live || !live.matchId) {
+                document.getElementById("categoryLine").textContent = "No match scheduled";
+                document.getElementById("metaLine").textContent = "";
+                document.getElementById("cornersEl").innerHTML = `<div class="waiting-msg">Waiting for the next match…</div>`;
+                renderTimerBar(null);
+                return;
+            }
+
+            const isSolo = live.isSolo === true;
+            const roundKey = STAGE_TO_ROUND_KEY[live.stage] || null;
+            const scoringMethod = (state.settings && state.settings.scoring_method) || "sum_all";
+            const judgesRegistry = state.judgesRegistry || {};
+            const corners = live.corners || {};
+
+            document.getElementById("categoryLine").textContent = live.categoryLabel || "";
+            document.getElementById("metaLine").innerHTML =
+                `${escapeHtml(live.roundPhaseLabel || live.roundPhase || "")} <span class="accent">№${escapeHtml(live.displayNumberLabel ?? live.displayNumber ?? "—")}</span>`;
+
+            // "it should detect if it is only one fighter or two. So use
+            // only blue or blue red." — identical isSolo pattern used
+            // throughout the rest of this app; renders ONLY corner-blue for
+            // a solo match, both for a duel.
+            const el = document.getElementById("cornersEl");
+            el.innerHTML = renderCorner(corners.blue, "blue", judgesRegistry, roundKey, scoringMethod)
+                + (isSolo ? "" : renderCorner(corners.red, "red", judgesRegistry, roundKey, scoringMethod));
+
+            renderTimerBar(live);
+        }
+
+        function renderCorner(corner, side, judgesRegistry, roundKey, scoringMethod) {
+            if (!corner) return "";
+            const agg = computeAggregate(corner, judgesRegistry, roundKey, scoringMethod);
+
+            return `
+            <div class="corner corner-${side}">
+                <div class="corner-name">${escapeHtml(corner.name || "—")}</div>
+                <div class="corner-club">${escapeHtml(corner.clubName || "")}</div>
+                <div class="corner-body">
+                    <div class="judge-table-wrap">${agg.tableHtml}</div>
+                    <div class="avg-panel">
+                        <div class="avg-total">${agg.finalTotal.toFixed(1)}</div>
+                        <div class="avg-boxes">
+                            <div class="avg-box avg-box-accuracy">
+                                <div class="avg-box-label">Accuracy</div>
+                                <div class="avg-box-value">${agg.avgAcc.toFixed(3)}</div>
+                            </div>
+                            <div class="avg-box avg-box-presentation">
+                                <div class="avg-box-label">Presentation</div>
+                                <div class="avg-box-value">${agg.avgPres.toFixed(3)}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        }
+
+        // Same aggregation rules as panel.html's buildJudgesTable (default
+        // full-marks rows for judges who haven't submitted yet, the SAME
+        // "trim highest & lowest" scoring method, the SAME restart-deduction
+        // subtraction) — kept consistent so the audience never sees a
+        // different final number than the operator does. The ONE deliberate
+        // difference, per the request: no "Total" (sum) row at all here,
+        // "that is completely useless information" — only the per-judge
+        // rows and the final averages.
+        function computeAggregate(corner, judgesRegistry, roundKey, scoringMethod) {
+            const judgesMap = corner.judges || {};
+            const registryNumbers = Object.keys(judgesRegistry || {}).map(Number).filter(isValidJudgeNumber);
+            const scoredNumbers = Object.keys(judgesMap).map(Number).filter(isValidJudgeNumber);
+            const allNumbers = [...new Set([...registryNumbers, ...scoredNumbers])].sort((a, b) => a - b);
+
+            const entries = allNumbers.map(number => {
+                const roundData = roundKey ? judgesMap[number] && judgesMap[number][roundKey] : null;
+                const hasSubmittedData = !!roundData;
+                return {
+                    number,
+                    accuracy: hasSubmittedData ? roundData.accuracy : 4.0,
+                    presentation: hasSubmittedData ? roundData.presentation : 6.0,
+                    total: hasSubmittedData ? roundData.total : 10.0,
+                    isDefault: !hasSubmittedData,
+                };
+            });
+
+            let included = entries;
+            let trimmedNumbers = new Set();
+            if (scoringMethod === "trim_high_low" && entries.length >= 3) {
+                const sorted = [...entries].sort((a, b) => a.total - b.total);
+                trimmedNumbers = new Set([sorted[0].number, sorted[sorted.length - 1].number]);
+                included = entries.filter(e => !trimmedNumbers.has(e.number));
+            }
+
+            const count = included.length || 1;
+            const sum = (key) => included.reduce((s, e) => s + (e[key] ?? 0), 0);
+            const avgAcc = sum("accuracy") / count;
+            const avgPres = sum("presentation") / count;
+            const avgTot = sum("total") / count;
+
+            // Restart deduction + penalties — same as panel.html.
+            const finalTotal = avgTot + (Number(corner.roundDeduction) || 0) + (Number(corner.roundPenalty) || 0);
+
+            const rows = entries.map(e => {
+                const cls = [e.isDefault ? "judge-row-default" : "", trimmedNumbers.has(e.number) ? "judge-row-trimmed" : ""].filter(Boolean).join(" ");
+                return `<tr class="${cls}">
+                <td class="judge-num-cell">${e.number}</td>
+                <td class="judge-acc-cell">${e.accuracy.toFixed(1)}</td>
+                <td class="judge-pres-cell">${e.presentation.toFixed(1)}</td>
+            </tr>`;
+            }).join("");
+
+            const tableHtml = entries.length === 0
+                ? `<div class="waiting-msg">Waiting for judges…</div>`
+                : `<table class="judge-table">
+                 <thead><tr><th></th><th>Accuracy</th><th>Presentation</th></tr></thead>
+                 <tbody>${rows}</tbody>
+               </table>`;
+
+            return { tableHtml, avgAcc, avgPres, finalTotal };
+        }
+
+        // Read-only mirror of panel.html's renderTimer — same computation
+        // (a fixed timerStartedAt + timerRemainingSeconds, ticked locally),
+        // just no click-to-toggle handler, since athletes don't control it.
+        function renderTimerBar(live) {
+            clearInterval(countdownTimer);
+            const bar = document.getElementById("timerBarEl");
+            const labelEl = document.getElementById("timerBarLabel");
+            const clockEl = document.getElementById("timerBarClock");
+
+            if (!live) {
+                bar.className = "timer-bar inactive";
+                labelEl.textContent = "";
+                clockEl.textContent = "—";
+                return;
+            }
+
+            labelEl.textContent = live.stageLabel || "";
+            const duration = live.stageDurationSeconds;
+            if (duration == null) {
+                bar.className = "timer-bar inactive";
+                clockEl.textContent = "—";
+                return;
+            }
+
+            const baseline = live.timerRemainingSeconds != null ? live.timerRemainingSeconds : duration;
+            if (!live.timerRunning) {
+                bar.className = "timer-bar inactive";
+                clockEl.textContent = formatClock(Math.max(0, Math.round(baseline)));
+                return;
+            }
+
+            bar.className = "timer-bar";
+            const startedAt = live.timerStartedAt ? new Date(live.timerStartedAt).getTime() : Date.now();
+            function tick() {
+                const elapsed = (Date.now() - startedAt) / 1000;
+                const remaining = Math.max(0, Math.round(baseline - elapsed));
+                clockEl.textContent = formatClock(remaining);
+            }
+            tick();
+            countdownTimer = setInterval(tick, 1000);
+        }
+
+        function formatClock(totalSeconds) {
+            const m = Math.floor(totalSeconds / 60);
+            const s = totalSeconds % 60;
+            return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+        }
+
+        // "everything should be realtime connected" — a 2s poll of the same
+        // /state endpoint the operator panel already uses, same interval
+        // and rationale as that file's own poll loop.
+        loadState();
+        setInterval(loadState, 2000);
+    </script>
+</body>
+
+</html>

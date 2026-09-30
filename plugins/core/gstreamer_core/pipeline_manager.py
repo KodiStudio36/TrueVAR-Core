@@ -3,11 +3,11 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from plugins.gstreamer_core.plugin import GStreamerCorePlugin
-    from plugins.gstreamer_core.settings import CameraSettings
+    from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin
+    from plugins.core.gstreamer_core.settings import CameraSettings
     from core.event_bus import EventBus
 
-from plugins.gstreamer_core.base_extension import BaseGStreamerExtension
+from plugins.core.gstreamer_core.base_extension import BaseGStreamerExtension
 
 log = logging.getLogger(__name__)
 

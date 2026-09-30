@@ -1,4 +1,4 @@
-from plugins.gstreamer_core.base_extension import BaseGStreamerExtension
+from plugins.core.gstreamer_core.base_extension import BaseGStreamerExtension
 
 
 class TkStrikeExternalScreenExtension(BaseGStreamerExtension):

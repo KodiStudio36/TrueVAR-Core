@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from plugins.gstreamer_core.settings import CameraSettings
+    from plugins.core.gstreamer_core.settings import CameraSettings
 
 
 class BaseGStreamerExtension(ABC):

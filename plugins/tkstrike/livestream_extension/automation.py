@@ -3,7 +3,7 @@ from typing import Optional
 
 from core.domain.ports.database_port import DatabasePort
 from core.domain.ports.overlay_broadcaster_port import OverlayBroadcaster
-from plugins.livestream.base_automation import BaseAutomationEngine
+from plugins.core.livestream.base_automation import BaseAutomationEngine
 from plugins.tkstrike.livestream_extension.settings import TkStrikeSettings
 
 
@@ -209,10 +209,10 @@ class TkStrikeStreamAutomation(BaseAutomationEngine):
 
         if blue_history:
             await self._emit_previous("blue", blue, blue_history)
-            await asyncio.sleep(6)
+            await asyncio.sleep(5)
         if red_history:
             await self._emit_previous("red", red, red_history)
-            await asyncio.sleep(6)
+            await asyncio.sleep(5)
 
         await self.broadcaster.emit_to_namespace("hide_previous_results", {})
 
@@ -228,7 +228,7 @@ class TkStrikeStreamAutomation(BaseAutomationEngine):
             await self._show_previous_results(history)
         else:
             await self.broadcaster.emit_to_namespace("show_fighter_bars", {})
-            await asyncio.sleep(8)
+            await asyncio.sleep(6)
             await self.broadcaster.emit_to_namespace("hide_fighter_bars", {})
 
     async def _resolve_history(self, timeout: float = 5.0) -> Optional[dict]:

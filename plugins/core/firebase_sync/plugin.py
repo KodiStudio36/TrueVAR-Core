@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter
 
 from plugins.base_plugin import BasePlugin
-from plugins.firebase_sync.settings import FirebaseSyncSettings
+from plugins.core.firebase_sync.settings import FirebaseSyncSettings
 
 MATCH_NOTIFY_TIMEOUT_SECONDS = 5.0
 MATCH_PROCESS_TIMEOUT_SECONDS = 10.0

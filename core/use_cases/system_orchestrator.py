@@ -9,8 +9,8 @@ from core.use_cases.settings_manager import SettingsManager
 from plugins.base_plugin import PluginState
 from plugins.plugin_registry import PluginRegistry
 
-from plugins.gstreamer_core.plugin import GStreamerCorePlugin
-from plugins.ivr.plugin import IVRPlugin
+from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin
+from plugins.core.ivr.plugin import IVRPlugin
 
 
 class SystemOrchestrator:

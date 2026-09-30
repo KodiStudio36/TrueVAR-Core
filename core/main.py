@@ -1,5 +1,5 @@
 from core.adapters.local_json_settings_adapter import LocalJSONSettingsAdapter
-from plugins.gstreamer_core.plugin import GStreamerCorePlugin
+from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin
 import uvicorn
 import webbrowser
 import socketio

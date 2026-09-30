@@ -40,6 +40,6 @@ class TkStrikeServerGen3Settings(BaseModel):
     default_round_time: str = Field(default="01:30")
     default_rest_time: str = Field(default="00:30")
     default_injury_time: str = Field(default="01:00")
-    default_max_penalties: int = Field(default=15, ge=1, le=30)
+    default_max_penalties: int = Field(default=5, ge=1, le=30)
     default_golden_point_enabled: bool = Field(default=False)
     default_golden_point_time: str = Field(default="01:00")

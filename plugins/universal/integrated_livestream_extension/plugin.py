@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel as PydanticBody
 
 from plugins.base_plugin import Namespace
-from plugins.livestream.base_extension import BaseLivestreamExtension
+from plugins.core.livestream.base_extension import BaseLivestreamExtension
 from plugins.universal.integrated_livestream_extension.settings import UniversalIntegratedLivestreamSettings
 
 

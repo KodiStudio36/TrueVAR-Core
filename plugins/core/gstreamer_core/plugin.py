@@ -2,8 +2,8 @@ import os
 import gi
 from fastapi import APIRouter
 from plugins.base_plugin import BasePlugin
-from plugins.gstreamer_core.settings import CameraSettings
-from plugins.gstreamer_core.pipeline_manager import PipelineManager
+from plugins.core.gstreamer_core.settings import CameraSettings
+from plugins.core.gstreamer_core.pipeline_manager import PipelineManager
 
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst

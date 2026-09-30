@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter
 
 from plugins.base_plugin import BasePlugin, Namespace, PluginState
-from plugins.shuttle_xpress.settings import ShuttleXpressSettings
+from plugins.core.shuttle_xpress.settings import ShuttleXpressSettings
 
 
 class ShuttleXpressPlugin(BasePlugin):

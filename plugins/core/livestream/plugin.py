@@ -6,7 +6,7 @@ from core.adapters.obs_adapter import OBSAdapter
 from core.domain.ports.broadcaster_port import BroadcasterPort
 from core.domain.ports.overlay_broadcaster_port import OverlayBroadcaster
 from plugins.base_plugin import BasePlugin
-from plugins.livestream.settings import LivestreamCoreSettings
+from plugins.core.livestream.settings import LivestreamCoreSettings
 
 class LivestreamCorePlugin(BasePlugin):
     def __init__(self, core_context: dict, logger):
