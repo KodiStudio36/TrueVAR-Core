@@ -19,6 +19,7 @@
             --orange-2: #ea580c;
             --green: #16a34a;
             --accent: #f43f5e;
+            --amber: #f59e0b;
         }
 
         * {
@@ -93,7 +94,11 @@
             font-weight: 600;
         }
 
-        /* ── Main layout: no left "next matches" sidebar — not needed here ── */
+        .text-muted {
+            color: var(--muted);
+        }
+
+        /* ── Main layout ──────────────────────────────────────────────── */
         .main {
             flex: 1;
             display: grid;
@@ -110,9 +115,7 @@
             min-height: 0;
         }
 
-        /* Solo (cut-off) match: only the blue corner renders at all — see
-       renderCorners(). The .corner-blue/.corner-red split below is what
-       lets each corner flex to fill the space when the other is absent. */
+        /* Solo (cut-off) match: only the blue corner renders at all. */
         .corner {
             flex: 1;
             background: var(--panel);
@@ -183,19 +186,56 @@
 
         .score-table .num {
             text-align: right;
+            font-variant-numeric: tabular-nums;
         }
 
-        /* A judge slot that hasn't submitted for this round yet — shows the
-       default full-marks values (4.0 / 6.0 / 10.0), visually muted so
-       it reads as "not real data yet" at a glance. */
+        .judge-status {
+            display: inline-block;
+            margin-left: .35rem;
+            padding: 0 .4rem;
+            border-radius: 999px;
+            font-size: .68rem;
+            font-weight: 700;
+            font-style: normal;
+            text-decoration: none;
+            vertical-align: middle;
+        }
+
+        .judge-status--submitted {
+            background: rgba(34, 197, 94, .18);
+            color: #22c55e;
+        }
+
+        .judge-status--scoring {
+            background: rgba(245, 158, 11, .18);
+            color: #f59e0b;
+        }
+
+        .judge-status--waiting {
+            background: rgba(148, 163, 184, .15);
+            color: var(--muted);
+        }
+
+        .score-submitted-row td:first-child {
+            box-shadow: inset 3px 0 0 #22c55e;
+        }
+
+        .judges-submitted {
+            font-size: .78rem;
+            font-weight: 700;
+            color: var(--muted);
+            margin: 0 0 .3rem;
+        }
+
+        .judges-submitted--all {
+            color: #22c55e;
+        }
+
         .score-default-row td {
             color: var(--muted);
             font-style: italic;
         }
 
-        /* A judge excluded from Total/Avg. Points by the "Remove highest &
-       lowest" scoring method — still shown (so the operator can see WHO
-       and WHY), just visually struck through. */
         .score-trimmed-row td {
             text-decoration: line-through;
             opacity: 0.5;
@@ -222,16 +262,76 @@
             text-align: center;
         }
 
+        /* ── Category Results preview (centre, in that stage) ─────────── */
+        .cat-preview {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+        }
+
+        .cat-preview-head {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .cat-preview tr.current td {
+            background: rgba(244, 63, 94, .14);
+        }
+
+        .cat-preview tr.pending td {
+            color: var(--muted);
+        }
+
+        .cat-badge {
+            display: inline-block;
+            padding: 0 .4rem;
+            border-radius: 999px;
+            font-size: .68rem;
+            font-weight: 800;
+            margin-left: .3rem;
+        }
+
+        .cat-badge--q {
+            background: rgba(34, 197, 94, .2);
+            color: #22c55e;
+        }
+
+        .cat-badge--m1 {
+            background: #f5c542;
+            color: #14110a;
+        }
+
+        .cat-badge--m2 {
+            background: #c8ced8;
+            color: #14110a;
+        }
+
+        .cat-badge--m3 {
+            background: #cd7f32;
+            color: #14110a;
+        }
+
         /* ── Right: lifecycle ─────────────────────────────────────────── */
+        .side {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
         .lifecycle {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 0.3rem;
+            overflow-y: auto;
+            min-height: 0;
         }
 
-        /* Vertically scrollable list of every match sharing the CURRENT
-           match's category, in order — "what's next" at a glance. See
-           plugin.py's _category_matches. */
         .queue-panel {
             display: flex;
             flex-direction: column;
@@ -286,16 +386,25 @@
         }
 
         .stage-pill {
-            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 0.75rem;
             border-radius: 8px;
             font-weight: 700;
-            font-size: 0.9rem;
-            text-align: center;
+            font-size: 0.88rem;
             background: var(--panel-2);
             color: var(--muted);
             border: 1px solid var(--border);
             cursor: default;
             user-select: none;
+            flex-shrink: 0;
+        }
+
+        .stage-pill-main {
+            flex: 1;
+            min-width: 0;
+            text-align: center;
         }
 
         .stage-pill.clickable {
@@ -323,10 +432,59 @@
             color: #fff;
         }
 
+        .stage-pill.final.done {
+            background: #14532d;
+            color: #bbf7d0;
+        }
+
+        .stage-pill-sub {
+            font-size: .74em;
+            font-weight: 700;
+            opacity: .85;
+            margin-top: 2px;
+            letter-spacing: .02em;
+        }
+
+        .stage-pill-countdown {
+            color: #fde68a;
+        }
+
+        /* Auto toggle on a result stage's pill — on = runs by itself. */
+        .auto-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            flex-shrink: 0;
+            padding: 0.2rem 0.45rem;
+            border-radius: 999px;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            cursor: pointer;
+            background: rgba(0, 0, 0, .3);
+            color: rgba(255, 255, 255, .55);
+            border: 1px solid rgba(255, 255, 255, .15);
+        }
+
+        .auto-toggle.on {
+            background: rgba(34, 197, 94, .2);
+            color: #4ade80;
+            border-color: rgba(34, 197, 94, .5);
+        }
+
+        .auto-toggle input {
+            margin: 0;
+            accent-color: #22c55e;
+            cursor: pointer;
+        }
+
         .stage-arrow {
             text-align: center;
             color: var(--muted);
-            font-size: 0.8rem;
+            font-size: 0.65rem;
+            line-height: 1;
+            flex-shrink: 0;
         }
 
         /* ── Bottom: timer + controls ─────────────────────────────────── */
@@ -347,7 +505,6 @@
             justify-content: space-between;
             padding: .5rem 1.5rem;
             color: #06240f;
-            /* black-ish — the RUNNING/active text color */
             cursor: pointer;
             user-select: none;
             transition: filter 0.1s;
@@ -357,9 +514,7 @@
             filter: brightness(1.08);
         }
 
-        /* Always green — paused/disabled no longer change the background at
-       all, only the TEXT color, to white, which is the only signal now
-       for "not actively counting down". */
+        /* Always green — only the TEXT turns white when not counting down. */
         .timer.paused,
         .timer.disabled {
             color: #ffffff;
@@ -446,6 +601,8 @@
             border-radius: 12px;
             padding: 1.5rem;
             width: min(90vw, 420px);
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
         .modal-header {
@@ -476,6 +633,10 @@
             font-weight: 600;
         }
 
+        .settings-field small {
+            font-weight: 400;
+        }
+
         .settings-field select,
         .settings-field input {
             padding: 0.5rem 0.6rem;
@@ -485,6 +646,12 @@
             color: var(--text);
             font-size: 0.9rem;
             font-weight: 400;
+        }
+
+        .settings-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
         }
 
         .settings-save-btn {
@@ -497,10 +664,6 @@
             padding: 0.6rem;
         }
 
-        /* Sits next to the timer in the footer — deliberately styled like a
-       clear warning action (red), distinct from the always-green timer
-       next to it, since it's a destructive/one-way action per match
-       round. */
         .restart-btn {
             flex-shrink: 0;
             background: var(--accent);
@@ -517,8 +680,6 @@
             filter: brightness(1.08);
         }
 
-        /* Not applicable right now (side-by-side match, nothing live, or no
-           round running) — stays in place, just darkened and inert. */
         .restart-btn:disabled,
         .penalty-btn:disabled {
             opacity: 0.35;
@@ -614,9 +775,136 @@
             font-size: 0.65rem;
         }
 
+        .archive-line {
+            margin-top: .6rem;
+            text-align: center;
+            font-size: .8rem;
+            min-height: 1.2em;
+            flex-shrink: 0;
+        }
+
+        .archive-line button {
+            margin-left: .35rem;
+            font-size: .75rem;
+            padding: .15rem .5rem;
+            border-radius: 6px;
+            border: 1px solid var(--border, #334155);
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+        }
+
+        .archive {
+            font-weight: 700;
+        }
+
+        .archive--saved {
+            color: #22c55e;
+        }
+
+        .archive--saving {
+            color: #f59e0b;
+        }
+
+        .archive--failed {
+            color: #ef4444;
+        }
+
+        .stage-pill.next-step {
+            outline: 2px solid #22c55e;
+            outline-offset: 2px;
+            animation: next-step-pulse 1.4s ease-in-out infinite;
+        }
+
+        @keyframes next-step-pulse {
+            50% {
+                outline-color: rgba(34, 197, 94, .25);
+            }
+        }
+
         .stage-pill.disabled {
             opacity: 0.4;
             cursor: not-allowed;
+        }
+
+        /* Accuracy / Presentation cells the operator can click to correct. */
+        .score-edit {
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.1s, box-shadow 0.1s;
+        }
+
+        .score-edit:hover {
+            background: rgba(37, 99, 235, .18);
+            box-shadow: inset 0 0 0 1px var(--blue-2);
+            color: var(--text) !important;
+        }
+
+        .judge-status--edited {
+            background: rgba(37, 99, 235, .2);
+            color: #93c5fd;
+        }
+
+        .scores-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: .3rem;
+        }
+
+        .scores-head .judges-submitted {
+            margin: 0;
+        }
+
+        .reset-full-btn {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            border-radius: 6px;
+            padding: 0.3rem 0.7rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .reset-full-btn:hover:not(:disabled) {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .reset-full-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .score-editor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .score-editor-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 0.6rem 0.2rem;
+            margin-bottom: 0.5rem;
+            border-top: 1px solid var(--border);
+            font-weight: 700;
+        }
+
+        .score-editor-total span:last-child {
+            font-size: 1.4rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .score-editor-note {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin: 0 0 0.75rem;
+            line-height: 1.4;
         }
 
         .penalty-clear {
@@ -635,7 +923,7 @@
     <div class="topbar">
         <div class="topbar-title">Poomsae Elimination</div>
         <button class="nav-arrow nav-icon-btn" id="settingsBtn" onclick="openSettingsModal()"
-            title="Judge count, scoring method, restart deduction">
+            title="Judge count, scoring method, deductions, automatic result delays">
             <span class="gear-icon">⚙</span> Settings
         </button>
         <button class="nav-arrow" id="prevCategoryBtn" onclick="changeCategory(-1)"
@@ -681,15 +969,55 @@
                     <option value="trim_high_low">Remove highest &amp; lowest</option>
                 </select>
             </label>
-            <label class="settings-field">
-                <span>Automatic restart deduction</span>
-                <input type="number" id="settingsRestartDeduction" step="0.1" value="-0.6">
-            </label>
-            <label class="settings-field">
-                <span>Penalty (per tap)</span>
-                <input type="number" id="settingsPenaltyDeduction" step="0.1" value="-0.3">
-            </label>
+            <div class="settings-row">
+                <label class="settings-field">
+                    <span>Restart deduction</span>
+                    <input type="number" id="settingsRestartDeduction" step="0.1" value="-0.6">
+                </label>
+                <label class="settings-field">
+                    <span>Penalty (per tap)</span>
+                    <input type="number" id="settingsPenaltyDeduction" step="0.1" value="-0.3">
+                </label>
+            </div>
+            <div class="settings-row">
+                <label class="settings-field">
+                    <span>Final Results after (s)</span>
+                    <input type="number" id="settingsFinalDelay" min="0" max="300" step="1" value="5">
+                    <small>after the last Results, when on Auto</small>
+                </label>
+                <label class="settings-field">
+                    <span>Category Results after (s)</span>
+                    <input type="number" id="settingsCategoryDelay" min="0" max="300" step="1" value="8">
+                    <small>after Final Results, when on Auto</small>
+                </label>
+            </div>
             <button class="nav-arrow settings-save-btn" onclick="saveSettings()">Save</button>
+        </div>
+    </div>
+
+    <div id="scoreEditorOverlay" class="modal-overlay hidden" onclick="if (event.target === this) closeScoreEditor()">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <span id="scoreEditorTitle">Edit score</span>
+                <button class="nav-arrow" onclick="closeScoreEditor()">Close</button>
+            </div>
+            <p class="score-editor-note" id="scoreEditorSub"></p>
+            <div class="score-editor-grid">
+                <label class="settings-field">
+                    <span id="scoreEditorAccLabel">Accuracy (0 – 4.0)</span>
+                    <input type="number" id="scoreEditorAccuracy" min="0" max="4" step="0.1"
+                        oninput="updateScoreEditorTotal()">
+                </label>
+                <label class="settings-field">
+                    <span>Presentation (0 – 6.0)</span>
+                    <input type="number" id="scoreEditorPresentation" min="0" max="6" step="0.1"
+                        oninput="updateScoreEditorTotal()">
+                </label>
+            </div>
+            <div class="score-editor-total"><span>Total</span><span id="scoreEditorTotal">—</span></div>
+            <p class="score-editor-note">Counts as this judge's submitted score and shows as <strong>Edited</strong>.
+            </p>
+            <button class="nav-arrow settings-save-btn" onclick="saveScoreEdit()">Save score</button>
         </div>
     </div>
 
@@ -714,12 +1042,15 @@
 
         <div class="corners" id="cornersEl"></div>
 
-        <div class="lifecycle" id="lifecycleEl"></div>
+        <div class="side">
+            <div class="lifecycle" id="lifecycleEl"></div>
+            <div class="archive-line" id="archiveLine"></div>
+        </div>
     </div>
 
     <div class="footer">
         <button class="restart-btn" id="restartBtn" onclick="restartRound()"
-            title="Solo performance only: clears every judge's score for the CURRENT round — does not touch the timer — and applies the automatic restart deduction">Restart</button>
+            title="Solo performance only: clears every judge's score for the CURRENT poomsae — does not touch the timer — and applies the automatic restart deduction">Restart</button>
         <div class="penalty-group" id="penaltyGroup"></div>
         <div class="timer" id="timerEl" onclick="toggleTimer()">
             <div>
@@ -731,28 +1062,31 @@
     </div>
 
     <script>
-        // ── State ────────────────────────────────────────────────────────
-        const STAGE_LABELS = { preparation: "Preparation", poomsae_1: "Poomsae 1", poomsae_2: "Poomsae 2", final_results: "Final Results" };
-        // Mirrors plugin.py's STAGE_TO_ROUND_KEY exactly — which RTDB child
-        // key under a judge's own entry holds THIS stage's scores. null for
-        // Preparation/Final Results, which have no active round to show a
-        // judges table for at all.
+        // ── Stages — mirror plugin.py ────────────────────────────────────
+        const STAGE_ORDER = ["preparation", "poomsae_1", "results_1", "poomsae_2", "results_2", "final_results", "category_results"];
+        const STAGE_LABELS = {
+            preparation: "Preparation",
+            poomsae_1: "Poomsae 1",
+            results_1: "Results 1",
+            poomsae_2: "Poomsae 2",
+            results_2: "Results 2",
+            final_results: "Final Results",
+            category_results: "Category Results",
+        };
+        // Scoreable stages → the RTDB key judges write under.
         const STAGE_TO_ROUND_KEY = { poomsae_1: "poomsae1", poomsae_2: "poomsae2" };
+        const STAGE_RESULTS_ROUND_KEY = { results_1: "poomsae1", results_2: "poomsae2" };
+        const STAGE_POOMSAE_INDEX = { poomsae_1: 0, results_1: 0, poomsae_2: 1, results_2: 1 };
+        const SECOND_POOMSAE_STAGES = ["poomsae_2", "results_2"];
+        // Result stages with an Auto toggle (settings auto_<stage>).
+        const AUTO_STAGES = ["results_1", "results_2", "final_results", "category_results"];
 
-        // A real judge number is always a positive integer, 1 and up —
-        // plugin.py's add_judge() starts numbering at 1 and only ever
-        // increments, never produces 0 or negative. Number.isFinite() alone
-        // isn't enough of a filter: 0 IS finite, and a stray "0"-keyed
-        // entry left over from earlier testing (same category of issue as
-        // an earlier leftover UUID key) would otherwise render as a phantom
-        // "Judge 0". Used everywhere a judges/{key} or corners/*/judges/{key}
-        // object's keys get turned into numbers.
         function isValidJudgeNumber(n) {
             return Number.isFinite(n) && n >= 1 && Number.isInteger(n);
         }
 
         let state = null;           // last /state response
-        let countdownTimer = null;  // local setInterval handle — purely visual, never pushes anything over the network per tick
+        let countdownTimer = null;  // local setInterval handle — purely visual
 
         async function api(path, method = "GET", body) {
             const opts = { method };
@@ -768,10 +1102,8 @@
             return res.json();
         }
 
-        // FastAPI's error body shape varies: a plain string detail (most
-        // handlers) vs. a 422 validation error, where detail is an ARRAY of
-        // {loc, msg, type} objects — new Error(array) silently stringifies
-        // that into "[object Object],[object Object]" if not handled.
+        // FastAPI's error body: a string detail, or (422) an array of
+        // {loc, msg, type}.
         function extractErrorDetail(body, fallback) {
             const detail = body && body.detail;
             if (typeof detail === "string" && detail) return detail;
@@ -793,17 +1125,9 @@
             }
         }
 
-        // ── Judge slots ──────────────────────────────────────────────────
-        // The OPERATOR now owns judge numbering entirely — "+ Add Judge"
-        // creates the next available numbered slot (see plugin.py's
-        // POST /judges, which fills gaps rather than always incrementing,
-        // so removing Judge 2 and re-adding gives back "Judge 2") and shows
-        // its QR code immediately. That QR payload carries the number
-        // directly — {"tournamentId", "courtId", "judgeNumber"} — so the
-        // judge app never has to mint or register its own identity; it just
-        // reads who it is straight off the scanned code. Clicking an
-        // existing chip re-shows that same judge's QR (e.g. if a judge's
-        // device needs to rescan); clicking its ✕ deletes the slot.
+        // ── Judge QR ─────────────────────────────────────────────────────
+        // The QR payload carries the judge number directly —
+        // {"tournamentId", "courtId", "judgeNumber"}.
         function openJudgeQrModal(number) {
             if (!state || !state.tournamentId || !state.courtId) {
                 alert("Court isn't bound to a tournament yet — nothing to connect a judge to.");
@@ -814,9 +1138,6 @@
             document.getElementById("judgeQrModalTitle").textContent = `Judge ${number}`;
             const box = document.getElementById("judgeQrCode");
             box.innerHTML = "";
-            // QRCode() renders into the given element on construction; a
-            // fresh instance per open is simplest and avoids needing to
-            // track/clear a previous canvas across re-opens.
             new QRCode(box, {
                 text: payload,
                 width: 220,
@@ -833,16 +1154,17 @@
             document.getElementById("connectJudgeOverlay").classList.add("hidden");
         }
 
-        // ── Settings modal ──────────────────────────────────────────────────
-        // Judge count is no longer built one at a time via a button — it's
-        // set here, and the backend reconciles the actual slot set to match
-        // (see plugin.py's _reconcile_judge_slots) whenever this is saved.
+        // ── Settings ────────────────────────────────────────────────────
+        // The backend replaces ALL panel settings on save, so the Auto
+        // toggles (set on the pills) are sent along unchanged.
         function openSettingsModal() {
             const s = (state && state.settings) || {};
             document.getElementById("settingsJudgeCount").value = s.judge_count ?? 3;
             document.getElementById("settingsScoringMethod").value = s.scoring_method || "sum_all";
             document.getElementById("settingsRestartDeduction").value = s.restart_deduction ?? -0.6;
             document.getElementById("settingsPenaltyDeduction").value = s.penalty_deduction ?? -0.3;
+            document.getElementById("settingsFinalDelay").value = s.final_results_delay ?? 5;
+            document.getElementById("settingsCategoryDelay").value = s.category_results_delay ?? 8;
             document.getElementById("settingsOverlay").classList.remove("hidden");
         }
 
@@ -851,12 +1173,19 @@
         }
 
         async function saveSettings() {
+            const s = (state && state.settings) || {};
             const payload = {
-                poomsae_seconds: (state && state.settings && state.settings.poomsae_seconds) || 90,
+                poomsae_seconds: s.poomsae_seconds || 90,
                 judge_count: parseInt(document.getElementById("settingsJudgeCount").value, 10),
                 scoring_method: document.getElementById("settingsScoringMethod").value,
                 restart_deduction: parseFloat(document.getElementById("settingsRestartDeduction").value),
                 penalty_deduction: parseFloat(document.getElementById("settingsPenaltyDeduction").value),
+                final_results_delay: parseInt(document.getElementById("settingsFinalDelay").value, 10),
+                category_results_delay: parseInt(document.getElementById("settingsCategoryDelay").value, 10),
+                auto_results_1: s.auto_results_1 !== false,
+                auto_results_2: s.auto_results_2 !== false,
+                auto_final_results: s.auto_final_results !== false,
+                auto_category_results: s.auto_category_results !== false,
             };
             try {
                 await api("/settings", "POST", payload);
@@ -867,13 +1196,97 @@
             }
         }
 
-        // ── Restart ──────────────────────────────────────────────────────────
-        // Clears every judge's score for the CURRENTLY ACTIVE round only —
-        // leaves the timer completely alone (no call to /timer/* here at
-        // all) — and records the automatic restart deduction. See
-        // plugin.py's _reset_round for exactly what gets written.
+        // Auto toggle on a result stage's pill.
+        async function setAuto(stage, enabled) {
+            try {
+                await api("/auto", "POST", { stage, enabled });
+            } catch (err) {
+                alert(err.message);
+            }
+            await loadState();
+        }
+
+        // ── Operator score correction ────────────────────────────────────
+        // Clicking a judge's Accuracy or Presentation opens this editor for
+        // the poomsae on screen. Values come from the last rendered table.
+        let shownJudgeValues = { blue: {}, red: {} };
+        let scoreEdit = null;
+
+        function openScoreEditor(side, judge, field) {
+            const values = (shownJudgeValues[side] || {})[judge];
+            if (!values) return;
+            const live = (state && state.live) || {};
+            const corner = ((live.corners || {})[side]) || {};
+            const roundKey = live.resultsRoundKey || STAGE_TO_ROUND_KEY[state.stage];
+            const poomsaeLabel = roundKey === "poomsae2" ? "Poomsae 2" : "Poomsae 1";
+            scoreEdit = { side, judge };
+            document.getElementById("scoreEditorTitle").textContent = `Judge ${judge} — edit score`;
+            document.getElementById("scoreEditorSub").textContent =
+                `${corner.name || (side === "blue" ? "Blue" : "Red")} · ${poomsaeLabel}`;
+            document.getElementById("scoreEditorAccLabel").textContent = `${live.isPara ? "Technical" : "Accuracy"} (0 – 4.0)`;
+            const acc = document.getElementById("scoreEditorAccuracy");
+            const pres = document.getElementById("scoreEditorPresentation");
+            acc.value = Number(values.accuracy).toFixed(1);
+            pres.value = Number(values.presentation).toFixed(1);
+            updateScoreEditorTotal();
+            document.getElementById("scoreEditorOverlay").classList.remove("hidden");
+            const focus = field === "presentation" ? pres : acc;
+            focus.focus();
+            focus.select();
+        }
+
+        function closeScoreEditor() {
+            scoreEdit = null;
+            document.getElementById("scoreEditorOverlay").classList.add("hidden");
+        }
+
+        function updateScoreEditorTotal() {
+            const acc = parseFloat(document.getElementById("scoreEditorAccuracy").value);
+            const pres = parseFloat(document.getElementById("scoreEditorPresentation").value);
+            document.getElementById("scoreEditorTotal").textContent =
+                Number.isFinite(acc) && Number.isFinite(pres) ? (acc + pres).toFixed(2) : "—";
+        }
+
+        async function saveScoreEdit() {
+            if (!scoreEdit) return;
+            const accuracy = parseFloat(document.getElementById("scoreEditorAccuracy").value);
+            const presentation = parseFloat(document.getElementById("scoreEditorPresentation").value);
+            if (!(accuracy >= 0 && accuracy <= 4) || !(presentation >= 0 && presentation <= 6)) {
+                alert("Accuracy must be between 0 and 4.0, presentation between 0 and 6.0.");
+                return;
+            }
+            try {
+                await api("/judge-score", "POST", { corner: scoreEdit.side, judge: scoreEdit.judge, accuracy, presentation });
+                closeScoreEditor();
+                await loadState();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        document.addEventListener("keydown", ev => {
+            if (!scoreEdit) return;
+            if (ev.key === "Enter") saveScoreEdit();
+            if (ev.key === "Escape") closeScoreEditor();
+        });
+
+        // ── Reset performance ────────────────────────────────────────────
+        // Starts the poomsae on screen completely over — no deduction.
+        async function resetFullPerformance() {
+            const roundKey = STAGE_TO_ROUND_KEY[state?.stage] || STAGE_RESULTS_ROUND_KEY[state?.stage];
+            const label = roundKey === "poomsae2" ? "Poomsae 2" : "Poomsae 1";
+            if (!confirm(`Reset ${label} completely?\n\nEvery judge's score, the restart deduction and all penalties for it are cleared, the timer goes back to full, and the judges start again from full marks. No deduction is applied.`)) return;
+            try {
+                await api("/round/reset-full", "POST");
+                await loadState();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // ── Restart ──────────────────────────────────────────────────────
         async function restartRound() {
-            if (!confirm("Reset this round? Every judge's score for the current round will be cleared and the automatic restart deduction applied. This does not affect the timer.")) return;
+            if (!confirm("Restart this poomsae? Every judge's score for it will be cleared and the automatic restart deduction applied. This does not affect the timer.")) return;
             try {
                 await api("/round/reset", "POST");
                 await loadState();
@@ -885,16 +1298,7 @@
         function renderJudgeChips() {
             const el = document.getElementById("judgeChipsEl");
             const registry = (state && state.judgesRegistry) || {};
-            // isValidJudgeNumber filters out any leftover non-numeric/zero
-            // key — see that function's own comment for why (stale entries
-            // from earlier judge-registration designs can still be sitting
-            // in Firebase).
             const numbers = Object.keys(registry).map(Number).filter(isValidJudgeNumber).sort((a, b) => a - b);
-            // No remove button anymore — the judge COUNT is set once via
-            // Settings, not built/torn down one chip at a time, so there's
-            // nothing for an individual chip to remove on its own. Clicking
-            // a chip still re-opens that judge's QR code (e.g. to rescan on
-            // a different device).
             el.innerHTML = numbers.map(n => `
             <div class="judge-chip" onclick="openJudgeQrModal(${n})">
                 <span>Judge ${n}</span>
@@ -902,9 +1306,6 @@
         `).join("");
         }
 
-        // Re-reads this court's schedule from Firestore (e.g. after the
-        // website re-pushed brackets). The plugin stays on the current
-        // match and keeps its stage and judge scores — see _reload_matches.
         async function reloadSchedule() {
             const btn = document.getElementById("reloadBtn");
             btn.disabled = true;
@@ -939,7 +1340,7 @@
         }
 
         async function clearPenalty(corner) {
-            if (!confirm("Remove this athlete's penalties for the current round?")) return;
+            if (!confirm("Remove this athlete's penalties for this poomsae?")) return;
             try {
                 await api("/penalty/clear", "POST", { corner });
                 await loadState();
@@ -957,18 +1358,29 @@
             }
         }
 
-        // Clicking a stage pill jumps DIRECTLY to that stage — forward or
-        // backward, any of the three manually-reachable stages (Preparation
-        // / Poomsae 1 / Poomsae 2). final_results has no click handler at
-        // all (see renderLifecycle) and the backend rejects it outright if
-        // somehow called anyway (see plugin.py's set_stage).
+        // Clicking a stage pill jumps straight to that stage, forward or
+        // back. The Auto toggles only decide what happens BY ITSELF — every
+        // stage can still be clicked by hand.
         async function jumpToStage(stage) {
-            if (state?.isLive && stage === state?.stage) return; // already there — no-op
-            // Preparation on a match that isn't live puts it on the floor and
-            // the external screen, replacing whatever is live. Ask first if
-            // that match is still mid-round.
-            if (!state?.isLive && state?.liveMatch && ["poomsae_1", "poomsae_2"].includes(state.stage)) {
-                if (!confirm(`Match №${state.liveMatch.displayNumber} is still in ${STAGE_LABELS[state.stage]}. Replace it on the screen with this match?`)) return;
+            if (state?.isLive && stage === state?.stage) return;
+            const cur = state?.stage;
+            const live = state?.live || {};
+            const count = state?.matchLabels?.poomsaeCount || 2;
+
+            if (!state?.isLive && state?.liveMatch && cur && !["preparation", "final_results", "category_results"].includes(cur)) {
+                if (!confirm(`Match №${state.liveMatch.displayNumber} is still in ${STAGE_LABELS[cur]}. Replace it on the screen with this match?`)) return;
+            }
+            if (state?.isLive) {
+                const ci = STAGE_ORDER.indexOf(cur), ti = STAGE_ORDER.indexOf(stage);
+                if (STAGE_TO_ROUND_KEY[stage] && ti < ci) {
+                    if (!confirm(`Perform ${STAGE_LABELS[stage]} again? Every judge's score for it is cleared and the judges start from full marks.`)) return;
+                }
+                if (["results_1", "results_2", "final_results"].includes(stage) && STAGE_TO_ROUND_KEY[cur] && live.allJudgesSubmitted !== true) {
+                    if (!confirm("Not every judge has submitted this poomsae — missing judges count as full marks. Continue anyway?")) return;
+                }
+                if (stage === "final_results" && count >= 2 && ci < STAGE_ORDER.indexOf("poomsae_2")) {
+                    if (!confirm("Poomsae 2 hasn't been performed yet. Show Final Results and save the result anyway?")) return;
+                }
             }
             try {
                 await api(`/stage/${stage}`, "POST");
@@ -978,11 +1390,8 @@
             }
         }
 
-        // Clicking any match in the queue panel jumps straight to it —
-        // the backend finds its index in the court's own schedule and
-        // re-runs the same "select this match" flow Previous/Next use.
         async function jumpToMatch(matchId) {
-            if (state && state.match && state.match.id === matchId) return; // already showing it
+            if (state && state.match && state.match.id === matchId) return;
             try {
                 await api(`/jump-to-match/${encodeURIComponent(matchId)}`, "POST");
                 await loadState();
@@ -993,7 +1402,7 @@
 
         // ── Rendering ────────────────────────────────────────────────────
         function render() {
-            renderJudgeChips(); // court-level — render regardless of whether a match is selected
+            renderJudgeChips();
 
             if (!state || !state.match) {
                 document.getElementById("categoryLine").textContent = "No match scheduled on this court.";
@@ -1008,11 +1417,15 @@
 
             const m = state.match;
             const live = state.live || {};
-            document.getElementById("categoryLine").textContent = (state.matchLabels && state.matchLabels.category) || m.categoryLabel || m.categoryCode || "";
             const labels = state.matchLabels || {};
             const isLive = !!state.isLive;
+            document.getElementById("categoryLine").textContent = labels.category || m.categoryLabel || m.categoryCode || "";
+            const modeLabel = { solo: "Solo", duel: "Side by side", para: "Para" }[labels.scoringMode] || "";
             document.getElementById("metaLine").innerHTML =
-                `${escapeHtml(labels.roundPhase || m.roundPhase || "")} <span class="accent">№${escapeHtml(labels.displayNumber ?? m.displayNumber ?? "—")}</span> · Match ${state.index + 1} of ${state.total}`;
+                `${escapeHtml(labels.roundPhase || m.roundPhase || "")} <span class="accent">№${escapeHtml(labels.displayNumber ?? m.displayNumber ?? "—")}</span> · ${escapeHtml(modeLabel)} · Match ${state.index + 1} of ${state.total}`
+                + ((labels.poomsae || []).length
+                    ? ` · <span class="accent">${escapeHtml(labels.poomsae.map(p => p.name).join(" + "))}</span>`
+                    : ` · <span class="text-muted">no poomsae drawn</span>`);
 
             renderLiveLine(state.liveMatch, isLive);
             renderActions(isLive, m.red == null, state.stage, state.settings || {}, state.selectedCorners || {});
@@ -1023,24 +1436,59 @@
             document.getElementById("prevCategoryBtn").disabled = !nav.hasPrevious;
             document.getElementById("nextCategoryBtn").disabled = !nav.hasNext;
 
-            // Live: real match_data with judge scores. Not live: just the
-            // selected match's names/clubs and a hint to click Preparation.
-            renderCorners(isLive ? (live.corners || {}) : (state.selectedCorners || {}), m.red == null, state.judgesRegistry || {},
-                isLive ? (STAGE_TO_ROUND_KEY[state.stage] || null) : null, (state.settings && state.settings.scoring_method) || "sum_all", isLive);
+            if (isLive && state.stage === "category_results") {
+                document.getElementById("cornersEl").innerHTML = categoryPreviewHtml(live.categoryResults);
+            } else {
+                renderCorners(isLive ? (live.corners || {}) : (state.selectedCorners || {}), m.red == null, state.judgesRegistry || {},
+                    isLive ? (live.resultsRoundKey || STAGE_TO_ROUND_KEY[state.stage] || null) : null,
+                    (state.settings && state.settings.scoring_method) || "sum_all", isLive);
+            }
             renderQueuePanel(state.categoryMatches || []);
-            renderLifecycle(isLive ? state.stage : null, isLive);
+            renderLifecycle({
+                stage: isLive ? state.stage : null,
+                isLive,
+                poomsae: labels.poomsae || [],
+                count: labels.poomsaeCount || 2,
+                nextStage: isLive ? state.nextStage : (state.liveMatch ? null : "preparation"),
+                settings: state.settings || {},
+                settingsLoaded: state.settingsLoaded !== false,
+                autoAdvance: isLive ? live.autoAdvance : null,
+            });
             renderTimer(isLive ? live : { stageLabel: "Not live", notLive: true });
+            renderArchive(isLive ? state.archive : null, isLive && ["final_results", "category_results"].includes(state.stage));
+            updateCountdowns();
         }
 
-        // "when it is cut off you will have there just the blue one" — a
-        // solo (cut-off) match has no red corner at all, so isSolo skips
-        // rendering the second panel entirely rather than showing an empty
-        // one. The blue panel gets the full height either way via flex.
+        function renderArchive(archive, onResults) {
+            const el = document.getElementById("archiveLine");
+            if (!archive) {
+                el.innerHTML = onResults ? `<span class="archive archive--failed">Result not saved</span> <button onclick="saveResults()">Save result</button>` : "";
+                return;
+            }
+            if (archive.state === "saved") {
+                el.innerHTML = `<span class="archive archive--saved">✓ Result saved</span>`;
+            } else if (archive.state === "saving") {
+                el.innerHTML = `<span class="archive archive--saving">Saving result…</span>`
+                    + (onResults ? ` <button onclick="saveResults()" title="Nothing came back from Firebase Sync — is it running and enabled?">Retry</button>` : "");
+            } else {
+                el.innerHTML = `<span class="archive archive--failed" title="${escapeHtml(archive.error || "")}">✕ Save failed${archive.error ? `: ${escapeHtml(archive.error)}` : ""}</span>`
+                    + (onResults ? ` <button onclick="saveResults()">Retry</button>` : "");
+            }
+        }
+
+        async function saveResults() {
+            try {
+                await api("/results/save", "POST");
+                await loadState();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
         function renderCorners(corners, isSolo, judgesRegistry, roundKey, scoringMethod, isLive) {
             const el = document.getElementById("cornersEl");
-            const blue = corners.blue;
-            const red = corners.red;
-            el.innerHTML = renderCorner(blue, "blue", judgesRegistry, roundKey, scoringMethod, isLive) + (isSolo ? "" : renderCorner(red, "red", judgesRegistry, roundKey, scoringMethod, isLive));
+            el.innerHTML = renderCorner(corners.blue, "blue", judgesRegistry, roundKey, scoringMethod, isLive)
+                + (isSolo ? "" : renderCorner(corners.red, "red", judgesRegistry, roundKey, scoringMethod, isLive));
         }
 
         function renderCorner(corner, side, judgesRegistry, roundKey, scoringMethod, isLive) {
@@ -1048,7 +1496,7 @@
             const scoresHtml = !isLive
                 ? `<div class="not-live-note">Not on the floor yet.<br>Click <strong>Preparation</strong> to put this match on the external screen.</div>`
                 : (roundKey == null)
-                    ? `<div class="score-waiting">No active poomsae round</div>`
+                    ? `<div class="score-waiting">No active poomsae</div>`
                     : buildJudgesTable(corner.judges, judgesRegistry, roundKey, scoringMethod, corner.roundDeduction, corner.roundPenalty, side);
             const currentTotal = corner.finalScore != null ? `Final Score: ${corner.finalScore}` : "";
 
@@ -1064,41 +1512,25 @@
         `;
         }
 
-        // Rows = one per REGISTERED judge slot (judgesRegistry — the
-        // court-level registry Settings' "Number of judges" reconciles, see
-        // plugin.py's _reconcile_judge_slots — keyed by the judge's own
-        // number DIRECTLY, e.g. judges/1, judges/2). A judge who hasn't
-        // submitted anything for THIS round yet still gets a row, defaulting
-        // to full marks (Accuracy 4.0, Presentation 6.0, Total 10.0) rather
-        // than being omitted — this is what replaces the old "Waiting for
-        // judges…" placeholder with an actual table the operator can read
-        // at a glance, even before anyone's scored anything.
-        //
-        // scoringMethod ("sum_all" | "trim_high_low", set in Settings)
-        // decides which judges' scores feed the Total/Avg. Points rows:
-        // "trim_high_low" drops the single highest-Total and single
-        // lowest-Total judge (real WT-style outlier trimming) before
-        // averaging the rest — only when there are at least 3 judges, since
-        // trimming both ends of 1-2 judges would leave nothing or go
-        // negative. Trimmed judges still show their real row (struck
-        // through) so the operator can see who was excluded and why.
+        // Rows = registered judge slots ∪ judges with data. Missing judges
+        // count as full marks; trim_high_low drops highest + lowest Total
+        // (3+ judges). Same maths as screen.html and standings.py.
         function buildJudgesTable(judgesMap, judgesRegistry, roundKey, scoringMethod, roundDeduction, roundPenalty, side) {
             const registryNumbers = Object.keys(judgesRegistry || {}).map(Number).filter(isValidJudgeNumber);
             const scoredNumbers = Object.keys(judgesMap || {}).map(Number).filter(isValidJudgeNumber);
-            // Union, not just the registry — a judge with real score data
-            // who somehow isn't (or no longer is) in the registry still
-            // gets a row rather than having their data silently hidden.
             const allNumbers = [...new Set([...registryNumbers, ...scoredNumbers])].sort((a, b) => a - b);
 
             const entries = allNumbers.map(number => {
                 const roundData = judgesMap && judgesMap[number] && judgesMap[number][roundKey];
-                const hasSubmittedData = !!roundData;
+                const has = !!roundData;
                 return {
                     number,
-                    accuracy: hasSubmittedData ? roundData.accuracy : 4.0,
-                    presentation: hasSubmittedData ? roundData.presentation : 6.0,
-                    total: hasSubmittedData ? roundData.total : 10.0,
-                    isDefault: !hasSubmittedData,
+                    edited: !!(roundData && roundData.editedByOperator),
+                    status: roundData && roundData.submitted === true ? "submitted" : roundData ? "scoring" : "waiting",
+                    accuracy: has ? roundData.accuracy : 4.0,
+                    presentation: has ? roundData.presentation : 6.0,
+                    total: has ? roundData.total : 10.0,
+                    isDefault: !has,
                 };
             });
 
@@ -1106,18 +1538,26 @@
             let trimmedNumbers = new Set();
             if (scoringMethod === "trim_high_low" && entries.length >= 3) {
                 const sorted = [...entries].sort((a, b) => a.total - b.total);
-                const droppedLow = sorted[0], droppedHigh = sorted[sorted.length - 1];
-                trimmedNumbers = new Set([droppedLow.number, droppedHigh.number]);
+                trimmedNumbers = new Set([sorted[0].number, sorted[sorted.length - 1].number]);
                 included = entries.filter(e => !trimmedNumbers.has(e.number));
             }
 
+            const statusBadge = {
+                submitted: `<span class="judge-status judge-status--submitted" title="Submitted">✓ Submitted</span>`,
+                scoring: `<span class="judge-status judge-status--scoring" title="Scores in, not submitted yet">Scoring…</span>`,
+                waiting: `<span class="judge-status judge-status--waiting" title="Nothing from this judge yet">Waiting</span>`,
+            };
+            const submittedCount = entries.filter(e => e.status === "submitted").length;
+            shownJudgeValues[side] = Object.fromEntries(entries.map(e => [e.number, { accuracy: e.accuracy, presentation: e.presentation }]));
+            const editCell = (e, field) =>
+                `<td class="num score-edit" title="Click to change Judge ${e.number}'s ${field}" onclick="openScoreEditor('${side}', ${e.number}, '${field}')">${formatScore(e[field])}</td>`;
             const rows = entries.map(e => {
-                const classes = [e.isDefault ? "score-default-row" : "", trimmedNumbers.has(e.number) ? "score-trimmed-row" : ""].filter(Boolean).join(" ");
+                const classes = [e.isDefault ? "score-default-row" : "", trimmedNumbers.has(e.number) ? "score-trimmed-row" : "", e.status === "submitted" ? "score-submitted-row" : ""].filter(Boolean).join(" ");
                 return `
             <tr class="${classes}">
-                <td>Judge ${e.number}</td>
-                <td class="num">${formatScore(e.accuracy)}</td>
-                <td class="num">${formatScore(e.presentation)}</td>
+                <td>Judge ${e.number} ${statusBadge[e.status]}${e.edited ? ` <span class="judge-status judge-status--edited" title="Changed by the operator">Edited</span>` : ""}</td>
+                ${editCell(e, "accuracy")}
+                ${editCell(e, "presentation")}
                 <td class="num">${formatScore(e.total)}</td>
             </tr>
         `;
@@ -1128,8 +1568,6 @@
             const totalAcc = sum("accuracy"), totalPres = sum("presentation"), totalTot = sum("total");
             const avgAcc = totalAcc / count, avgPres = totalPres / count, avgTot = totalTot / count;
 
-            // Restart deduction (once per round) + penalties (per tap), both
-            // reset on every stage change — see plugin.py.
             const restart = roundDeduction ? Number(roundDeduction) : 0;
             const penalty = roundPenalty ? Number(roundPenalty) : 0;
             const finalTotal = avgTot + restart + penalty;
@@ -1141,7 +1579,18 @@
                 ? parts.join(" ")
                 : `<span class="text-muted" style="font-size:0.72rem;">No deductions</span>`;
 
+            const allIn = entries.length > 0 && submittedCount === entries.length;
+            // One Reset button per match (on the blue panel): during a poomsae
+            // or its Results.
+            const canReset = !!(STAGE_TO_ROUND_KEY[state.stage] || STAGE_RESULTS_ROUND_KEY[state.stage]);
+            const resetBtn = side !== "blue" ? "" : `<button class="reset-full-btn" ${canReset ? "" : "disabled"}
+                title="${canReset ? "Start this poomsae completely over — scores, deductions, penalties and timer. No deduction applied." : "Available during a poomsae or its results"}"
+                onclick="resetFullPerformance()">&#x21ba; Reset performance</button>`;
             return `
+            <div class="scores-head">
+                <div class="judges-submitted ${allIn ? "judges-submitted--all" : ""}">${submittedCount} / ${entries.length} judges submitted</div>
+                ${resetBtn}
+            </div>
             <table class="score-table">
                 <thead><tr><th></th><th class="num">Accuracy</th><th class="num">Presentation</th><th class="num">Total</th></tr></thead>
                 <tbody>
@@ -1164,11 +1613,47 @@
             return (v === undefined || v === null) ? "—" : Number(v).toFixed(1);
         }
 
-        // Vertically scrollable list of every match in the CURRENT
-        // match's category (see plugin.py's _category_matches) — the
-        // "order + what fight is next" panel. The active match is
-        // always highlighted and auto-scrolled into view so the
-        // operator never has to hunt for it in a long list.
+        // What the external screen shows in Category Results, as a table.
+        function categoryPreviewHtml(cr) {
+            if (!cr) return `<div class="cat-preview"><div class="score-waiting">Building category results…</div></div>`;
+            if (cr.error) return `<div class="cat-preview"><div class="score-waiting">Couldn't build category results: ${escapeHtml(cr.error)}</div></div>`;
+            const head = `<div class="cat-preview-head"><span>Category Results · ${escapeHtml(cr.roundPhaseLabel || "")}</span><span class="text-muted">${cr.performed ?? 0} / ${cr.total ?? 0} done</span></div>`;
+            const fmt = v => v == null ? "—" : Number(v).toFixed(3);
+
+            if (cr.system === "single_elimination") {
+                const matches = asArray(cr.matches);
+                return `<div class="cat-preview">${head}<table class="score-table"><thead><tr><th>№</th><th>Blue</th><th class="num"></th><th>Red</th><th class="num"></th></tr></thead><tbody>
+                    ${matches.map(m => `<tr class="${m.isCurrent ? "current" : ""} ${m.played ? "" : "pending"}">
+                        <td>${escapeHtml(m.displayNumberLabel || "")}</td>
+                        <td>${m.winner === "blue" ? "<strong>" : ""}${escapeHtml(m.blue?.name || "—")}${m.winner === "blue" ? "</strong> ✓" : ""}</td>
+                        <td class="num">${fmt(m.blue?.score)}</td>
+                        <td>${m.winner === "red" ? "<strong>" : ""}${escapeHtml(m.red?.name || "—")}${m.winner === "red" ? "</strong> ✓" : ""}</td>
+                        <td class="num">${fmt(m.red?.score)}</td>
+                    </tr>`).join("")}</tbody></table></div>`;
+            }
+
+            const rr = cr.system === "round_robin";
+            const rows = asArray(cr.rows);
+            return `<div class="cat-preview">${head}<table class="score-table"><thead><tr><th>#</th><th>Athlete</th>${rr ? `<th class="num">W–L</th>` : ""}<th class="num">${rr ? "Points" : "Score"}</th></tr></thead><tbody>
+                ${rows.map(r => {
+                const badge = r.medal ? `<span class="cat-badge cat-badge--m${r.medal}">${["", "Gold", "Silver", "Bronze"][r.medal]}</span>`
+                    : r.qualified ? `<span class="cat-badge cat-badge--q">Q</span>` : "";
+                return `<tr class="${r.isCurrent ? "current" : ""} ${r.score == null ? "pending" : ""}">
+                        <td>${r.rank ?? ""}</td>
+                        <td>${escapeHtml(r.name || "—")}${badge}</td>
+                        ${rr ? `<td class="num">${r.wins ?? 0}–${r.losses ?? 0}</td>` : ""}
+                        <td class="num">${fmt(r.score)}</td>
+                    </tr>`;
+            }).join("")}</tbody></table></div>`;
+        }
+
+        // RTDB can hand a list back as an object keyed "0", "1", …
+        function asArray(v) {
+            if (Array.isArray(v)) return v;
+            if (v && typeof v === "object") return Object.keys(v).sort((a, b) => a - b).map(k => v[k]);
+            return [];
+        }
+
         function renderQueuePanel(categoryMatches) {
             const el = document.getElementById("queuePanelEl");
             el.innerHTML = categoryMatches.map(m => `
@@ -1187,31 +1672,78 @@
             if (activeEl) activeEl.scrollIntoView({ block: "nearest" });
         }
 
-        // Selected match NOT live: only Preparation is clickable (that's what
-        // puts it on the floor); nothing is highlighted. Live: as before —
-        // Preparation / Poomsae 1 / Poomsae 2 clickable, Final Results automatic.
-        function renderLifecycle(currentStage, isLive) {
+        // Seven pills. Not live: only Preparation is clickable. Live: every
+        // stage is clickable (Poomsae 2 / Results 2 are off when only one
+        // poomsae is performed). The four result stages carry an Auto
+        // toggle; a pending automatic step shows its countdown.
+        function renderLifecycle({ stage: currentStage, isLive, poomsae, count, nextStage, settings, settingsLoaded, autoAdvance }) {
             const el = document.getElementById("lifecycleEl");
-            const order = ["preparation", "poomsae_1", "poomsae_2", "final_results"];
-            const currentIdx = isLive ? order.indexOf(currentStage) : -1;
-            el.innerHTML = order.map((stage, i) => {
-                const isFinal = stage === "final_results";
-                const clickable = !isFinal && (isLive || stage === "preparation");
+            const currentIdx = isLive ? STAGE_ORDER.indexOf(currentStage) : -1;
+            el.innerHTML = STAGE_ORDER.map((stage, i) => {
+                const skipped = SECOND_POOMSAE_STAGES.includes(stage) && count < 2;
+                const clickable = !skipped && (isLive || stage === "preparation");
                 let cls = "stage-pill";
-                if (isFinal) cls += " final";
-                else if (clickable) cls += " clickable";
-                else cls += " disabled";
-                if (i < currentIdx) cls += " done";
+                if (stage === "final_results" || stage === "category_results") cls += " final";
+                cls += clickable ? " clickable" : " disabled";
+                if (!skipped && i < currentIdx) cls += " done";
                 else if (i === currentIdx) cls += " active";
-                const arrow = i < order.length - 1 ? `<div class="stage-arrow">&darr;</div>` : "";
+                if (stage === nextStage) cls += " next-step";
+
+                // Sub line: poomsae name, Auto behaviour, or countdown.
+                const subs = [];
+                const pIdx = STAGE_POOMSAE_INDEX[stage];
+                if (pIdx != null && poomsae[pIdx]) subs.push(escapeHtml(poomsae[pIdx].name));
+                const isAuto = AUTO_STAGES.includes(stage);
+                const autoOn = isAuto && settings[`auto_${stage}`] !== false;
+                if (autoAdvance && autoAdvance.to === stage) {
+                    subs.push(`<span class="stage-pill-countdown" data-at="${escapeHtml(autoAdvance.at)}">in ${autoAdvance.seconds}s</span>`);
+                } else if (autoOn && !skipped && i > currentIdx) {
+                    subs.push(autoHint(stage, settings));
+                }
+                const sub = subs.length ? `<div class="stage-pill-sub">${subs.join(" · ")}</div>` : "";
+
+                const toggle = isAuto && !skipped ? `
+                    <label class="auto-toggle ${autoOn ? "on" : ""}" onclick="event.stopPropagation()"
+                        title="${escapeHtml(autoTitle(stage, settings))}">
+                        <input type="checkbox" ${autoOn ? "checked" : ""} ${settingsLoaded ? "" : "disabled"}
+                            onclick="event.stopPropagation()" onchange="setAuto('${stage}', this.checked)">Auto
+                    </label>` : "";
+
+                const title = skipped ? "Only one poomsae in this round"
+                    : stage === nextStage ? "Next step — click to continue"
+                        : !isLive && stage === "preparation" ? "Put this match on the floor and the external screen"
+                            : !clickable ? "Click Preparation first" : "";
                 const onclick = clickable ? ` onclick="jumpToStage('${stage}')"` : "";
-                const title = !isLive && stage === "preparation" ? ` title="Put this match on the floor and the external screen"`
-                    : !clickable && !isFinal ? ` title="Click Preparation first"` : "";
-                return `<div class="${cls}"${onclick}${title}>${STAGE_LABELS[stage]}</div>${arrow}`;
+                const arrow = i < STAGE_ORDER.length - 1 ? `<div class="stage-arrow">&darr;</div>` : "";
+                return `<div class="${cls}"${onclick}${title ? ` title="${escapeHtml(title)}"` : ""}>
+                        <div class="stage-pill-main">${STAGE_LABELS[stage]}${sub}</div>${toggle}
+                    </div>${arrow}`;
             }).join("");
         }
 
-        // Which match is on the floor, when it isn't the one selected.
+        function autoHint(stage, settings) {
+            if (stage === "results_1" || stage === "results_2") return "auto on submit";
+            if (stage === "final_results") return `auto after ${settings.final_results_delay ?? 5}s`;
+            return `auto after ${settings.category_results_delay ?? 8}s`;
+        }
+
+        function autoTitle(stage, settings) {
+            if (stage === "results_1" || stage === "results_2")
+                return "On: shown as soon as every judge submits. Off: waits for you to click it.";
+            if (stage === "final_results")
+                return `On: shown ${settings.final_results_delay ?? 5}s after the last Results. Off: waits for you to click it.`;
+            return `On: shown ${settings.category_results_delay ?? 8}s after Final Results. Off: waits for you to click it.`;
+        }
+
+        // Ticks the "in Ns" countdowns locally between polls.
+        function updateCountdowns() {
+            document.querySelectorAll("[data-at]").forEach(el => {
+                const left = Math.max(0, Math.ceil((Date.parse(el.dataset.at) - Date.now()) / 1000));
+                el.textContent = `in ${left}s`;
+            });
+        }
+        setInterval(updateCountdowns, 250);
+
         function renderLiveLine(liveMatch, isLive) {
             const el = document.getElementById("liveLine");
             if (isLive) {
@@ -1223,23 +1755,23 @@
             }
         }
 
-        // Restart: solo performance only (darkened in a side-by-side match).
-        // Penalty: one button for solo, one per athlete side-by-side. Both
-        // only work on the live match during Poomsae 1 / Poomsae 2.
+        // Restart: solo, while a poomsae is performed. Penalty: during a
+        // poomsae or its Results.
         function renderActions(isLive, isSolo, stage, settings, corners) {
-            const inRound = isLive && ["poomsae_1", "poomsae_2"].includes(stage);
+            const inRound = isLive && !!STAGE_TO_ROUND_KEY[stage];
+            const penaltyOk = inRound || (isLive && !!STAGE_RESULTS_ROUND_KEY[stage]);
             const restartBtn = document.getElementById("restartBtn");
             const restart = settings.restart_deduction;
             restartBtn.textContent = restart ? `Restart (${restart > 0 ? "+" : ""}${restart})` : "Restart";
             restartBtn.disabled = !inRound || !isSolo;
             restartBtn.title = !isSolo ? "Not available in a side-by-side match"
-                : !inRound ? "Available during Poomsae 1 / Poomsae 2 of the live match"
-                    : "Clears every judge's score for the CURRENT round — does not touch the timer — and applies the automatic restart deduction";
+                : !inRound ? "Available while Poomsae 1 / Poomsae 2 of the live match is performed"
+                    : "Clears every judge's score for the CURRENT poomsae — does not touch the timer — and applies the automatic restart deduction";
 
             const penalty = settings.penalty_deduction ?? -0.3;
             const amount = `${penalty > 0 ? "+" : ""}${penalty}`;
-            const disabled = inRound ? "" : "disabled";
-            const title = inRound ? "" : ` title="Available during Poomsae 1 / Poomsae 2 of the live match"`;
+            const disabled = penaltyOk ? "" : "disabled";
+            const title = penaltyOk ? "" : ` title="Available during a poomsae or its results"`;
             const name = c => escapeHtml(((corners || {})[c] || {}).name || (c === "blue" ? "Blue" : "Red"));
             document.getElementById("penaltyGroup").innerHTML = isSolo
                 ? `<button class="penalty-btn" ${disabled}${title} onclick="givePenalty('blue')">Penalty (${amount})</button>`
@@ -1248,20 +1780,13 @@
         }
 
         // ── Timer ────────────────────────────────────────────────────────
-        // Manual start/pause, not auto-running — see plugin.py's TIMER MODEL
-        // comment. Three states this renders:
-        //   - disabled: Preparation / Final Results — no timer exists at all
-        //   - paused: a poomsae round is active but the operator hasn't
-        //     tapped the timer yet (or paused it mid-count) — shows the
-        //     frozen timerRemainingSeconds value, no ticking
-        //   - running: ticking countdown computed locally from
-        //     timerRemainingSeconds (the value AT the moment it was last
-        //     started) minus elapsed time since timerStartedAt — the same
-        //     "push the fact, not the tick" rule as everywhere else here.
+        // Only the poomsae stages have a timer. Running = remaining at the
+        // last start minus elapsed since timerStartedAt, ticked locally.
         function renderTimer(live) {
             clearInterval(countdownTimer);
             const timerEl = document.getElementById("timerEl");
-            const label = live.stageLabel || STAGE_LABELS[state.stage] || "";
+            const label = (live.stageLabel || STAGE_LABELS[state.stage] || "")
+                + (live.allJudgesSubmitted === true && STAGE_TO_ROUND_KEY[live.stage] ? " — all judges submitted" : "");
             document.getElementById("timerLabel").textContent = label;
 
             const duration = live.stageDurationSeconds;
@@ -1294,29 +1819,23 @@
                 const elapsed = (Date.now() - startedAt) / 1000;
                 const remaining = Math.max(0, Math.round(baseline - elapsed));
                 document.getElementById("timerClock").textContent = formatClock(remaining);
-                timerEl.className = "timer"; // always plain/green+black while running — see the .timer CSS rule's own comment
+                timerEl.className = "timer";
             }
             tick();
-            countdownTimer = setInterval(tick, 1000);
+            countdownTimer = setInterval(tick, 250);
         }
 
-        // Toggles the timer for whichever poomsae round is currently active
-        // — a no-op for Preparation/Final Results (nothing to toggle) or
-        // before any match/round is loaded at all.
         async function toggleTimer() {
             const live = state && state.live;
             if (!state || !state.isLive || !live || live.stageDurationSeconds == null) return;
 
             try {
                 if (live.timerRunning) {
-                    // Compute the CURRENT remaining time client-side and
-                    // send it up so the paused value stored in match_data
-                    // is exact, not just "duration" again — see
-                    // TimerPausePayload's own doc comment on the backend.
+                    // The plugin computes the exact paused value itself; this
+                    // is only its fallback.
                     const baseline = live.timerRemainingSeconds != null ? live.timerRemainingSeconds : live.stageDurationSeconds;
                     const startedAt = live.timerStartedAt ? new Date(live.timerStartedAt).getTime() : Date.now();
-                    const elapsed = (Date.now() - startedAt) / 1000;
-                    const remaining = Math.max(0, baseline - elapsed);
+                    const remaining = Math.max(0, baseline - (Date.now() - startedAt) / 1000);
                     await api("/timer/pause", "POST", { remainingSeconds: remaining });
                 } else {
                     await api("/timer/start", "POST");
@@ -1337,9 +1856,6 @@
             return String(str ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
         }
 
-        // Poll every couple seconds — cheap (reads this plugin's own local
-        // state plus one RTDB read), and is how externally-written judge
-        // scores show up on this panel without the operator doing anything.
         loadState();
         setInterval(loadState, 2000);
     </script>

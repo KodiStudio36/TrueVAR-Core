@@ -34,6 +34,22 @@ def _json_safe(value):
     return value
 
 
+def _prune(value):
+    """Drops None / [] / {} recursively — fields that don't apply are left
+    out of the match doc rather than written as null."""
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            v = _prune(v)
+            if v is None or v == [] or v == {}:
+                continue
+            out[k] = v
+        return out
+    if isinstance(value, list):
+        return [_prune(v) for v in value if v is not None]
+    return value
+
+
 class FirebaseSyncPlugin(BasePlugin):
     """
     Every scoreboard.stable_update is pushed to Firebase Realtime Database
@@ -61,6 +77,17 @@ class FirebaseSyncPlugin(BasePlugin):
     trade-off: there is no more automatic catch-all — any OTHER system
     that completes a match (an admin dashboard override, a walkover set
     outside this listener's flow) must call that same endpoint itself.
+
+    POOMSAE: the Poomsae Control Panel plugin publishes
+    poomsae.FINAL_RESULTS when the operator clicks Final Results, with
+    the full result already computed from RTDB (see
+    poomsae_control/results.py). _on_poomsae_result merges it into the
+    match doc the bracket builder created — results only, identity
+    fields untouched, same rule as a bracket-managed kyorugi match — and
+    publishes firebase_sync.match_archived back so the operator panel can
+    show whether the save worked. The same event carries one analysis doc
+    per athlete per poomsae (with the silent timeline), written to
+        sports/{sport_id}/disciplines/{discipline_id}/performances/{matchId}_{n}_{corner}
     """
 
     def __init__(self, core_context: dict, logger):
@@ -127,6 +154,7 @@ class FirebaseSyncPlugin(BasePlugin):
             self._subscriptions = [
                 ("scoreboard.stable_update", self._on_stable_update),
                 ("scoreboard.WIN", self._on_win),
+                ("poomsae.FINAL_RESULTS", self._on_poomsae_result),
             ]
             bus.subscribe_many(self._subscriptions)
 
@@ -201,6 +229,130 @@ class FirebaseSyncPlugin(BasePlugin):
             return
 
         await self._archive_match(match_id, data)
+
+    # ------------------------------------------------------------------ poomsae
+
+    async def _on_poomsae_result(self, data: dict) -> None:
+        """
+        Archives a poomsae match when the operator clicks Final Results.
+        `data` is the event payload from PoomsaeControlPlugin._publish_result:
+            {match_id, tournament_id, court_id, sport_id, discipline_id,
+             category_code, round_phase, completed_at, result}
+        match_id is already the full Firestore doc id (the poomsae plugin
+        reads matches straight from Firestore), so no tournament prefix.
+
+        Written like a bracket-managed kyorugi match (merge — names, entries
+        and bracket fields stay untouched), into the same maps:
+            round       number of poomsae performed (1, or 2 in a final)
+            win         "blue" / "red" side by side; None for a solo
+                        performance or an undecided tie
+            win_score   "8.533-7.966" side by side, "8.533" solo
+            win_type    PTS (score) · PRS (tie → presentation) · ALL (tie →
+                        all judges' total); None when undecided
+            status: "completed", resultsProcessed: False, completedAt
+            video       {id, t}: YouTube video id + second where the first
+                        poomsae starts (each performance doc has its own)
+            blue / red:
+                points      one entry per poomsae, like kyorugi's per round:
+                            {round, poomsae: {key, name}, points (round
+                             score), accuracy, presentation, total (judges'
+                             averages), restart, penalties, judges: {"1":
+                             {accuracy, presentation, total, submitted,
+                              trimmed, presentationCategories, technical}},
+                             trimmedJudges, totalAllJudges,
+                             allJudgesSubmitted}
+                finalScore  the match score (average of the poomsae)
+        """
+        match_id = (data or {}).get("match_id")
+        if not match_id:
+            self.logger.warning("FirebaseSync: poomsae result with no match_id — skipping archive.")
+            return
+        result = data.get("result") or {}
+        sport_id = data.get("sport_id") or self._sport_id
+        discipline_id = data.get("discipline_id") or self._discipline_id
+        if not sport_id or not discipline_id:
+            await self._report_archived(match_id, False, "No sport/discipline context.")
+            return
+
+        merge_payload = {
+            "round": result.get("round"),
+            "win": result.get("win"),
+            "win_score": result.get("win_score"),
+            "win_type": result.get("win_type"),
+            "status": "completed",
+            "resultsProcessed": False,
+            "completedAt": data.get("completed_at"),
+            # YouTube video at the first poomsae: {id, t (seconds)}.
+            "video": result.get("video"),
+        }
+        for color in ("blue", "red"):
+            corner = result.get(color)
+            if corner:
+                merge_payload[color] = {
+                    "points": corner.get("points"),
+                    "finalScore": corner.get("finalScore"),
+                }
+        # Fields that don't apply (no winner, no win_type…) aren't written.
+        merge_payload = _prune(merge_payload)
+
+        db = self.core_context["db"]
+        try:
+            await db.save_match_state(sport_id, discipline_id, match_id, _json_safe(merge_payload))
+            self._history_count += 1
+            self._last_error = None
+        except Exception as exc:
+            self._last_error = str(exc)
+            self.logger.error("FirebaseSync: save_match_state (poomsae result) failed", exception=exc, doc_id=match_id)
+            await self._report_archived(match_id, False, str(exc))
+            return
+
+        # Analysis docs — one per athlete per poomsae, with the timeline.
+        performances = data.get("performances") or []
+        if performances:
+            try:
+                await self._save_performances(sport_id, discipline_id, performances)
+            except Exception as exc:
+                self._last_error = str(exc)
+                self.logger.error("FirebaseSync: saving poomsae performances failed", exception=exc, doc_id=match_id)
+                await self._report_archived(match_id, False, f"Match saved, performances failed: {exc}")
+                return
+
+        await self._report_archived(match_id, True, None)
+
+        # Same post-processing call as kyorugi — but only for a side-by-side
+        # match with a decided winner, the case bracket propagation needs.
+        # A solo cut-off performance has no per-match winner; its ranking
+        # comes from the whole round's scores, not from one match doc.
+        if result.get("format") == "duel" and result.get("win"):
+            await self._trigger_result_processing(match_id, sport_id, discipline_id)
+
+    async def _save_performances(self, sport_id: str, discipline_id: str, performances: list) -> None:
+        """
+        sports/{sport}/disciplines/{discipline}/performances/{performanceId}
+        One doc per athlete per poomsae — {matchId}_{poomsaeNumber}_{corner}
+        — fully replaced on every save (a re-saved result rewrites them).
+        Written straight through the adapter's Firestore client in one
+        batch; DatabasePort has no generic "save document" method.
+        """
+        firestore_db = self.core_context["db"].firestore_db
+        collection = (
+            firestore_db.collection("sports").document(sport_id)
+            .collection("disciplines").document(discipline_id)
+            .collection("performances")
+        )
+
+        def _write():
+            batch = firestore_db.batch()
+            for doc in performances:
+                batch.set(collection.document(doc["performanceId"]), _json_safe(doc))
+            batch.commit()
+
+        await asyncio.to_thread(_write)
+
+    async def _report_archived(self, match_id: str, ok: bool, error) -> None:
+        bus = self.core_context.get("event_bus")
+        if bus:
+            await bus.publish("firebase_sync.match_archived", {"match_id": match_id, "ok": ok, "error": error})
 
     async def _notify_match_start(self, match_id: str, data: dict) -> None:
         athletes = [
@@ -319,7 +471,8 @@ class FirebaseSyncPlugin(BasePlugin):
 
         await self._trigger_result_processing(doc_id)
 
-    async def _trigger_result_processing(self, doc_id: str) -> None:
+    async def _trigger_result_processing(self, doc_id: str, sport_id: Optional[str] = None,
+                                         discipline_id: Optional[str] = None) -> None:
         """
         Tells the processMatchResult Cloud Function to run medal/athlete-
         stat/bracket-propagation logic for this match NOW, via direct
@@ -342,8 +495,8 @@ class FirebaseSyncPlugin(BasePlugin):
                 resp = await client.post(
                     PROCESS_MATCH_RESULT_URL,
                     json={
-                        "sport_id": self._sport_id,
-                        "discipline_id": self._discipline_id,
+                        "sport_id": sport_id or self._sport_id,
+                        "discipline_id": discipline_id or self._discipline_id,
                         "match_id": doc_id,
                     },
                     headers={"X-Internal-Secret": INTERNAL_SECRET_HEADER_VALUE},

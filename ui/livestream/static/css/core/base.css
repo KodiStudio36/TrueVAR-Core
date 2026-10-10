@@ -51,8 +51,8 @@ body {
 }
 
 .flag-sm {
-    width: 32px;
-    height: 22px;
+    width: 28px;
+    height: 19px;
     object-fit: cover;
     border: var(--border-flag);
 }
@@ -100,6 +100,13 @@ body {
 .anchor-top-left {
     position: absolute;
     top: var(--top-offset);
+    left: var(--left-offset);
+    width: auto;
+}
+
+.anchor-bottom-left {
+    position: absolute;
+    bottom: var(--bottom-offset);
     left: var(--left-offset);
     width: auto;
 }

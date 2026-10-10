@@ -6,7 +6,8 @@ from plugins.core.ivr.plugin import IVRPlugin
 from plugins.bout_cntrl.livestream_extension.plugin import BoutCntrlLivestreamExtension
 from plugins.core.livestream.plugin import LivestreamCorePlugin
 from plugins.core.shuttle_xpress.plugin import ShuttleXpressPlugin
-from plugins.poomsae.plugin import PoomsaeControlPlugin
+from plugins.poomsae.livestream_extension.plugin import PoomsaeLivestreamExtension
+from plugins.poomsae.poomsae.plugin import PoomsaeControlPlugin
 from plugins.tkstrike.listener.gen2.plugin import TkStrikeListenerGen2Plugin
 from plugins.tkstrike.livestream_extension.plugin import TkStrikeLivestreamExtension
 from plugins.tkstrike.external_screen.plugin import TkStrikeExternalScreenPlugin
@@ -15,8 +16,9 @@ from plugins.bout_cntrl.bout_cntrl.plugin import BoutCntrlPlugin
 from plugins.tkstrike.server.gen2.plugin import TkStrikeServerGen2Plugin
 from plugins.tkstrike.server.gen3.plugin import TkStrikeServerGen3Plugin
 from plugins.tkstrike.tkstrike.gen2.plugin import TkStrikeGen2Plugin
+from plugins.universal.ai_cameraman.kyorugi.plugin import AICameramanKyorugiPlugin
+from plugins.universal.ai_cameraman.poomsae.plugin import AICameramanPoomsaePlugin
 from plugins.universal.integrated_livestream_extension.plugin import UniversalIntegratedLivestreamExtension
-from plugins.universal.integrated_livestream_extension.settings import UniversalIntegratedLivestreamSettings
 
 # === Taekwondo ===============
 TAEKWONDO = "Taekwondo".lower()
@@ -91,12 +93,21 @@ class PluginFactory:
 
         elif provider == BOUT_CNTRL:
             stack.append(BoutCntrlPlugin)
+
+
             
         if is_stream:
             stack.append(LivestreamCorePlugin)
 
-            if provider == DAEDO:
-                stack.append(TkStrikeLivestreamExtension)
+            if discipline == KYORUGI:
+                stack.append(AICameramanKyorugiPlugin)
+
+                if provider == DAEDO:
+                    stack.append(TkStrikeLivestreamExtension)
+
+            elif discipline == POOMSAE:
+                stack.append(AICameramanPoomsaePlugin)
+                stack.append(PoomsaeLivestreamExtension)
 
             elif provider == BOUT_CNTRL:
                 stack.append(BoutCntrlLivestreamExtension)

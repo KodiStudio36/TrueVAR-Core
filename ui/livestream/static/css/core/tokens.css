@@ -7,51 +7,51 @@
    the house look. Never redefine a core token here per-sport.
    ========================================================= */
 :root {
-    /* Surfaces */
-    --bg-row: #DDECF0;
-    --bg-label: #043640;
-    --bg-panel: #02102A;
-    /* dark "sketch" panel background */
-    --bg-danger: #800000;
+   /* Surfaces */
+   --bg-row: #DDECF0;
+   --bg-label: #043640;
+   --bg-panel: #02102A;
+   /* dark "sketch" panel background */
+   --bg-danger: #800000;
 
-    /* Text */
-    --text-primary: #083344;
-    --text-light: #A1C6CC;
-    --text-white: #ffffff;
-    --text-muted: #8da1b5;
-    --text-seed: #638B95;
-    --text-round: #124B5A;
+   /* Text */
+   --text-primary: #083344;
+   --text-light: #A1C6CC;
+   --text-white: #ffffff;
+   --text-muted: #8da1b5;
+   --text-seed: #638B95;
+   --text-round: #124B5A;
 
-    /* Corner colors (Blue/Red is the house standard for 1v1 sports) */
-    --color-blue: #006eff;
-    --color-red: #ff0000;
-    --color-green: #043640;
-    --color-warn: #FFA000;
-    --color-penalty: #fff47e;
+   /* Corner colors (Blue/Red is the house standard for 1v1 sports) */
+   --color-blue: #006eff;
+   --color-red: #ff0000;
+   --color-green: #043640;
+   --color-warn: #FFA000;
+   --color-penalty: #fff47e;
 
-    /* Gradients & borders */
-    --grad-header: linear-gradient(100deg, #02102A 85%, #0B6B67 85.2%);
-    --border-flag: 1px solid rgba(0, 0, 0, 0.1);
+   /* Gradients & borders */
+   --grad-header: linear-gradient(100deg, #02102A 85%, #0B6B67 85.2%);
+   --border-flag: 1px solid rgba(0, 0, 0, 0.1);
 
-    /* Layout */
-    --default-offset: 2vw;
-    --bottom-offset: var(--default-offset);
-    --top-offset: var(--default-offset);
-    --left-offset: var(--default-offset);
-    --side-padding: 16vw;
+   /* Layout */
+   --default-offset: 2vw;
+   --bottom-offset: var(--default-offset);
+   --top-offset: var(--default-offset);
+   --left-offset: var(--default-offset);
+   --side-padding: 16vw;
 
-    /* Ticker */
-    --ticker-height: 40px;
-    --ticker-bg: linear-gradient(to top, rgba(0, 0, 0, .7) 0%, rgba(0, 0, 0, 0) 100%);
-    --ticker-speed: 15s;
+   /* Ticker */
+   --ticker-height: 40px;
+   --ticker-bg: linear-gradient(to top, rgba(0, 0, 0, .7) 0%, rgba(0, 0, 0, 0) 100%);
+   --ticker-speed: 15s;
 
-    /* Animation timing — every widget animation is expressed with
+   /* Animation timing — every widget animation is expressed with
        these so pacing can be tuned globally in one place. */
-    --t-fast: 0.3s;
-    --t-base: 0.4s;
-    --t-slow: 0.5s;
-    --t-rise: 0.85s;
-    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-    --ease-soft: cubic-bezier(0.16, 1, 0.3, 1);
-    --ease-snap: cubic-bezier(0.8, 0, 0.2, 1);
+   --t-fast: 0.3s;
+   --t-base: 0.4s;
+   --t-slow: 0.5s;
+   --t-rise: 0.85s;
+   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+   --ease-soft: cubic-bezier(0.16, 1, 0.3, 1);
+   --ease-snap: cubic-bezier(0.8, 0, 0.2, 1);
 }

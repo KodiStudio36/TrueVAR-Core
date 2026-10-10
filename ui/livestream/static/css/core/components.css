@@ -126,29 +126,31 @@
    text chip) shared by any "top-left corner box" widget.
    ------------------------------------------------------- */
 .chip-id {
-    font-size: 19px;
+    font-size: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     background-color: var(--bg-label);
     color: var(--text-white);
-    padding: 0 14px;
+    padding: 0 10px;
     font-weight: bold;
 }
 
 .chip-label {
-    font-size: 19px;
+    font-size: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     background-color: var(--bg-row);
     color: var(--text-primary);
-    padding: 0 12px;
+    padding: 0 10px;
     font-weight: bold;
+    /* one-liners: "101 · Seniors Men -68kg" never wraps */
+    white-space: nowrap;
 }
 
 .chip-label.wide {
-    padding: 0 16px;
+    padding: 0 12px;
 }
 
 .chip-label.is-medical {
@@ -168,69 +170,69 @@
 .row-wrapper.with-color {
     width: 100%;
     display: grid;
-    grid-template-columns: 12px 1fr;
+    grid-template-columns: 10px 1fr;
     gap: 2px;
 }
 
 .row-wrapper.with-color.scoreboard {
     width: 100%;
     display: grid;
-    grid-template-columns: 12px auto 1fr;
+    grid-template-columns: 10px auto 1fr;
     gap: 2px;
 }
 
 .row-wrapper.results {
     width: 100%;
     display: grid;
-    grid-template-columns: 12px 1fr auto auto auto auto;
+    grid-template-columns: 10px 1fr auto auto auto auto;
     gap: 2px;
 }
 
 .row-content {
     position: relative;
-    height: 38px;
+    height: 32px;
     background-color: var(--bg-row);
     display: flex;
     align-items: center;
-    padding: 8px 16px;
+    padding: 4px 12px;
     color: var(--text-primary);
-    font-size: 19px;
+    font-size: 16px;
     font-weight: 600;
-    gap: 12px;
+    gap: 10px;
 }
 
 .row-content.scoreboard {
     /* max-width: 280px; */
-    padding: 8px 12px;
-    gap: 12px;
+    padding: 4px 10px;
+    gap: 8px;
 }
 
 .row-content.grid-result {
     display: grid;
-    grid-template-columns: 34px auto 1fr auto auto auto;
-    gap: 16px;
+    grid-template-columns: 30px auto 1fr auto auto auto;
+    gap: 12px;
 }
 
 .row-content.grid-name {
     display: grid;
     grid-template-columns: auto auto auto;
-    gap: 16px;
+    gap: 12px;
 }
 
 .row-content.grid-round {
     display: grid;
-    grid-template-columns: 34px auto 1fr auto auto auto;
-    gap: 16px;
+    grid-template-columns: 30px auto 1fr auto auto auto;
+    gap: 12px;
 }
 
 .point-box {
     position: relative;
     display: block;
-    height: 38px;
-    width: 38px;
+    height: 32px;
+    width: 32px;
     background-color: var(--bg-row);
     color: var(--text-primary);
-    font-size: 19px;
+    font-size: 16px;
     font-weight: 600;
 }
 
@@ -255,7 +257,7 @@
 }
 
 .point-box .small {
-    font-size: 16px;
+    font-size: 13px;
     position: absolute;
     top: 65%;
     left: 70%;
@@ -265,16 +267,16 @@
 .row-content .main {
     position: absolute;
     top: 50%;
-    right: 19px;
+    right: 16px;
     text-align: end;
     transform: translate(0, -50%);
 }
 
 .row-content .small {
-    font-size: 16px;
+    font-size: 13px;
     position: absolute;
     top: 65%;
-    right: 9px;
+    right: 7px;
     transform: translate(0, -50%);
 }
 
@@ -305,7 +307,7 @@
 }
 
 .res-seed {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-seed);
     margin-left: -4px;
 }
@@ -482,9 +484,9 @@
 /* Keeps the country, flag, and name perfectly grouped on the left */
 .competitor-info {
     display: grid;
-    grid-template-columns: 38px 32px auto;
+    grid-template-columns: 34px 28px auto;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
 }
 
 .competitor-info {
@@ -497,15 +499,41 @@
     transition: opacity .2s ease;
 }
 
+/* Compact: the country code collapses, the flag stays, and the name
+   switches to its short form ("O. M. Hlavinka"). The short form is a
+   second span filled by the shortName formatter, e.g.
+     <div class="res-name">
+       <span class="name-full"  data-bind="blue.name"></span>
+       <span class="name-short" data-bind-format="blue.name:shortName"></span>
+     </div> */
 .is-compact .competitor-info {
-    grid-template-columns: 0px 0px auto;
-    gap: 0px;
+    grid-template-columns: 0px 28px auto;
+    column-gap: 0px;
 }
 
-.is-compact .competitor-info .res-country,
-.is-compact .competitor-info .flag-sm {
+.is-compact .competitor-info .res-country {
     opacity: 0;
     pointer-events: none;
+}
+
+.competitor-info .res-name {
+    transition: padding-left .35s ease;
+}
+
+.is-compact .competitor-info .res-name {
+    padding-left: 8px;
+}
+
+.res-name .name-short {
+    display: none;
+}
+
+.is-compact .res-name .name-full {
+    display: none;
+}
+
+.is-compact .res-name .name-short {
+    display: inline;
 }
 
 /* The dynamic container where you will inject your squares */
@@ -517,22 +545,18 @@
 
 /* The new green rectangle for text events (PUNCH, HEAD, etc.) */
 .event-box {
-    height: 38px;
+    height: 32px;
     /* Matches exact height of .point-box */
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-white);
-    font-size: 15px;
+    font-size: 13px;
     font-weight: bold;
-    padding: 0 12px;
+    padding: 0 10px;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
-
-
-
-
 
 
 /* =========================================================
@@ -580,7 +604,7 @@
 }
 
 .break-label {
-    width: 140px;
+    width: 120px;
     transform: translateY(100%);
     opacity: 0;
     /* You can override colors here, currently it inherits .is-medical */

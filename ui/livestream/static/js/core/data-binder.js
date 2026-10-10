@@ -16,10 +16,23 @@
 
 const FLAG_BASE = 'https://flagcdn.com/w80/';
 
+/** "Oliver Markus Hlavinka" → "O. M. Hlavinka", "Anna-Maria Nová" → "A.-M. Nová".
+ *  A single-word name is returned as is. */
+function shortName(name) {
+    const parts = String(name ?? '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length < 2) return parts.join('');
+    const last = parts.pop();
+    const initials = parts.map((part) =>
+        part.split('-').filter(Boolean).map((p) => `${Array.from(p)[0].toUpperCase()}.`).join('-')
+    );
+    return [...initials, last].join(' ');
+}
+
 export const formatters = {
     matchId: (id) => String(id).padStart(3, '0'),
     round: (r) => ({ 1: '1st', 2: '2nd', 3: '3rd' }[r] || `${r}th`),
     upper: (s) => String(s).toUpperCase(),
+    shortName,
     category: (str) => {
         if (!str) return '';
         return str

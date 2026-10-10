@@ -3,6 +3,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
+    from gi.repository import Gst
     from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin
     from plugins.core.gstreamer_core.settings import CameraSettings
     from core.event_bus import EventBus
@@ -37,6 +38,7 @@ class PipelineManager:
         self._extensions: dict[str, BaseGStreamerExtension] = {}
         self._rebuild_lock = asyncio.Lock()
         self._pending_rebuild: Optional[asyncio.Task] = None
+        self._active = True       # False once the core plugin is stopping: no more rebuilds
 
     # ------------------------------------------------------------------ public API
 
@@ -65,9 +67,46 @@ class PipelineManager:
                 result.append(f"tee_src{source_index}. ! {branches[source_index]}")
         return result
 
+    def get_raw_branches_for_source(
+        self, source_index: int, settings: "CameraSettings"
+    ) -> list[str]:
+        """Branches on the decoded native-resolution stream (raw_srcN), IP cameras only."""
+        result = []
+        for ext in self._extensions.values():
+            branches = ext.get_raw_branches(settings)
+            if source_index in branches:
+                result.append(f"raw_src{source_index}. ! {branches[source_index]}")
+        return result
+
+    def get_replaced_outputs(self, settings: "CameraSettings") -> set[int]:
+        """Camera indices whose fixed shm output an extension has taken over."""
+        out: set[int] = set()
+        for ext in self._extensions.values():
+            out |= set(ext.get_replaced_outputs(settings))
+        return out
+
+    def deactivate(self) -> None:
+        """Called by the core plugin on stop: (un)registrations during shutdown must
+        not resurrect the pipeline."""
+        self._active = False
+        if self._pending_rebuild and not self._pending_rebuild.done():
+            self._pending_rebuild.cancel()
+
+    @property
+    def pipeline(self) -> Optional["Gst.Pipeline"]:
+        """The live pipeline object. Changes identity on every rebuild."""
+        return self._plugin.pipeline
+
+    def get_element(self, name: str):
+        """Look up a named element in the live pipeline (None if not running)."""
+        pipeline = self._plugin.pipeline
+        return pipeline.get_by_name(name) if pipeline is not None else None
+
     # ------------------------------------------------------------------ debounced rebuild
 
     def _schedule_rebuild(self) -> None:
+        if not self._active:
+            return
         if self._pending_rebuild and not self._pending_rebuild.done():
             self._pending_rebuild.cancel()
         self._pending_rebuild = asyncio.create_task(self._debounced_rebuild())

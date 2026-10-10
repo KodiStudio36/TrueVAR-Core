@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Poomsae Elimination — Screen</title>
+    <style>
+        /* Same color tokens as panel.html (visual consistency between
+           operator and audience views). This file is self-contained — it
+           duplicates the small amount of scoring math it needs (judge
+           averaging, trimming, deductions, per-poomsae / final score,
+           winner tie-break) from panel.html / results.py / standings.py.
+           Keep them in sync by hand if that math ever changes.
+
+           Views, picked from match_data.stage (see viewFor):
+             lineup   — Preparation, poomsae drawn: the poomsae to perform
+             perform  — a poomsae is on (or Preparation with nothing drawn):
+                        athlete + judge numbers that turn green on submit
+             result   — Results 1 / Results 2: that poomsae's result
+             final    — Final Results: per-poomsae scores + final score
+             category — Category Results: the whole round's ranking; the
+                        athlete who just performed rises to their place */
+        :root {
+            --bg: #05070c;
+            --panel: #10141e;
+            --text: #e8ecf3;
+            --muted: #8b93a7;
+            --blue: #1d4ed8;
+            --blue-2: #2563eb;
+            --orange: #c2410c;
+            --orange-2: #ea580c;
+            --amber: #f59e0b;
+            --green: #16a34a;
+            --green-2: #22c55e;
+            --line: rgba(255, 255, 255, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Top bar: "003  Category name            Final" ─────────────── */
+        .topbar {
+            flex-shrink: 0;
+            display: flex;
+            align-items: baseline;
+            gap: 1.6vw;
+            margin: 0 2vw 1.8vh;
+            padding: 1.8vh 0.4vw 1.4vh;
+            border-bottom: 2px solid var(--line);
+            font-size: clamp(1.4rem, 2.5vw, 2.8rem);
+        }
+
+        .topbar-number {
+            color: var(--amber);
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .topbar-category {
+            flex: 1;
+            min-width: 0;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .topbar-phase {
+            color: var(--amber);
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        /* ── Stage area (whichever view is on) ───────────────────────── */
+        .stage {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            padding: 0 2vw 1.8vh;
+        }
+
+        .stage>* {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* One entrance per view change — not on every 2 s poll. */
+        .stage.enter>* {
+            animation: enter 0.45s ease-out;
+        }
+
+        @keyframes enter {
+            from {
+                opacity: 0;
+                transform: translateY(14px);
+            }
+
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .stage.enter>* {
+                animation: none;
+            }
+        }
+
+        .waiting {
+            margin: auto;
+            color: rgba(255, 255, 255, 0.55);
+            font-size: clamp(1.4rem, 2.6vw, 2.8rem);
+            text-align: center;
+        }
+
+        /* ── Lineup ──────────────────────────────────────────────────── */
+        .lineup {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 2.5vh;
+        }
+
+        .lineup-card {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.6vh;
+            padding: 0 4vw;
+            border-radius: 20px;
+            background: var(--panel);
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            border-left: 12px solid var(--amber);
+        }
+
+        .lineup-label {
+            font-size: clamp(1.1rem, 2vw, 2.3rem);
+            font-weight: 700;
+            color: var(--muted);
+        }
+
+        .lineup-name {
+            font-size: clamp(3rem, 8.5vw, 10rem);
+            font-weight: 900;
+            line-height: 1.05;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* ── Corner cards (perform / result / final) ─────────────────── */
+        .corners {
+            display: flex;
+            gap: 1.5vw;
+            min-height: 0;
+        }
+
+        .corners.solo {
+            --name-size: clamp(4rem, 10vw, 13rem);
+            --nation-size: clamp(2.6rem, 5.5vw, 6.5rem);
+            --perform-club-size: clamp(1.8rem, 3.4vw, 4.2rem);
+            --idline-size: clamp(1.8rem, 3.4vw, 4rem);
+            --club-size: clamp(1.1rem, 1.8vw, 2.1rem);
+            --score-size: clamp(5rem, 13vw, 16rem);
+            --box-size: clamp(2rem, 3.6vw, 4.2rem);
+            --cell-size: clamp(1.6rem, 3vw, 3.4rem);
+        }
+
+        .corners.duel {
+            --name-size: clamp(2.4rem, 5.2vw, 6.5rem);
+            --nation-size: clamp(1.8rem, 3.2vw, 4rem);
+            --perform-club-size: clamp(1.2rem, 2vw, 2.4rem);
+            --idline-size: clamp(1.3rem, 2.1vw, 2.6rem);
+            --club-size: clamp(1rem, 1.3vw, 1.6rem);
+            --score-size: clamp(3.5rem, 7.5vw, 9.5rem);
+            --box-size: clamp(1.5rem, 2.4vw, 3rem);
+            --cell-size: clamp(1.2rem, 2vw, 2.4rem);
+        }
+
+        .corner {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+            min-height: 0;
+            display: flex;
+            border-radius: 18px;
+            overflow: hidden;
+        }
+
+        .corner-blue {
+            background: linear-gradient(160deg, var(--blue-2), var(--blue) 70%);
+        }
+
+        .corner-red {
+            background: linear-gradient(160deg, var(--orange-2), var(--orange) 70%);
+        }
+
+        .nation {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.2vw;
+            font-size: var(--nation-size);
+            font-weight: 900;
+            letter-spacing: 0.04em;
+        }
+
+        .flag {
+            height: 1.1em;
+            width: auto;
+            border-radius: 6px;
+            outline: 2px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .club {
+            font-size: var(--club-size);
+            font-weight: 600;
+            opacity: 0.85;
+        }
+
+        /* ── Perform ─────────────────────────────────────────────────── */
+        .perform {
+            flex: 1;
+            min-width: 0;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .badges {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            gap: 1.4vh;
+            padding: 2.4vh 1.6vw;
+            background: rgba(0, 0, 0, 0.28);
+        }
+
+        .badge {
+            width: var(--badge);
+            height: var(--badge);
+            display: grid;
+            place-items: center;
+            border-radius: 14px;
+            font-size: calc(var(--badge) * 0.52);
+            font-weight: 900;
+            background: rgba(0, 0, 0, 0.35);
+            color: rgba(255, 255, 255, 0.45);
+            border: 3px solid rgba(255, 255, 255, 0.15);
+        }
+
+        /* Judge submitted this poomsae. */
+        .badge.submitted {
+            background: var(--green-2);
+            border-color: #bbf7d0;
+            color: #052e16;
+            box-shadow: 0 0 26px rgba(34, 197, 94, 0.6);
+        }
+
+        .identity {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 2.4vh;
+            padding: 2vh 3vw 2vh 4vw;
+            text-align: left;
+        }
+
+        .identity .nation {
+            justify-content: flex-start;
+        }
+
+        .identity .club {
+            font-size: var(--perform-club-size);
+        }
+
+        .big-name {
+            max-width: 100%;
+            font-size: var(--name-size);
+            font-weight: 900;
+            line-height: 1.02;
+        }
+
+        .big-name span {
+            display: block;
+            white-space: nowrap;
+        }
+
+        /* ── Result ──────────────────────────────────────────────────── */
+        .result {
+            flex: 1;
+            min-width: 0;
+            display: grid;
+            grid-template-columns: auto 1fr;
+        }
+
+        .judge-table-wrap {
+            display: flex;
+            align-items: flex-start;
+            padding: 1.4vh 1.4vw;
+            background: rgba(0, 0, 0, 0.28);
+        }
+
+        .judge-table {
+            border-spacing: 0 1vh;
+        }
+
+        .judge-table td {
+            font-size: var(--cell-size);
+            font-weight: 800;
+            text-align: center;
+            padding: 0.35em 0.6em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .judge-num-cell {
+            background: rgba(0, 0, 0, 0.55);
+            color: #fff;
+            border-radius: 12px 0 0 12px;
+        }
+
+        .judge-acc-cell {
+            background: #eab308;
+            color: #14110a;
+        }
+
+        .judge-pres-cell {
+            background: #f59e0b;
+            color: #14110a;
+            border-radius: 0 12px 12px 0;
+        }
+
+        .judge-row-default .judge-acc-cell,
+        .judge-row-default .judge-pres-cell {
+            background: rgba(234, 179, 8, 0.35);
+            color: rgba(255, 255, 255, 0.75);
+            font-style: italic;
+        }
+
+        .judge-row-trimmed td {
+            text-decoration: line-through;
+            opacity: 0.45;
+        }
+
+        .result-main,
+        .final {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2vh;
+            padding: 2vh 2vw;
+            text-align: center;
+        }
+
+        .final {
+            flex: 1;
+        }
+
+        .id-line {
+            max-width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1vw;
+            font-size: var(--idline-size);
+            font-weight: 800;
+        }
+
+        .id-line .flag {
+            height: 1.25em;
+        }
+
+        .id-line-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .score {
+            font-size: var(--score-size);
+            font-weight: 900;
+            color: var(--amber);
+            line-height: 0.95;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+        }
+
+        .boxes {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 1.5vw;
+        }
+
+        .box {
+            min-width: min(15vw, 260px);
+            padding: 1vh 1.4vw;
+            border-radius: 14px;
+            border: 3px solid;
+            text-align: center;
+        }
+
+        .box-accuracy {
+            background: rgba(220, 38, 38, 0.25);
+            border-color: #dc2626;
+        }
+
+        .box-presentation {
+            background: rgba(37, 99, 235, 0.25);
+            border-color: #60a5fa;
+        }
+
+        .box-poomsae {
+            background: rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .box-label {
+            font-size: var(--club-size);
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .box-value {
+            font-size: var(--box-size);
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .all-judges {
+            font-size: var(--box-size);
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            opacity: 0.9;
+        }
+
+        .all-judges small {
+            display: block;
+            font-size: var(--club-size);
+            font-weight: 600;
+            opacity: 0.8;
+        }
+
+        .deductions {
+            display: flex;
+            gap: 0.8vw;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .deduction {
+            font-size: var(--club-size);
+            font-weight: 800;
+            padding: 0.25em 0.8em;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.4);
+            color: #fecaca;
+        }
+
+        /* ── Final ───────────────────────────────────────────────────── */
+        .corner.winner {
+            box-shadow: 0 0 0 5px var(--amber), 0 0 48px rgba(245, 158, 11, 0.45);
+        }
+
+        .corner.loser {
+            filter: saturate(0.5) brightness(0.75);
+        }
+
+        .winner-tag {
+            position: absolute;
+            top: 1.8vh;
+            right: 1.4vw;
+            padding: 0.3em 1em;
+            border-radius: 999px;
+            background: var(--amber);
+            color: #14110a;
+            font-size: var(--club-size);
+            font-weight: 900;
+        }
+
+        /* ── Category Results: ranking (cut-off / round robin) ───────── */
+        .ranking {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2vh;
+            min-height: 0;
+        }
+
+        .ranking-sub {
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            gap: 2vw;
+            color: var(--muted);
+            font-size: clamp(1rem, 1.6vw, 1.9rem);
+            font-weight: 700;
+        }
+
+        .ranking-sub .accent {
+            color: var(--green-2);
+        }
+
+        .ranking-viewport {
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .ranking-list {
+            position: relative;
+        }
+
+        /* Every row is absolutely placed and moved with translateY, so the
+           list can re-order itself in one smooth motion. */
+        .rank-row {
+            --row-h: 80px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--row-h);
+            display: flex;
+            align-items: center;
+            gap: calc(var(--row-h) * 0.26);
+            padding: 0 calc(var(--row-h) * 0.32) 0 calc(var(--row-h) * 0.18);
+            border-radius: 18px;
+            background: var(--panel);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            will-change: transform;
+        }
+
+        .rank-row.in {
+            animation: rank-in 0.5s ease-out both;
+        }
+
+        @keyframes rank-in {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .rank-row.moving {
+            transition: transform 2.4s cubic-bezier(0.65, 0, 0.35, 1);
+        }
+
+        .rank-row.pending {
+            opacity: 0.5;
+        }
+
+        .rank-row.pending.in {
+            animation-name: rank-in-dim;
+        }
+
+        @keyframes rank-in-dim {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 0.5;
+            }
+        }
+
+        /* The athlete who just performed. */
+        .rank-row.current {
+            z-index: 5;
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.3), var(--panel) 75%);
+            border-color: var(--amber);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+        }
+
+        .rank-row.current.landed {
+            animation: landed 1.3s ease-out;
+        }
+
+        @keyframes landed {
+            0% {
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.9), 0 10px 40px rgba(0, 0, 0, 0.55);
+            }
+
+            100% {
+                box-shadow: 0 0 0 calc(var(--row-h) * 0.35) rgba(245, 158, 11, 0), 0 10px 40px rgba(0, 0, 0, 0.55);
+            }
+        }
+
+        .rank-badge {
+            flex-shrink: 0;
+            width: calc(var(--row-h) * 0.82);
+            height: calc(var(--row-h) * 0.82);
+            display: grid;
+            place-items: center;
+            transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+        }
+
+        .rank-badge svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Rank stays hidden while the athlete is still rising. */
+        .rank-row.rank-hidden .rank-badge {
+            opacity: 0;
+            transform: scale(0.6);
+        }
+
+        .rank-num {
+            width: 78%;
+            height: 78%;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.35);
+            font-size: calc(var(--row-h) * 0.32);
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .rank-num.empty {
+            border-style: dashed;
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+
+        .rank-flag {
+            flex-shrink: 0;
+            height: calc(var(--row-h) * 0.6);
+            width: calc(var(--row-h) * 0.9);
+            display: grid;
+            place-items: center;
+            border-radius: 6px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.08);
+            outline: 2px solid rgba(255, 255, 255, 0.25);
+            font-size: calc(var(--row-h) * 0.2);
+            font-weight: 900;
+            letter-spacing: 0.04em;
+        }
+
+        .rank-flag img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .rank-who {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .rank-name {
+            font-size: calc(var(--row-h) * 0.38);
+            font-weight: 800;
+            line-height: 1.1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .rank-club {
+            font-size: calc(var(--row-h) * 0.2);
+            font-weight: 600;
+            color: var(--muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Goes through to the next round. */
+        .rank-q {
+            flex-shrink: 0;
+            display: grid;
+            place-items: center;
+            width: calc(var(--row-h) * 0.5);
+            height: calc(var(--row-h) * 0.5);
+            border-radius: 10px;
+            background: rgba(34, 197, 94, 0.2);
+            border: 2px solid var(--green-2);
+            color: #4ade80;
+            font-size: calc(var(--row-h) * 0.28);
+            font-weight: 900;
+        }
+
+        .rank-score {
+            flex-shrink: 0;
+            min-width: calc(var(--row-h) * 1.9);
+            text-align: right;
+            font-size: calc(var(--row-h) * 0.44);
+            font-weight: 900;
+            color: var(--amber);
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+        }
+
+        .rank-score small {
+            display: block;
+            margin-top: 0.25em;
+            font-size: calc(var(--row-h) * 0.17);
+            font-weight: 700;
+            color: var(--muted);
+        }
+
+        .rank-wl {
+            font-size: calc(var(--row-h) * 0.34);
+            color: var(--text);
+        }
+
+        /* ── Category Results: single elimination ────────────────────── */
+        .bracket {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 40vw), 1fr));
+            align-content: start;
+            gap: 1.8vh 1.5vw;
+            overflow: hidden;
+        }
+
+        .bout {
+            border-radius: 18px;
+            background: var(--panel);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            padding: 1.2vh 1.2vw;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8vh;
+        }
+
+        .bout.current {
+            border-color: var(--amber);
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+        }
+
+        .bout-head {
+            color: var(--muted);
+            font-weight: 800;
+            font-size: clamp(0.9rem, 1.3vw, 1.5rem);
+        }
+
+        .bout-line {
+            display: flex;
+            align-items: center;
+            gap: 1vw;
+            padding: 0.6vh 0.8vw;
+            border-radius: 12px;
+            font-size: clamp(1.2rem, 2.1vw, 2.5rem);
+            font-weight: 800;
+        }
+
+        .bout-blue {
+            background: linear-gradient(90deg, rgba(37, 99, 235, 0.55), transparent);
+        }
+
+        .bout-red {
+            background: linear-gradient(90deg, rgba(234, 88, 12, 0.55), transparent);
+        }
+
+        .bout-line .rank-flag {
+            --row-h: clamp(2.2rem, 3.6vw, 4.2rem);
+        }
+
+        .bout-name {
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .bout-score {
+            color: var(--amber);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .bout-line.won {
+            box-shadow: inset 0 0 0 3px var(--amber);
+        }
+
+        .bout-line.lost {
+            opacity: 0.55;
+        }
+
+        /* ── Bottom bar: timer | Poomsae 1 | Poomsae 2 ───────────────── */
+        .bottombar {
+            flex-shrink: 0;
+            display: flex;
+            min-height: 12vh;
+            margin: 0 2vw 2vh;
+            border-radius: 16px;
+            overflow: hidden;
+            background: var(--panel);
+            border: 2px solid var(--line);
+        }
+
+        .bottombar.hidden {
+            display: none;
+        }
+
+        .bar-timer {
+            flex: 0 0 auto;
+            min-width: 22vw;
+            display: grid;
+            place-items: center;
+            padding: 0 2vw;
+            font-size: clamp(2.6rem, 6vw, 6.5rem);
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            color: #fff;
+        }
+
+        .bar-timer.paused {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .bar-timer.idle {
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        .bar-timer.out {
+            color: #f87171;
+        }
+
+        .bar-poomsae {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1vh 1.5vw;
+            border-left: 2px solid var(--line);
+            color: var(--muted);
+        }
+
+        .bar-poomsae-label {
+            font-size: clamp(0.9rem, 1.5vw, 1.7rem);
+            font-weight: 700;
+        }
+
+        .bar-poomsae-name {
+            max-width: 100%;
+            font-size: clamp(1.6rem, 3.3vw, 3.6rem);
+            font-weight: 900;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .bar-poomsae.done .bar-poomsae-name {
+            opacity: 0.5;
+        }
+
+        .bar-poomsae.current {
+            background: var(--amber);
+            color: #4a3105;
+        }
+
+        .bar-poomsae.current .bar-poomsae-name {
+            color: #14110a;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="topbar" id="topbar"></div>
+    <div class="stage" id="stage"></div>
+    <div class="bottombar hidden" id="bar"></div>
+
+    <script>
+        // Mirrors plugin.py's stage constants / results.py's ROUND_KEYS.
+        const STAGE_TO_ROUND_KEY = { poomsae_1: "poomsae1", poomsae_2: "poomsae2" };
+        const STAGE_RESULTS_ROUND_KEY = { results_1: "poomsae1", results_2: "poomsae2" };
+        const STAGE_POOMSAE_INDEX = { poomsae_1: 0, results_1: 0, poomsae_2: 1, results_2: 1 };
+        const ROUND_KEYS = ["poomsae1", "poomsae2"];
+        const DEFAULT = { accuracy: 4.0, presentation: 6.0, total: 10.0 };
+
+        // IOC / ISO-3 → ISO-2, for the flag image. A 2-letter code is used
+        // as-is; an unknown code still shows as text, just without a flag.
+        const COUNTRY_ISO2 = Object.fromEntries((
+            "SVK:sk CZE:cz AUT:at GER:de DEU:de POL:pl HUN:hu UKR:ua SLO:si SVN:si CRO:hr HRV:hr SRB:rs BIH:ba " +
+            "MNE:me MKD:mk ALB:al BUL:bg BGR:bg ROU:ro MDA:md GRE:gr GRC:gr TUR:tr ITA:it FRA:fr ESP:es POR:pt " +
+            "PRT:pt NED:nl NLD:nl BEL:be LUX:lu SUI:ch CHE:ch GBR:gb IRL:ie DEN:dk DNK:dk NOR:no SWE:se FIN:fi " +
+            "ISL:is EST:ee LAT:lv LVA:lv LTU:lt BLR:by RUS:ru GEO:ge ARM:am AZE:az ISR:il CYP:cy MLT:mt MON:mc " +
+            "MCO:mc AND:ad SMR:sm LIE:li USA:us CAN:ca MEX:mx BRA:br ARG:ar CHI:cl CHL:cl COL:co PER:pe KOR:kr " +
+            "JPN:jp CHN:cn TPE:tw TWN:tw HKG:hk VIE:vn VNM:vn THA:th PHI:ph PHL:ph MAS:my MYS:my INA:id IDN:id " +
+            "SGP:sg IND:in PAK:pk IRI:ir IRN:ir KAZ:kz UZB:uz KGZ:kg TJK:tj MGL:mn MNG:mn AUS:au NZL:nz EGY:eg " +
+            "MAR:ma TUN:tn ALG:dz DZA:dz NGR:ng NGA:ng RSA:za ZAF:za CIV:ci JOR:jo KSA:sa SAU:sa UAE:ae ARE:ae " +
+            "QAT:qa KUW:kw KWT:kw LBN:lb"
+        ).split(" ").map(pair => pair.split(":")));
+
+        let countdownTimer = null;
+        let lastViewKey = null;
+        const lastHtml = {};
+
+        async function loadState() {
+            try {
+                const res = await fetch("/api/poomsae-control/state");
+                if (!res.ok) return;
+                render(await res.json());
+            } catch (err) {
+                console.error("Failed to load state", err);
+            }
+        }
+
+        // Only touch the DOM when the markup actually changed — the poll
+        // runs every 2 s and flags/animations shouldn't restart each time.
+        function setHtml(id, html) {
+            if (lastHtml[id] === html) return false;
+            lastHtml[id] = html;
+            document.getElementById(id).innerHTML = html;
+            return true;
+        }
+
+        function fitNames() {
+            document.querySelectorAll(".big-name").forEach(el => {
+                el.style.fontSize = "";
+                let size = parseFloat(getComputedStyle(el).fontSize);
+                for (let i = 0; i < 40 && el.scrollWidth > el.clientWidth + 1; i++) {
+                    size *= 0.94;
+                    el.style.fontSize = `${size}px`;
+                }
+            });
+        }
+        window.addEventListener("resize", fitNames);
+
+        function playEnter(viewKey) {
+            if (viewKey === lastViewKey) return;
+            lastViewKey = viewKey;
+            const el = document.getElementById("stage");
+            el.classList.remove("enter");
+            void el.offsetWidth; // restart the animation
+            el.classList.add("enter");
+            setTimeout(() => el.classList.remove("enter"), 500);
+        }
+
+        function showStage(viewKey, html) {
+            playEnter(viewKey);
+            if (setHtml("stage", html)) fitNames();
+        }
+
+        // ── View selection ───────────────────────────────────────────────
+        // RTDB can hand a list back as an object keyed "0", "1", …
+        function asArray(v) {
+            if (Array.isArray(v)) return v;
+            if (v && typeof v === "object") return Object.keys(v).sort((a, b) => a - b).map(k => v[k]);
+            return [];
+        }
+
+        function drawnPoomsae(live) {
+            return asArray(live.poomsae).filter(p => p && (p.name || p.key)).map(p => p.name || titleCase(p.key));
+        }
+
+        function poomsaeCount(live, drawn) {
+            const n = Number(live.poomsaeCount);
+            if (n >= 1) return Math.min(2, n);
+            return drawn.length ? Math.min(2, drawn.length) : 2;
+        }
+
+        function viewFor(live, drawn) {
+            if (live.stage === "preparation") return drawn.length ? "lineup" : "perform";
+            if (STAGE_RESULTS_ROUND_KEY[live.stage]) return "result";
+            if (live.stage === "final_results") return "final";
+            if (live.stage === "category_results") return "category";
+            return "perform";
+        }
+
+        // ── Render ───────────────────────────────────────────────────────
+        function render(state) {
+            const live = state && state.live;
+            const settings = (state && state.settings) || {};
+
+            if (!live || !live.matchId) {
+                stopCategory();
+                setHtml("topbar", `<span class="topbar-category">No match on the floor</span>`);
+                showStage("waiting", `<div class="waiting">Waiting for the next match…</div>`);
+                renderBar(null);
+                return;
+            }
+
+            const drawn = drawnPoomsae(live);
+            const count = poomsaeCount(live, drawn);
+            const view = viewFor(live, drawn);
+
+            setHtml("topbar", `
+                <span class="topbar-number">${esc(live.displayNumberLabel ?? live.displayNumber ?? "—")}</span>
+                <span class="topbar-category">${esc(live.categoryLabel || "")}</span>
+                <span class="topbar-phase">${esc(live.roundPhaseLabel || live.roundPhase || "")}</span>`);
+
+            if (view === "category") {
+                renderBar(null);
+                showCategory(live);
+                return;
+            }
+            stopCategory();
+
+            const ctx = {
+                live, drawn, count,
+                registry: state.judgesRegistry || {},
+                method: settings.scoring_method || "sum_all",
+                accLabel: live.isPara ? "Technical" : "Accuracy",
+            };
+
+            const html = view === "lineup" ? lineupHtml(drawn) : cornersHtml(view, ctx);
+            showStage(`${live.matchId}|${live.stage}|${view}`, html);
+
+            renderBar(view === "perform" || view === "result" ? { live, drawn, count, settings } : null);
+        }
+
+        function lineupHtml(drawn) {
+            return `<div class="lineup">${drawn.slice(0, 2).map((name, i) => `
+                <div class="lineup-card">
+                    <div class="lineup-label">Poomsae ${i + 1}</div>
+                    <div class="lineup-name">${esc(name)}</div>
+                </div>`).join("")}</div>`;
+        }
+
+        function cornersHtml(view, ctx) {
+            const { live } = ctx;
+            const isSolo = live.isSolo === true;
+            const corners = live.corners || {};
+            const sides = (isSolo ? ["blue"] : ["blue", "red"]).filter(s => corners[s]);
+
+            let finals = null, winner = null;
+            if (view === "final") {
+                finals = Object.fromEntries(sides.map(s => [s, finalResult(corners[s], ctx)]));
+                if (!isSolo && finals.blue && finals.red) winner = decideWinner(finals.blue, finals.red);
+            }
+
+            const cards = sides.map(side => {
+                const corner = corners[side];
+                if (view === "perform") return performCorner(corner, side, ctx);
+                if (view === "result") return resultCorner(corner, side, ctx);
+                return finalCorner(corner, side, finals[side], winner, ctx);
+            }).join("");
+            return `<div class="corners ${isSolo ? "solo" : "duel"}">${cards}</div>`;
+        }
+
+        // Judge numbers on the left go green as they submit.
+        function performCorner(corner, side, ctx) {
+            const roundKey = STAGE_TO_ROUND_KEY[ctx.live.stage] || null;
+            const { entries } = roundResult(corner, ctx.registry, roundKey, ctx.method, 0, 0);
+            const n = Math.max(entries.length, 1);
+            return `
+            <div class="corner corner-${side}">
+                <div class="perform">
+                    <div class="badges" style="--badge: min(8.5vh, calc(64vh / ${n}))">
+                        ${entries.map(e => `<div class="badge ${e.submitted ? "submitted" : ""}">${e.number}</div>`).join("")}
+                    </div>
+                    <div class="identity">
+                        ${nationHtml(corner)}
+                        <div class="big-name">${splitName(corner.name)}</div>
+                        ${corner.clubName ? `<div class="club">${esc(corner.clubName)}</div>` : ""}
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // Results 1 / 2 — that poomsae's judges, score, averages.
+        function resultCorner(corner, side, ctx) {
+            const roundKey = ctx.live.resultsRoundKey || STAGE_RESULTS_ROUND_KEY[ctx.live.stage] || null;
+            const r = roundResult(corner, ctx.registry, roundKey, ctx.method,
+                num(corner.roundDeduction), num(corner.roundPenalty));
+            const rows = r.entries.map(e => {
+                const cls = [e.isDefault ? "judge-row-default" : "", r.trimmed.has(e.number) ? "judge-row-trimmed" : ""].filter(Boolean).join(" ");
+                return `<tr class="${cls}">
+                    <td class="judge-num-cell">${e.number}</td>
+                    <td class="judge-acc-cell">${e.accuracy.toFixed(1)}</td>
+                    <td class="judge-pres-cell">${e.presentation.toFixed(1)}</td>
+                </tr>`;
+            }).join("");
+            return `
+            <div class="corner corner-${side}">
+                <div class="result">
+                    <div class="judge-table-wrap"><table class="judge-table"><tbody>${rows}</tbody></table></div>
+                    <div class="result-main">
+                        ${idLineHtml(corner)}
+                        <div class="score">${r.points.toFixed(3)}</div>
+                        <div class="boxes">
+                            <div class="box box-accuracy">
+                                <div class="box-label">${ctx.accLabel}</div>
+                                <div class="box-value">${r.avgAcc.toFixed(2)}</div>
+                            </div>
+                            <div class="box box-presentation">
+                                <div class="box-label">Presentation</div>
+                                <div class="box-value">${r.avgPres.toFixed(2)}</div>
+                            </div>
+                        </div>
+                        <div class="all-judges"><small>All judges</small>${r.totalAll.toFixed(2)}</div>
+                        ${deductionsHtml(r.restart, r.penalty)}
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // Final score + each poomsae's score.
+        function finalCorner(corner, side, fr, winner, ctx) {
+            const state = !winner ? "" : winner === side ? "winner" : "loser";
+            const boxes = fr.rounds.map((r, i) => `
+                <div class="box box-poomsae">
+                    <div class="box-label">${esc(ctx.drawn[i] || `Poomsae ${i + 1}`)}</div>
+                    <div class="box-value">${r.points.toFixed(3)}</div>
+                </div>`).join("");
+            return `
+            <div class="corner corner-${side} ${state}">
+                ${state === "winner" ? `<div class="winner-tag">Winner</div>` : ""}
+                <div class="final">
+                    ${idLineHtml(corner)}
+                    <div class="score">${fr.finalScore.toFixed(3)}</div>
+                    <div class="boxes">${boxes}</div>
+                </div>
+            </div>`;
+        }
+
+        // ── Category Results ─────────────────────────────────────────────
+        // Built by the plugin (standings.py) and written to
+        // match_data.categoryResults. Each new set (generatedAt) plays once:
+        // the list fades in with the athlete who just performed at the very
+        // bottom, then every row slides to its final place — that athlete
+        // rising to their rank, the ones below shifting down — while the list
+        // scrolls along with them. A long list then slowly scrolls through
+        // everyone.
+        let categoryRunKey = null;
+        let categoryCleanup = [];
+
+        function stopCategory() {
+            categoryCleanup.forEach(fn => fn());
+            categoryCleanup = [];
+            categoryRunKey = null;
+        }
+
+        function later(fn, ms) {
+            const t = setTimeout(fn, ms);
+            categoryCleanup.push(() => clearTimeout(t));
+        }
+
+        const easeInOut = p => p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+
+        function tweenScroll(el, to, ms, done) {
+            const from = el.scrollTop;
+            if (Math.abs(to - from) < 1 || ms <= 0) {
+                el.scrollTop = to;
+                if (done) done();
+                return;
+            }
+            const t0 = performance.now();
+            let id = 0;
+            const frame = now => {
+                const p = Math.min(1, (now - t0) / ms);
+                el.scrollTop = from + (to - from) * easeInOut(p);
+                if (p < 1) id = requestAnimationFrame(frame);
+                else if (done) done();
+            };
+            id = requestAnimationFrame(frame);
+            categoryCleanup.push(() => cancelAnimationFrame(id));
+        }
+
+        function showCategory(live) {
+            const cr = live.categoryResults;
+            const key = `${live.matchId}|${cr ? cr.generatedAt : "none"}`;
+            if (key === categoryRunKey) return;
+            stopCategory();
+            categoryRunKey = key;
+            lastHtml.stage = `__category__${key}`; // the next normal view always redraws
+            playEnter(`category|${key}`);
+
+            const el = document.getElementById("stage");
+            if (!cr) {
+                el.innerHTML = `<div class="waiting">Category results…</div>`;
+                return;
+            }
+            if (cr.error) {
+                el.innerHTML = `<div class="waiting">Category results unavailable</div>`;
+                return;
+            }
+            if (cr.system === "single_elimination") {
+                el.innerHTML = bracketHtml(cr);
+                return;
+            }
+            el.innerHTML = `
+                <div class="ranking">
+                    <div class="ranking-sub">${rankingSubHtml(cr)}</div>
+                    <div class="ranking-viewport" id="rankViewport"><div class="ranking-list" id="rankList"></div></div>
+                </div>`;
+            requestAnimationFrame(() => runRanking(cr));
+        }
+
+        function rankingSubHtml(cr) {
+            const performed = cr.performed ?? 0, total = cr.total ?? 0;
+            if (cr.system === "round_robin") {
+                return `<span>Standings</span><span>${performed} / ${total} matches</span>`;
+            }
+            const left = performed >= total && total > 0
+                ? (cr.roundPhase === "F" ? "Final standings" : "Round complete")
+                : `${performed} / ${total} performed`;
+            const right = cr.qualifyCount ? `<span class="accent">Top ${cr.qualifyCount} advance</span>` : "<span></span>";
+            return `<span>${left}</span>${right}`;
+        }
+
+        function runRanking(cr) {
+            const vp = document.getElementById("rankViewport");
+            const list = document.getElementById("rankList");
+            if (!vp || !list) return;
+            const rows = asArray(cr.rows);
+            if (!rows.length) {
+                vp.innerHTML = `<div class="waiting">No athletes in this round</div>`;
+                return;
+            }
+
+            const finalKeys = rows.map(r => String(r.key));
+            const startKeys = asArray(cr.startOrder).map(String).filter(k => finalKeys.includes(k));
+            finalKeys.forEach(k => { if (!startKeys.includes(k)) startKeys.push(k); });
+
+            // Row size: up to 8 rows fill the screen; more rows scroll.
+            const vh = vp.clientHeight;
+            const visible = Math.max(4, Math.min(8, rows.length));
+            const gap = Math.max(6, Math.round(vh * 0.016));
+            const rowH = Math.max(48, Math.floor((vh - gap * (visible - 1)) / visible));
+            const step = rowH + gap;
+            const fullHeight = rows.length * step - gap;
+            const maxScroll = Math.max(0, fullHeight - vh);
+            const clamp = v => Math.max(0, Math.min(maxScroll, v));
+            list.style.height = `${fullHeight}px`;
+
+            list.innerHTML = rows.map(r => rankRowHtml(r, cr.system)).join("");
+            const els = new Map();
+            list.querySelectorAll(".rank-row").forEach((el, i) => {
+                el.style.setProperty("--row-h", `${rowH}px`);
+                els.set(finalKeys[i], el);
+            });
+            const place = keys => keys.forEach((k, i) => { els.get(k).style.transform = `translateY(${i * step}px)`; });
+
+            const currentKeys = rows.filter(r => r.isCurrent).map(r => String(r.key));
+            const focusKey = currentKeys[0];
+            const focusTop = keys => focusKey ? clamp(keys.indexOf(focusKey) * step - step) : 0;
+            const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+            const moves = currentKeys.length > 0 && startKeys.join("|") !== finalKeys.join("|") && !reduce;
+
+            // Long list: after the reveal, slowly show everyone, top ↔ bottom.
+            const browse = () => {
+                if (maxScroll <= 0) return;
+                const go = (to, next) => tweenScroll(vp, to, Math.max(1200, Math.abs(vp.scrollTop - to) / step * 900), () => later(next, 4000));
+                const up = () => go(0, down);
+                const down = () => go(maxScroll, up);
+                up();
+            };
+
+            startKeys.forEach((k, i) => {
+                const el = els.get(k);
+                el.style.animationDelay = `${Math.min(i, 12) * 70}ms`;
+                el.classList.add("in");
+            });
+
+            if (!moves) {
+                place(finalKeys);
+                vp.scrollTop = focusTop(finalKeys);
+                later(browse, 7000);
+                return;
+            }
+
+            // Start: the athlete who just performed at the bottom, rank hidden.
+            place(startKeys);
+            currentKeys.forEach(k => els.get(k).classList.add("rank-hidden"));
+            vp.scrollTop = clamp(startKeys.indexOf(focusKey) * step - (vh - rowH));
+
+            later(() => {
+                els.forEach(el => el.classList.add("moving"));
+                place(finalKeys);
+                tweenScroll(vp, focusTop(finalKeys), 2400);
+                later(() => {
+                    currentKeys.forEach(k => {
+                        const el = els.get(k);
+                        el.classList.remove("rank-hidden", "in");
+                        el.classList.add("landed");
+                    });
+                    later(browse, 7000);
+                }, 2450);
+            }, 1600);
+        }
+
+        function rankRowHtml(r, system) {
+            const pending = r.score == null;
+            const badge = r.medal ? medalSvg(r.medal)
+                : r.rank ? `<div class="rank-num">${r.rank}</div>`
+                    : `<div class="rank-num empty"></div>`;
+            const rounds = asArray(r.rounds);
+            const score = system === "round_robin"
+                ? `<div class="rank-score"><div class="rank-wl">${r.wins ?? 0}W ${r.losses ?? 0}L</div><small>${pending ? "—" : Number(r.score).toFixed(3)}</small></div>`
+                : `<div class="rank-score">${pending ? "—" : Number(r.score).toFixed(3)}${rounds.length > 1 ? `<small>${rounds.map(v => Number(v).toFixed(3)).join(" · ")}</small>` : ""}</div>`;
+            return `
+                <div class="rank-row ${r.isCurrent ? "current" : ""} ${pending ? "pending" : ""}">
+                    <div class="rank-badge">${badge}</div>
+                    ${rankFlagHtml(countryCode(r))}
+                    <div class="rank-who">
+                        <div class="rank-name">${esc(r.name || "—")}</div>
+                        ${r.club ? `<div class="rank-club">${esc(r.club)}</div>` : ""}
+                    </div>
+                    ${r.qualified ? `<div class="rank-q" title="Advances">Q</div>` : ""}
+                    ${score}
+                </div>`;
+        }
+
+        // Gold / silver / bronze medal with the place number.
+        function medalSvg(n) {
+            const [fill, stroke] = { 1: ["#f5c542", "#a87908"], 2: ["#e2e6ec", "#8e96a3"], 3: ["#d68a45", "#8a4b1c"] }[n];
+            return `<svg viewBox="0 0 64 64" aria-label="${n}">
+                <path d="M15 2h12l9 22H24z" fill="#2563eb"/>
+                <path d="M49 2H37l-9 22h12z" fill="#ea580c"/>
+                <circle cx="32" cy="42" r="19" fill="${fill}" stroke="${stroke}" stroke-width="3"/>
+                <circle cx="32" cy="42" r="13.5" fill="none" stroke="${stroke}" stroke-width="1.5" opacity=".6"/>
+                <text x="32" y="49" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" font-weight="900" fill="#14110a">${n}</text>
+            </svg>`;
+        }
+
+        function rankFlagHtml(code) {
+            if (!code) return `<div class="rank-flag"></div>`;
+            const iso2 = code.length === 2 ? code.toLowerCase() : COUNTRY_ISO2[code];
+            if (!iso2) return `<div class="rank-flag">${esc(code)}</div>`;
+            return `<div class="rank-flag"><img src="https://flagcdn.com/h120/${esc(iso2)}.png" alt="${esc(code)}"
+                onerror="this.parentNode.textContent='${esc(code)}'"></div>`;
+        }
+
+        // Single elimination: this round's bouts, winners highlighted.
+        function bracketHtml(cr) {
+            const fmt = v => v == null ? "" : Number(v).toFixed(3);
+            const line = (m, side) => {
+                const c = m[side] || {};
+                const cls = !m.winner ? "" : m.winner === side ? "won" : "lost";
+                return `<div class="bout-line bout-${side} ${cls}">
+                    ${rankFlagHtml(countryCode(c))}
+                    <span class="bout-name">${esc(c.name || "—")}</span>
+                    <span class="bout-score">${fmt(c.score)}</span>
+                </div>`;
+            };
+            const bouts = asArray(cr.matches).map(m => `
+                <div class="bout ${m.isCurrent ? "current" : ""}">
+                    <div class="bout-head">№ ${esc(m.displayNumberLabel || "")}</div>
+                    ${line(m, "blue")}${line(m, "red")}
+                </div>`).join("");
+            return `<div class="bracket">${bouts || `<div class="waiting">No matches in this round</div>`}</div>`;
+        }
+
+        // ── Bottom bar ───────────────────────────────────────────────────
+        function renderBar(info) {
+            clearInterval(countdownTimer);
+            const bar = document.getElementById("bar");
+            if (!info) {
+                bar.classList.add("hidden");
+                setHtml("bar", "");
+                return;
+            }
+            bar.classList.remove("hidden");
+            const { live, drawn, count, settings } = info;
+            const currentIdx = STAGE_POOMSAE_INDEX[live.stage] ?? -1;
+            const cells = Array.from({ length: count }, (_, i) => {
+                const cls = i === currentIdx ? "current" : i < currentIdx ? "done" : "";
+                const inner = drawn[i]
+                    ? `<div class="bar-poomsae-label">Poomsae ${i + 1}</div><div class="bar-poomsae-name">${esc(drawn[i])}</div>`
+                    : `<div class="bar-poomsae-name">Poomsae ${i + 1}</div>`;
+                return `<div class="bar-poomsae ${cls}">${inner}</div>`;
+            }).join("");
+            setHtml("bar", `<div class="bar-timer" id="barTimer"><span id="timerClock"></span></div>${cells}`);
+            renderTimer(live, settings);
+        }
+
+        // Read-only mirror of panel.html's timer. No timer outside a
+        // poomsae — the configured poomsae time is shown dimmed instead.
+        function renderTimer(live, settings) {
+            const timerEl = document.getElementById("barTimer");
+            const clock = document.getElementById("timerClock");
+            if (!timerEl || !clock) return;
+
+            const duration = live.stageDurationSeconds;
+            if (duration == null) {
+                timerEl.className = "bar-timer idle";
+                clock.textContent = settings.poomsae_seconds ? formatClock(settings.poomsae_seconds) : "—";
+                return;
+            }
+            const baseline = live.timerRemainingSeconds != null ? live.timerRemainingSeconds : duration;
+            if (!live.timerRunning) {
+                const left = Math.max(0, Math.round(baseline));
+                timerEl.className = "bar-timer paused" + (left === 0 ? " out" : "");
+                clock.textContent = formatClock(left);
+                return;
+            }
+            const startedAt = live.timerStartedAt ? new Date(live.timerStartedAt).getTime() : Date.now();
+            const tick = () => {
+                const left = Math.max(0, Math.round(baseline - (Date.now() - startedAt) / 1000));
+                clock.textContent = formatClock(left);
+                timerEl.className = "bar-timer" + (left === 0 ? " out" : "");
+            };
+            tick();
+            countdownTimer = setInterval(tick, 250);
+        }
+
+        // ── Scoring (same rules as panel.html / results.py / standings.py) ─
+        function isValidJudgeNumber(n) {
+            return Number.isFinite(n) && n >= 1 && Number.isInteger(n);
+        }
+
+        function num(v, fallback = 0) {
+            const n = Number(v);
+            return v == null || !Number.isFinite(n) ? fallback : n;
+        }
+
+        const round3 = v => Math.round(v * 1000) / 1000;
+
+        function roundResult(corner, registry, roundKey, method, restart, penalty) {
+            const judgesMap = corner.judges || {};
+            const numbers = [...new Set([
+                ...Object.keys(registry || {}).map(Number),
+                ...Object.keys(judgesMap).map(Number),
+            ])].filter(isValidJudgeNumber).sort((a, b) => a - b);
+
+            const entries = numbers.map(n => {
+                const d = roundKey && judgesMap[n] && judgesMap[n][roundKey];
+                const has = !!d && typeof d === "object";
+                return {
+                    number: n,
+                    accuracy: has ? num(d.accuracy, DEFAULT.accuracy) : DEFAULT.accuracy,
+                    presentation: has ? num(d.presentation, DEFAULT.presentation) : DEFAULT.presentation,
+                    total: has ? num(d.total, DEFAULT.total) : DEFAULT.total,
+                    submitted: has && d.submitted === true,
+                    isDefault: !has,
+                };
+            });
+
+            let included = entries;
+            let trimmed = new Set();
+            if (method === "trim_high_low" && entries.length >= 3) {
+                const sorted = [...entries].sort((a, b) => a.total - b.total);
+                trimmed = new Set([sorted[0].number, sorted[sorted.length - 1].number]);
+                included = entries.filter(e => !trimmed.has(e.number));
+            }
+            const count = included.length || 1;
+            const avg = key => included.reduce((s, e) => s + e[key], 0) / count;
+            const avgTot = avg("total");
+            return {
+                entries, trimmed,
+                avgAcc: avg("accuracy"),
+                avgPres: avg("presentation"),
+                points: round3(avgTot + restart + penalty),
+                totalAll: entries.reduce((s, e) => s + e.total, 0),
+                restart, penalty,
+            };
+        }
+
+        function finalResult(corner, ctx) {
+            const adjustments = corner.roundAdjustments || {};
+            const keys = ROUND_KEYS.slice(0, ctx.count);
+            const rounds = keys.map(key => {
+                const adj = adjustments[key];
+                let restart = num(adj && adj.restart), penalty = num(adj && adj.penalty);
+                if (!adj && key === ctx.live.resultsRoundKey) {
+                    restart = num(corner.roundDeduction);
+                    penalty = num(corner.roundPenalty);
+                }
+                return roundResult(corner, ctx.registry, key, ctx.method, restart, penalty);
+            });
+            const n = rounds.length || 1;
+            return {
+                rounds,
+                finalScore: round3(rounds.reduce((s, r) => s + r.points, 0) / n),
+                presentation: round3(rounds.reduce((s, r) => s + round3(r.avgPres), 0) / n),
+                totalAll: round3(rounds.reduce((s, r) => s + r.totalAll, 0)),
+            };
+        }
+
+        // WT tie-break: final score → presentation → total of all judges.
+        function decideWinner(blue, red) {
+            for (const key of ["finalScore", "presentation", "totalAll"]) {
+                if (blue[key] !== red[key]) return blue[key] > red[key] ? "blue" : "red";
+            }
+            return null;
+        }
+
+        // ── Pieces ───────────────────────────────────────────────────────
+        function countryCode(corner) {
+            const c = corner.country || corner.countryCode || corner.nationality || corner.nation;
+            if (!c) return "";
+            if (typeof c === "string") return c.trim().toUpperCase();
+            return String(c.code || c.ioc || c.iso || "").trim().toUpperCase();
+        }
+
+        function flagHtml(code) {
+            const iso2 = code.length === 2 ? code.toLowerCase() : COUNTRY_ISO2[code];
+            return iso2 ? `<img class="flag" src="https://flagcdn.com/h120/${esc(iso2)}.png" alt="" onerror="this.remove()">` : "";
+        }
+
+        function nationHtml(corner) {
+            const code = countryCode(corner);
+            return code ? `<div class="nation">${flagHtml(code)}<span>${esc(code)}</span></div>` : "";
+        }
+
+        function idLineHtml(corner) {
+            const code = countryCode(corner);
+            return `<div class="id-line">${code ? flagHtml(code) : ""}<span class="id-line-name">${esc(corner.name || "—")}</span></div>`;
+        }
+
+        function splitName(name) {
+            const words = String(name || "—").trim().split(/\s+/);
+            if (words.length < 2) return esc(words[0] || "—");
+            return `<span>${esc(words[0])}</span><span>${esc(words.slice(1).join(" "))}</span>`;
+        }
+
+        function deductionsHtml(restart, penalty) {
+            const fmt = v => `${v > 0 ? "+" : "−"}${Math.abs(v).toFixed(1)}`;
+            const chips = [];
+            if (restart) chips.push(`<span class="deduction">Restart ${fmt(restart)}</span>`);
+            if (penalty) chips.push(`<span class="deduction">Penalties ${fmt(penalty)}</span>`);
+            return chips.length ? `<div class="deductions">${chips.join("")}</div>` : "";
+        }
+
+        function titleCase(code) {
+            return String(code || "").split("_").filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)).join(" ");
+        }
+
+        function formatClock(totalSeconds) {
+            const m = Math.floor(totalSeconds / 60);
+            const s = totalSeconds % 60;
+            return `${m}:${String(s).padStart(2, "0")}`;
+        }
+
+        function esc(str) {
+            return String(str ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+        }
+
+        // Same 2 s poll of /state as the operator panel.
+        loadState();
+        setInterval(loadState, 2000);
+    </script>
+</body>
+
+</html>

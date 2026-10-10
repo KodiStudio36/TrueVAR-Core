@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Livestream Overlay — Taekwondo</title>
+    <title>Livestream Overlay — Poomsae</title>
 
     <!-- Core (every sport loads these, in this order) -->
     <link rel="stylesheet" href="static/css/core/tokens.css">
@@ -14,11 +14,12 @@
 
     <!-- Sport package (swap this one line to re-skin for a new discipline) -->
     <link rel="stylesheet" href="static/css/sports/taekwondo/taekwondo.css">
+    <link rel="stylesheet" href="static/css/sports/poomsae/poomsae.css">
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
 
-<body data-sport="taekwondo">
+<body data-sport="poomsae">
 
     <!-- NEXT ROUND (top-left corner) -->
     <div class="anchor-top-left is-hidden" id="widget-next-round" data-anim="corner" data-enter-ms="1200"
@@ -29,104 +30,133 @@
         </div>
     </div>
 
-    <!-- LIVE SCOREBOARD (State Morphable) -->
+    <!-- LIVE SCOREBOARD — average accuracy drops live from 4.00 as judges deduct -->
     <div class="anchor-top-left is-hidden" id="widget-scoreboard-system" data-anim="corner" data-enter-ms="1500"
         data-exit-ms="400">
 
-        <!-- 1. HEADER SWITCHER -->
+        <!-- 1. HEADER -->
         <div class="header-grid tkd-scoreboard-grid">
-            <div class="chip-id" data-bind="id_formatted">003</div>
-            <div class="chip-label-switcher">
-                <!-- Normal Match Label -->
-                <div class="chip-label match-label" data-bind-format="category:category">Seniors Men -68kg</div>
-                <!-- Break Timer Label (Hidden by default) -->
-                <div class="chip-label break-label">BREAK <span data-bind="clk" style="margin-left:6px;">0:59</span>
-                </div>
-            </div>
+            <div class="chip-id" data-bind="id_formatted">012</div>
+            <div class="chip-label" data-bind="category">Individual Poomsae Seniors Female</div>
         </div>
 
-        <!-- 2. COLLAPSIBLE ROWS WRAPPER -->
+        <!-- 2. ROWS -->
         <div class="rows-collapser">
             <div class="rows-inner">
                 <div class="row-wrapper with-color scoreboard">
-                    <!-- BLUE ROW -->
-                    <div class="color-bar bg-green"></div>
+                    <!-- BLUE (or the solo athlete) -->
+                    <div class="color-bar bg-green" data-corner="blue"></div>
                     <div class="row-content scoreboard">
-                        <div class="competitor-info">
-                            <div class="res-country" data-bind-format="blue.flag3:upper">HUN</div>
-                            <img class="flag-sm" data-bind-img="blue.flag2" src="https://flagcdn.com/w40/hu.png"
+                        <div class="competitor-info" data-corner="blue">
+                            <div class="res-country" data-bind="blue.flag3">SVK</div>
+                            <img class="flag-sm" data-bind-img="blue.flag2" src="https://flagcdn.com/w40/sk.png"
                                 alt="Flag">
-                            <div class="res-name" style="font-weight:bold;" data-bind="blue.name">Natalia Zagiová
-                            </div>
+                            <div class="res-name" style="font-weight:bold;"><span class="name-full"
+                                    data-bind="blue.name">Natalia Zagiová</span><span class="name-short"
+                                    data-bind-format="blue.name:shortName"></span></div>
                         </div>
                     </div>
-                    <div class="score-elements" id="blue-dynamic-scores">
-                        <div class="point-box"><i class="main">10</i></div>
+                    <div class="score-elements" data-corner="blue">
+                        <div class="point-box penalty pms-penalty is-hidden"><i class="main">-0.6</i></div>
+                        <div class="point-box pms-total"><i class="main">4.00</i></div>
+                        <div class="event-box pms-pres-chip">Presentation</div>
                     </div>
 
-                    <!-- MATCH CLOCK -->
-                    <div class="header-grid tkd-time-row clip-reveal"
-                        style="display:grid; grid-template-columns:auto auto 1fr;height:36px;">
-                        <div class="chip-label wide" data-bind="clk">1:30</div>
-                        <div class="chip-id" data-bind-format="round:round">1st</div>
+                    <!-- RED (side-by-side matches only) -->
+                    <div class="color-bar bg-red pms-red" data-corner="red"></div>
+                    <div class="row-content scoreboard pms-red">
+                        <div class="competitor-info" data-corner="red">
+                            <div class="res-country" data-bind="red.flag3">CZE</div>
+                            <img class="flag-sm" data-bind-img="red.flag2" src="https://flagcdn.com/w40/cz.png"
+                                alt="Flag">
+                            <div class="res-name" style="font-weight:bold;"><span class="name-full"
+                                    data-bind="red.name">Jakub Spitalik</span><span class="name-short"
+                                    data-bind-format="red.name:shortName"></span></div>
+                        </div>
+                    </div>
+                    <div class="score-elements pms-red" data-corner="red">
+                        <div class="point-box penalty pms-penalty is-hidden"><i class="main">-0.6</i></div>
+                        <div class="point-box pms-total"><i class="main">4.00</i></div>
+                        <div class="event-box pms-pres-chip">Presentation</div>
+                    </div>
+                </div>
+
+                <!-- CLOCK + ROUND — collapses into the scoreboard while the timer runs -->
+                <div class="pms-clock-collapser">
+                    <div class="pms-clock-inner">
+                        <div class="header-grid pms-time-row clip-reveal">
+                            <div class="chip-label wide pms-clock" data-bind="clk">1:30</div>
+                            <div class="chip-id" data-bind-format="poomsae_index:round">1st</div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- PREVIOUS RESULTS -->
-    <div class="anchor-bottom-center" id="widget-previous-results" data-anim="reveal">
-        <div class="header-label">Round Results</div>
+    <!-- DRAWN POOMSAE (bottom-left corner) — only when a poomsae was drawn -->
+    <div class="anchor-bottom-left is-hidden" id="widget-poomsae-name" data-anim="corner" data-enter-ms="900"
+        data-exit-ms="400">
+        <div class="header-grid pms-name-chip">
+            <div class="chip-id" data-bind="poomsae_name">Taeguk 7 Jang</div>
+        </div>
+    </div>
+
+    <!-- ATHLETE INTRO — start of Poomsae 1, once per match. Filled by the
+         poomsae plugin (renderIntro); the markup below is the design preview. -->
+    <div class="anchor-bottom-center is-hidden" id="widget-athlete-intro" data-anim="reveal" data-enter-ms="1200"
+        data-exit-ms="380">
+        <div class="header-label">Preliminary Round</div>
+        <div class="pms-intro-body">
+            <div class="header-grid with-color">
+                <div class="color-bar bg-green"></div>
+                <div class="header-content">
+                    <div class="header-country">SVK</div>
+                    <img class="flag-lg" src="https://flagcdn.com/w80/sk.png" alt="">
+                    <div class="header-name">Oliver Truevar</div>
+                    <div class="header-seed">TKD Bratislava</div>
+                    <img class="header-logo" src="assets/icons/watermark.png" alt="Logo">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESULTS (Results 1 / Results 2) — kyorugi-style. Per athlete: a header with
+         the name, then an accuracy and a presentation row with one column per judge
+         and a big total. Built by the poomsae plugin (renderResults). -->
+    <div class="anchor-bottom-center is-hidden" id="widget-round-results" data-anim="reveal" data-enter-ms="1200"
+        data-exit-ms="380">
+        <div class="header-label" data-bind="results_title">Taeguk 7 Jang</div>
+        <div class="results-container pms-results-body"></div>
+    </div>
+
+    <!-- FINAL SCORE (Final Results) — kyorugi "Winner" look: number + category label,
+         FINAL SCORE header, then per athlete P1 / P2 totals and the overall score.
+         Built by the poomsae plugin (renderFinal). -->
+    <div class="anchor-bottom-center is-hidden" id="widget-final-score" data-anim="reveal" data-enter-ms="1200"
+        data-exit-ms="380">
+        <div class="header-label" data-bind="header_line">005 Seniors Under 30 A Men</div>
         <div class="header-grid">
-            <div class="header-content">
-                <div class="header-country">KOR</div>
-                <img class="flag-lg" src="https://flagcdn.com/w80/kr.png" alt="South Korea">
-                <div class="header-name">PARK Taejoon</div>
-                <div class="header-seed"></div>
-                <img class="header-logo" src="assets/icons/watermark.png" alt="Logo">
+            <!-- P1 / P2 / TOTAL labels are added on the right by the plugin -->
+            <div class="header-content pms-final-head">
+                <div class="header-name">Final Score</div>
             </div>
         </div>
-        <div class="results-container">
-            <div class="row-wrapper results">
-                <div class="color-bar bg-green"></div>
-                <div class="row-content">
-                    <div class="res-name" data-bind-format="blue.flag3:upper">Round 1</div>
-                    <div class="res-seed" data-bind="blue.name">(Geumgeang)</div>
-                    <i></i>
-                    <i class="main" data-bind="blue.points">7.3</i>
-                </div>
-                <div class="point-box">
-                    <i class="main" data-bind="blue.trunk">2.48</i>
-                </div>
-                <div class="point-box"><i class="main" data-bind="blue.punch">2.21</i></div>
-                <div class="point-box composed">
-                    <i class="main" data-bind="blue.head">3</i>
-                    <i class="small" data-bind="blue.rotation_head">5</i>
-                </div>
+        <div class="results-container pms-final-body"></div>
+    </div>
+
+    <!-- CATEGORY RESULTS (Category Results) — big category header, then
+         [rank] [country flag name] [score] per athlete. ≤5 rows: bottom-aligned
+         like the other widgets; more: centred on screen (.is-centered).
+         Rows are built by the poomsae plugin (renderCategory). -->
+    <div class="anchor-bottom-center is-hidden" id="widget-category-results" data-anim="reveal" data-enter-ms="1200"
+        data-exit-ms="380">
+        <div class="header-grid">
+            <div class="header-content pms-cat-head">
+                <div class="header-name" data-bind="category">Seniors Under 30 A Men</div>
             </div>
         </div>
-        <div class="results-container">
-            <div class="row-wrapper results">
-                <div class="color-bar bg-green"></div>
-                <div class="row-content">
-                    <div class="res-name" data-bind-format="blue.flag3:upper">Round 2</div>
-                    <div class="res-seed" data-bind="blue.name">(Koryo)</div>
-                    <i></i>
-                    <i class="main" data-bind="blue.points">8</i>
-                    <i class="small" data-bind="blue.hits">5</i>
-                </div>
-                <div class="point-box composed">
-                    <i class="main" data-bind="blue.trunk">2</i>
-                    <i class="small" data-bind="blue.rotation_trunk">0</i>
-                </div>
-                <div class="point-box"><i class="main" data-bind="blue.punch">2</i></div>
-                <div class="point-box composed">
-                    <i class="main" data-bind="blue.head">0</i>
-                    <i class="small" data-bind="blue.rotation_head">0</i>
-                </div>
-            </div>
-        </div>
+        <div class="results-container pms-cat-body"></div>
     </div>
 
     <!-- WINNER -->
@@ -179,29 +209,29 @@
         </div>
     </div>
 
+    <!-- TEST MODE (no backend): uncomment this block, comment out the live one,
+         then in the console: perform()  or  perform(fixtures.duel)
     <script type="module">
         import { bootOverlay } from './static/js/core/app.js';
-        import { MockSocket } from './static/js/core/mock-socket.js'; // adjust path to your mock-socket.js
+        import { MockSocket } from './static/js/core/mock-socket.js';
         import { attachConsoleTools } from './static/js/core/console-tools.js';
-        import { taekwondoPlugin } from './static/js/sports/taekwondo/taekwondo.plugin.js';
-        import * as fixtures from './static/js/fixtures.js';
+        import { poomsaePlugin } from './static/js/sports/poomsae/poomsae.plugin.js';
+        import * as fixtures from './static/js/sports/poomsae/poomsae.fixtures.js';
 
-        // 1. Create mock socket
         const mockSocket = new MockSocket();
-
-        // 2. Pass socket override into bootOverlay
-        const overlay = bootOverlay(taekwondoPlugin, { socket: mockSocket });
-
-        // 3. Attach console tools
+        const overlay = bootOverlay(poomsaePlugin, { socket: mockSocket });
         attachConsoleTools(overlay, fixtures);
-    </script>
-
-    <!-- <script type="module">
-        import { bootOverlay } from './static/js/core/app.js';
-        import { taekwondoPlugin } from './static/js/sports/taekwondo/taekwondo.plugin.js';
-
-        bootOverlay(taekwondoPlugin, { socketUrl: 'http://localhost:8000/truevar' });
+        window.perform = (f = fixtures.solo) => fixtures.simulatePerformance(mockSocket, f);
+        window.category = (n = 3) => fixtures.showCategory(mockSocket, n);   // category(3) bottom, category(10) centred
     </script> -->
+
+    <!-- LIVE -->
+    <script type="module">
+        import { bootOverlay } from './static/js/core/app.js';
+        import { poomsaePlugin } from './static/js/sports/poomsae/poomsae.plugin.js';
+
+        bootOverlay(poomsaePlugin, { socketUrl: 'http://localhost:8000/truevar' });
+    </script>
 
 </body>
 

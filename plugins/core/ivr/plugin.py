@@ -17,6 +17,11 @@ class IVRPlugin(BasePlugin):
     _RECONNECT_DELAY_MIN = 1.0
     _RECONNECT_DELAY_MAX = 30.0
 
+    # Settings key of GStreamerCorePlugin (its `name` property). The IVR app
+    # needs CameraSettings.is_scoreboard to know whether a scoreboard
+    # capture source (camera0 shm socket) exists to record from.
+    _GSTREAMER_SETTINGS_NAME = "GStreamer Core Plugin"
+
     _CMD_EVENTS = {
         "ivr.cmd.start_recording":  "start_recording",
         "ivr.cmd.stop_recording":   "stop_recording",
@@ -82,9 +87,9 @@ class IVRPlugin(BasePlugin):
                 # Cross-plugin: auto-start recording when a fight begins
                 ("scoreboard.START_FIGHT", self._on_fight_started),
                 ("scoreboard.IVR", self._on_ivr_requested),
-                # Live scoreboard deltas — cheap to stream, lets the IVR app
-                # keep a rolling buffer even before a replay is requested.
-                ("scoreboard.score_event", self._on_score_event),
+                # Scoreboard source toggled in camera settings — re-push so the
+                # IVR app starts/stops recording the scoreboard accordingly.
+                ("gstreamer.settings_changed", self._on_gstreamer_settings_changed),
             ]
             bus.subscribe_many(self._subscriptions)
 
@@ -96,7 +101,7 @@ class IVRPlugin(BasePlugin):
 
     async def stop(self) -> None:
         self._bootstrapper.terminate()
-        
+
         bus = self.core_context.get("event_bus")
         if bus and self._subscriptions:
             bus.unsubscribe_many(self._subscriptions)
@@ -175,18 +180,6 @@ class IVRPlugin(BasePlugin):
             self.fight_num = data.get("fight_num")
         elif event == "recording_stopped":
             self.is_recording = False
-        elif event == "replay_opened":
-            # Replay is almost always opened locally in the IVR app (hotkey),
-            # not via our own ivr.cmd.show_replay — so this is the reliable
-            # place to push the scoreboard timeline, not the outbound
-            # show_replay command handler below (which may never fire).
-            history_payload = self._current_history_payload()
-            self.logger.info(
-                "Pushing scoreboard history to IVR app",
-                match_id=history_payload["match_id"],
-                event_count=len(history_payload["score_history"]),
-            )
-            await self.send_event("score_history", history_payload)
         elif event == "error":
             self.logger.error("IVR application error", message=data.get("message"))
 
@@ -205,49 +198,25 @@ class IVRPlugin(BasePlugin):
     def _make_cmd_handler(self, ws_event: str):
         """Factory that creates a typed async handler for each ivr.cmd.* bus event."""
         async def _handler(data: dict):
-            if ws_event == "show_replay":
-                # Hand the IVR app the full scoreboard timeline for the fight
-                # that's currently loaded, so it can reconstruct the score
-                # at any video position without having captured it live.
-                await self.send_event(ws_event, self._current_history_payload())
-            else:
-                await self.send_event(ws_event)
+            await self.send_event(ws_event)
         _handler.__name__ = f"_cmd_{ws_event}"
         return _handler
-
-    def _current_history_payload(self) -> dict:
-        listener_plugin = self.core_context.get("tkstrike_listener_plugin")
-        history = listener_plugin.get_history() if listener_plugin else None
-        if not history:
-            return {"match_id": None, "score_history": []}
-        return {"match_id": history.match_id, "score_history": history.to_list()}
 
     async def _on_fight_started(self, data: dict):
         """Auto-start IVR recording when the scoreboard signals a fight has begun."""
         if not self.is_recording:
             self.logger.info("Fight started — triggering IVR recording.")
-            await self.send_event("start_recording", {
-                "fight_start_epoch": self._current_fight_start_epoch(),
-            })
+            await self.send_event("start_recording")
 
     async def _on_ivr_requested(self, data: dict):
-        """Auto-start IVR recording when the scoreboard signals a fight has begun."""
+        """Open the IVR replay when the scoreboard signals a video review request."""
         if self.is_recording:
             self.logger.info("IVR Requested — triggering IVR replay.")
-            await self.send_event("show_replay", self._current_history_payload())
+            await self.send_event("show_replay")
 
-    def _current_fight_start_epoch(self):
-        """Wall-clock epoch (time.time()) the current fight's scoreboard
-        timeline is anchored to. The IVR app uses this as t=0 to work out
-        how far into the fight each recorded segment started.
-        """
-        listener_plugin = self.core_context.get("tkstrike_listener_plugin")
-        history = listener_plugin.get_history() if listener_plugin else None
-        return history.fight_start if history else None
-
-    async def _on_score_event(self, data: dict):
-        """Stream each new scoreboard delta to the IVR app in real time."""
-        await self.send_event("score_event", data)
+    async def _on_gstreamer_settings_changed(self, data: dict):
+        if self._connected:
+            await self._push_settings()
 
     # ------------------------------------------------------------------ outbound
 
@@ -263,6 +232,16 @@ class IVRPlugin(BasePlugin):
             self._connected = False
             return False
 
+    def _is_scoreboard_enabled(self) -> bool:
+        try:
+            cam_settings = self.core_context["settings_manager"].get_settings(
+                self._GSTREAMER_SETTINGS_NAME
+            )
+            return bool(getattr(cam_settings, "is_scoreboard", False))
+        except Exception as exc:
+            self.logger.warning("Could not read GStreamer is_scoreboard — assuming off", error=str(exc))
+            return False
+
     async def _push_settings(self):
         if not self._settings:
             return
@@ -272,11 +251,12 @@ class IVRPlugin(BasePlugin):
             "camera_count":   self._settings.camera_count,
             "delete_records": self._settings.delete_records,
             "auto_record":    self._settings.auto_record,
+            "is_scoreboard":  self._is_scoreboard_enabled(),
             "key_binds":      self._settings.key_binds.model_dump(),
         }
         try:
             await self._ws.send(json.dumps({"type": "settings", "data": payload}))
-            self.logger.info("Settings pushed to IVR.")
+            self.logger.info("Settings pushed to IVR.", is_scoreboard=payload["is_scoreboard"])
         except Exception as exc:
             self.logger.error("Failed to push settings to IVR", exception=exc)
 

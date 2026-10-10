@@ -1,0 +1,510 @@
+/* =========================================================
+   POOMSAE sport package
+   Only what the poomsae widgets need on top of core.
+   ========================================================= */
+
+/* Solo performance → no red row */
+.is-solo .pms-red {
+    display: none !important;
+}
+
+/* Athlete without a country → name sits flush left */
+.competitor-info.no-country {
+    grid-template-columns: 0px 0px auto;
+    gap: 0;
+}
+
+.competitor-info.no-country .res-country,
+.competitor-info.no-country .flag-sm {
+    opacity: 0;
+}
+
+/* ---------------------------------------------------------
+   Preparation / Results: header only (number + category).
+   Rows fold away with the same collapser kyorugi uses on a break.
+   --------------------------------------------------------- */
+.is-header-only .rows-collapser {
+    grid-template-rows: 0fr;
+}
+
+.is-header-only .rows-inner {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ---------------------------------------------------------
+   Score box — average accuracy live, full score on Results
+   --------------------------------------------------------- */
+.point-box.pms-total {
+    width: 62px;
+    font-variant-numeric: tabular-nums;
+    transition: background-color .3s ease, color .3s ease;
+}
+
+.point-box.pms-total.is-dropping {
+    animation: pms-drop-pulse .8s ease-out;
+}
+
+@keyframes pms-drop-pulse {
+    0% {
+        background-color: var(--color-penalty);
+    }
+
+    100% {
+        background-color: var(--bg-row);
+    }
+}
+
+/* Restart / penalty total */
+.point-box.pms-penalty {
+    width: 44px;
+}
+
+/* "-0.3" when most judges made that call */
+.event-box.pms-drop {
+    background-color: var(--bg-danger);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .5px;
+    animation: pms-drop-in .25s var(--ease-out);
+}
+
+@keyframes pms-drop-in {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Score boxes join the corner entrance after the rows */
+[data-anim="corner"].is-entering .score-elements {
+    opacity: 0;
+    animation: anim-fade-slide-right var(--t-base) var(--ease-soft) 0.7s forwards;
+}
+
+/* ---------------------------------------------------------
+   Clock + round row. A few seconds after the timer starts
+   (.clock-hidden, set by the livestream extension) it slides
+   UP behind the athlete rows, then the gap closes. On pause
+   the gap opens and it slides back DOWN.
+   The transition on each state is the one used when ENTERING
+   that state, which is how the two directions get their order.
+   --------------------------------------------------------- */
+.pms-clock-collapser {
+    position: relative;
+    z-index: 0;
+    /* behind .row-wrapper (z-index 1 in animations.css) */
+    max-height: 40px;
+    /* showing: open the gap first … */
+    transition: max-height .3s var(--ease-out);
+}
+
+.pms-time-row {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    height: 32px;
+    margin-top: 2px;
+    transform: translateY(0);
+    opacity: 1;
+    /* … then slide down out of the rows */
+    transition: transform .4s var(--ease-out) .15s, opacity .25s ease .15s;
+}
+
+.clock-hidden .pms-clock-collapser {
+    max-height: 0;
+    /* hiding: slide up first, then close the gap */
+    transition: max-height .3s var(--ease-snap) .3s;
+}
+
+.clock-hidden .pms-time-row {
+    transform: translateY(-100%);
+    opacity: 0;
+    transition: transform .4s var(--ease-snap), opacity .3s ease .15s;
+}
+
+.pms-time-row .pms-clock {
+    min-width: 60px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------
+   Drawn poomsae, bottom-left: dark green chip
+   --------------------------------------------------------- */
+.pms-name-chip {
+    display: grid;
+    grid-template-columns: auto;
+    height: 32px;
+}
+
+.pms-name-chip .chip-id {
+    background-color: var(--color-green);
+    padding: 0 14px;
+    white-space: nowrap;
+}
+
+/* Overtime: clock counts past 0:00 → -0:01 … in red */
+.pms-clock.is-overtime {
+    background-color: var(--bg-danger);
+    color: var(--text-white);
+}
+
+/* ---------------------------------------------------------
+   Results widget — kyorugi round-results look:
+   stacked category header with a column legend at its bottom
+   right, then per athlete an accuracy row and a presentation
+   row (one box per judge) sharing a colour bar and a tall total.
+   --------------------------------------------------------- */
+.pms-legend {
+    position: absolute;
+    right: 0;
+    bottom: 4px;
+    display: grid;
+    gap: 2px;
+    color: var(--text-white);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.pms-legend>div {
+    text-align: center;
+}
+
+.pms-result-block {
+    display: grid;
+    grid-template-rows: 32px 32px;
+    gap: 2px;
+    margin-top: 2px;
+}
+
+.pms-span2 {
+    grid-row: span 2;
+}
+
+.pms-res-row {
+    display: grid;
+    grid-template-columns: 1fr 64px;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Athlete name line in the Results header: country, flag, name */
+.pms-athlete {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    /* padding-right is set by the plugin to clear the judge/total legend */
+}
+
+.pms-athlete .header-country {
+    margin-right: 12px;
+}
+
+.pms-athlete .flag-lg {
+    width: 46px;
+    height: 30px;
+    margin-right: 12px;
+}
+
+.pms-athlete .header-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pms-result-head+.pms-result-block {
+    margin-top: 2px;
+}
+
+.pms-result-block+.pms-result-head {
+    margin-top: 10px;
+}
+
+.pms-row-label {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-round);
+}
+
+.pms-row-value {
+    text-align: right;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.pms-ded {
+    display: inline-block;
+    background-color: var(--color-penalty);
+    padding: 1px 8px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.point-box.pms-judge {
+    width: 52px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Not counted (trim_high_low drops the highest and lowest) */
+.point-box.pms-judge.is-trimmed {
+    opacity: .45;
+    text-decoration: line-through;
+}
+
+/* Judge hasn't submitted yet */
+.point-box.pms-judge.is-pending {
+    opacity: .6;
+}
+
+.point-box.pms-total-box {
+    width: 96px;
+    height: auto;
+    font-size: 30px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Athlete intro: a second athlete (side-by-side match) sits right under the first */
+.pms-intro-body .header-grid+.header-grid {
+    margin-top: 2px;
+}
+
+/* Results + intro: wider than the default bottom-center band so long
+   names and categories fit next to the judge columns. */
+#widget-round-results,
+#widget-athlete-intro {
+    padding: 0 9vw;
+}
+
+/* ---------------------------------------------------------
+   Final Score (Final Results) — kyorugi "Winner" look
+   --------------------------------------------------------- */
+#widget-final-score {
+    padding: 0 9vw;
+}
+
+.pms-final-legend {
+    height: 20px;
+    display: grid;
+    gap: 2px;
+}
+
+.pms-final-legend>div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-label);
+    color: var(--text-light);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.pms-final-row {
+    display: grid;
+    gap: 2px;
+}
+
+.pms-final-row .row-content {
+    height: 42px;
+    font-size: 19px;
+}
+
+.point-box.pms-final-box,
+.point-box.pms-final-total {
+    height: 42px;
+    width: auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.point-box.pms-final-box {
+    font-size: 18px;
+}
+
+.point-box.pms-final-total {
+    font-size: 26px;
+    font-weight: 700;
+}
+
+/* ---------------------------------------------------------
+   Presentation mode: clock stopped, most judges on their
+   presentation marks → accuracy (and the clock row) hide,
+   a PRESENTATION chip takes their place.
+   --------------------------------------------------------- */
+.event-box.pms-pres-chip {
+    display: none;
+    background-color: var(--color-green);
+    letter-spacing: 1.5px;
+}
+
+.is-presentation .event-box.pms-pres-chip {
+    display: flex;
+    animation: pms-drop-in .3s var(--ease-out);
+}
+
+.is-presentation .pms-total,
+.is-presentation .pms-penalty,
+.is-presentation .pms-drop {
+    display: none !important;
+}
+
+/* Final Score rows use a larger font → wider country / flag columns */
+.pms-final-row .competitor-info {
+    grid-template-columns: 46px 32px auto;
+    gap: 10px;
+}
+
+.pms-final-row .flag-sm {
+    width: 32px;
+    height: 22px;
+}
+
+/* ---------------------------------------------------------
+   Column labels (J1 … TOTAL / P1 P2 TOTAL) inside the dark
+   header bar, right above their boxes — no separate legend row.
+   --------------------------------------------------------- */
+.pms-head-cols {
+    position: absolute;
+    right: 0;
+    bottom: 6px;
+    display: grid;
+    gap: 2px;
+    color: var(--text-white);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.pms-head-cols>div {
+    text-align: center;
+}
+
+/* Results header: big name like the intro card */
+.pms-result-head .header-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Final Score header bar: only "FINAL SCORE" + the column labels */
+.pms-final-head {
+    min-height: 56px;
+}
+
+/* Para / freestyle: no live accuracy score or deductions on the scoreboard */
+.no-live-score .pms-total,
+.no-live-score .pms-penalty,
+.no-live-score .pms-drop {
+    display: none !important;
+}
+
+/* Headers that carry column labels: solid dark like kyorugi's round
+   results — the teal slice of --grad-header would cut through the labels. */
+.pms-result-head .header-content,
+.pms-final-head {
+    background: var(--bg-panel);
+}
+
+/* ---------------------------------------------------------
+   Category Results — big category header, then per athlete
+   [rank] [country flag name] [score] with gaps between, like
+   the sketch. ≤5 rows: bottom (default anchor). More: centred.
+   --------------------------------------------------------- */
+#widget-category-results {
+    padding: 0 12vw;
+}
+
+#widget-category-results.is-centered {
+    bottom: auto;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* The shared reveal exit animates transform; keep the centring while leaving */
+#widget-category-results.is-centered.is-exiting {
+    animation: pms-cat-exit-centered var(--t-base) ease forwards;
+}
+
+@keyframes pms-cat-exit-centered {
+    from {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+
+    to {
+        opacity: 0;
+        transform: translate(-50%, calc(-50% + 30px));
+    }
+}
+
+.pms-cat-head {
+    background: var(--bg-panel);
+    min-height: 64px;
+}
+
+.pms-cat-head .header-name {
+    font-size: 30px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pms-cat-row {
+    display: grid;
+    grid-template-columns: 46px 1fr 96px;
+    gap: 2px;
+}
+
+.pms-cat-row .row-content,
+.pms-cat-row .point-box {
+    height: 38px;
+}
+
+.pms-cat-row .row-content {
+    font-size: 18px;
+}
+
+.pms-cat-row .competitor-info {
+    grid-template-columns: 46px 32px auto;
+    gap: 10px;
+}
+
+.pms-cat-row .flag-sm {
+    width: 32px;
+    height: 22px;
+}
+
+.point-box.pms-cat-rank {
+    width: 46px;
+    background-color: var(--bg-label);
+    color: var(--text-white);
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.point-box.pms-cat-score {
+    width: 96px;
+    font-size: 20px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The athlete who just performed */
+.pms-cat-row.is-current .row-content,
+.pms-cat-row.is-current .pms-cat-score {
+    background-color: var(--color-penalty);
+}
+
+/* Goes through to the next round (cut-off) */
+.pms-cat-row.is-qualified .pms-cat-rank {
+    background-color: #0B6B67;
+}
