@@ -129,7 +129,11 @@ class AICameramanBasePlugin(BasePlugin):
             #    when it stops, which would otherwise delete ours.
             old_pipeline = pm.pipeline
             self._extension = AICameramanExtension(raw_socket, s.source_index, s.input_width,
-                                                   s.input_height, replace_output=s.replace_camera_output)
+                                                   s.input_height, replace_output=s.replace_camera_output,
+                                                   decoder=s.decoder)
+            if self._extension.decoder != self._extension.requested_decoder:
+                self.logger.warning("AI cameraman: CPU decoder (avdec_h264) not installed — using the GPU "
+                                    "decoder. Install gst-libav for the smoothest picture.")
             pm.register_extension(self._extension)
             await self._wait_rebuilt(pm, old_pipeline)
 

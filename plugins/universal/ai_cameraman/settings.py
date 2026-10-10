@@ -21,6 +21,11 @@ class AICameramanBaseSettings(BaseModel):
     output_width: int = Field(1280, description="Framed output width")
     output_height: int = Field(720, description="Framed output height")
     output_fps: int = Field(30, description="Nominal framerate in the output caps")
+    decoder: Literal["cpu", "gpu"] = Field(
+        "cpu",
+        description="How the AI camera is decoded. cpu = straight into normal memory (smooth; a few % "
+                    "of one core). gpu = iGPU decode + 1080p read-back (can drop frames on Intel)",
+    )
     replace_camera_output: bool = Field(
         True, description="Publish the AI picture on camera<N>_shm_socket instead of the raw camera "
                           "(OBS/IVR sources stay the same). Off = separate camera_ai_shm_socket",

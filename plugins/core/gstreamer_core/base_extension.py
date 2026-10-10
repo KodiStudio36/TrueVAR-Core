@@ -52,3 +52,13 @@ class BaseGStreamerExtension(ABC):
         else uses it.
         """
         return set()
+
+    def get_decoders(self, settings: "CameraSettings") -> dict[int, str]:
+        """Optional: replace the H.264 decoder of IP cameras, { source_index: element }.
+
+        Default is the GPU decoder (vah264dec, VA memory). An extension that needs
+        full frames in normal memory (e.g. the AI cameraman) can ask for the CPU
+        decoder ("avdec_h264") instead: frames land directly in system memory and
+        no slow GPU -> CPU read-back is needed.
+        """
+        return {}

@@ -78,6 +78,14 @@ class PipelineManager:
                 result.append(f"raw_src{source_index}. ! {branches[source_index]}")
         return result
 
+    def get_decoder(self, source_index: int, settings: "CameraSettings", default: str) -> str:
+        """Decoder element for an IP camera (first extension that asks wins)."""
+        for ext in self._extensions.values():
+            dec = ext.get_decoders(settings).get(source_index)
+            if dec:
+                return dec
+        return default
+
     def get_replaced_outputs(self, settings: "CameraSettings") -> set[int]:
         """Camera indices whose fixed shm output an extension has taken over."""
         out: set[int] = set()

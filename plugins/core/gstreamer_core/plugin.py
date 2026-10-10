@@ -149,10 +149,11 @@ class GStreamerCorePlugin(BasePlugin):
             # A full URL (e.g. a test stream "rtsp://127.0.0.1:8554/cam1") is used as-is;
             # a plain IP keeps the real-camera URL exactly as before.
             url = ip if ip.startswith("rtsp://") else f"rtsp://admin:TaekwondoVAR@{ip}:554"
+            decoder = self._pipeline_manager.get_decoder(idx, settings, "vah264dec")
             cam_src = (
                 "videotestsrc" if settings.debug else
                 f"rtspsrc location={url} latency=800 ! "
-                f"rtph264depay ! h264parse ! vah264dec"
+                f"rtph264depay ! h264parse ! {decoder}"
             )
             scaled = (
                 f"vapostproc ! "

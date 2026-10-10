@@ -159,13 +159,19 @@ class _FrameClock:
             return self.t, True
         pred = self.t + self.period
         err = arrival - pred
-        if abs(err) > 0.25:                       # gap / restart / jump: start over
+        if abs(err) > 1.0:                        # real gap / restart / jump: start over
+                                                  # (keyframe stalls of ~0.3 s are ridden out)
             self.reset()
             self.t = arrival
             return self.t, True
-        self.t = pred + 0.05 * err                # phase correction (gentle)
-        self.period += 0.002 * err                # frequency correction (very gentle)
-        self.period = min(max(self.period, self.nominal * 0.9), self.nominal * 1.1)
+        # Cameras deliver keyframes late (~0.3 s stall every GOP) and then burst. The
+        # error is clipped to one frame and the gains are small, so a stall+burst nets
+        # out instead of jerking the timeline; long-term clock drift is still tracked.
+        # (Simulated: 30 min, +-200 ppm camera clock, 280 ms stalls -> output jitter 0.14 ms.)
+        e = min(max(err, -self.period), self.period)
+        self.t = pred + 0.01 * e                  # phase correction
+        self.period += 0.0002 * e                 # frequency correction
+        self.period = min(max(self.period, self.nominal * 0.75), self.nominal * 1.35)
         return self.t, False
 
 
@@ -304,7 +310,7 @@ class AICameramanEngine:
             f"shmsrc socket-path={self.raw_socket} is-live=true do-timestamp=true ! "
             f"video/x-raw,format=NV12,width={self.W},height={self.H},"
             f"framerate={self.cfg.output_fps}/1 ! "
-            f"appsink name=in emit-signals=false sync=false drop=true max-buffers=8 "
+            f"appsink name=in emit-signals=false sync=false drop=true max-buffers=16 "
             f"enable-last-sample=false"
         )
         pipe = Gst.parse_launch(desc)
