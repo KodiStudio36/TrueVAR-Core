@@ -5,8 +5,8 @@ class AICameramanExtension(BaseGStreamerExtension):
     """Hands the decoded native-resolution (1080p) stream of one IP camera to the
     AI cameraman renderer process over shared memory.
 
-        raw_srcN. ! queue (leaky, 1 buf) ! vapostproc (VA: VAMemory -> 1080p NV12 sysmem)
-                  ! shmsink  <raw_socket>
+        raw_srcN. ! queue (leaky, 3) ! vapostproc (VA: VAMemory -> 1080p NV12 sysmem)
+                  ! queue (leaky, 8) ! shmsink  <raw_socket>
 
     Pure GStreamer/C: no Python runs per frame in the main app. The branch is
     fully leaky, so a slow, missing or restarting renderer can never
@@ -32,11 +32,15 @@ class AICameramanExtension(BaseGStreamerExtension):
         frame = self.width * self.height * 3 // 2
         return {
             self.source_index: (
-                "queue max-size-buffers=1 max-size-bytes=0 max-size-time=0 leaky=downstream ! "
+                # 3 VA surfaces + 8 system-memory frames of slack: a keyframe arrives late
+                # and the next frames burst in right behind it; a 1-frame queue dropped
+                # one frame per keyframe (= a visible skip every second with a 1 s GOP).
+                "queue max-size-buffers=3 max-size-bytes=0 max-size-time=0 leaky=downstream ! "
                 "vapostproc ! "
                 f"video/x-raw,format=NV12,width={self.width},height={self.height} ! "
+                "queue max-size-buffers=8 max-size-bytes=0 max-size-time=0 leaky=downstream ! "
                 f"shmsink socket-path={self.raw_socket} wait-for-connection=false "
-                f"shm-size={frame * 12} sync=false async=false"
+                f"shm-size={frame * 24} sync=false async=false"
             )
         }
 

@@ -234,7 +234,15 @@ class AICameramanEngine:
         self.restarts = 0
         self.input_connected = False
         self.stats = {"input_fps": 0.0, "render_fps": 0.0, "detect_fps": 0.0, "infer_ms": 0.0,
-                      "render_ms": 0.0, "zoom": 1.0, "athletes": [], "dropped": 0, "buffered_s": 0.0}
+                      "render_ms": 0.0, "zoom": 1.0, "athletes": [], "dropped": 0, "buffered_s": 0.0,
+                      # stutter diagnostics
+                      "source_fps": 0.0,        # camera rate as tracked by the frame clock
+                      "input_gaps": 0,          # frames missing BEFORE the renderer (camera/decoder/core)
+                      "input_gaps_last_10s": 0,
+                      "max_input_gap_ms": 0.0,
+                      "late_frames": 0,         # frames the renderer finished after their slot
+                      "max_render_ms": 0.0}
+        self._gap_times: deque = deque()
 
     # ------------------------------------------------------------------ lifecycle
 
@@ -296,7 +304,7 @@ class AICameramanEngine:
             f"shmsrc socket-path={self.raw_socket} is-live=true do-timestamp=true ! "
             f"video/x-raw,format=NV12,width={self.W},height={self.H},"
             f"framerate={self.cfg.output_fps}/1 ! "
-            f"appsink name=in emit-signals=false sync=false drop=true max-buffers=3 "
+            f"appsink name=in emit-signals=false sync=false drop=true max-buffers=8 "
             f"enable-last-sample=false"
         )
         pipe = Gst.parse_launch(desc)
@@ -334,6 +342,7 @@ class AICameramanEngine:
         last_det_t = None
         n_frames, t_stat = 0, time.monotonic()
         idle_since = time.monotonic()
+        last_arrival = None
 
         while not self._stop.is_set():
             if self.governor.poll():
@@ -350,6 +359,13 @@ class AICameramanEngine:
             now = time.monotonic()
             idle_since = now
             self.input_connected = True
+            if last_arrival is not None:                  # a frame went missing upstream?
+                gap = now - last_arrival
+                if gap > 1.6 * self._clock.period and gap < 1.0:
+                    self.stats["input_gaps"] += 1
+                    self._gap_times.append(now)
+                    self.stats["max_input_gap_ms"] = round(max(self.stats["max_input_gap_ms"], gap * 1000), 1)
+            last_arrival = now
 
             caps = sample.get_caps()
             if caps is not info_caps:
@@ -418,6 +434,10 @@ class AICameramanEngine:
             n_frames += 1
             if now - t_stat >= 2.0:
                 self.stats["input_fps"] = n_frames / (now - t_stat)
+                self.stats["source_fps"] = round(1.0 / self._clock.period, 2)
+                while self._gap_times and now - self._gap_times[0] > 10.0:
+                    self._gap_times.popleft()
+                self.stats["input_gaps_last_10s"] = len(self._gap_times)
                 self.stats["zoom"] = self.cam.zoom
                 n_frames, t_stat = 0, now
 
@@ -520,6 +540,11 @@ class AICameramanEngine:
             out.duration = self._frame_ns
             render_acc += time.perf_counter() - t0
 
+            took = time.perf_counter() - t0
+            if took * 1000 > self.stats["max_render_ms"]:
+                self.stats["max_render_ms"] = round(took * 1000, 1)
+            if time.monotonic() > due:                      # missed its slot: visible hitch
+                self.stats["late_frames"] += 1
             pts = self._due_to_pts(due)
             if pts is not None:
                 out.pts = pts
