@@ -44,7 +44,7 @@ class TkStrikeExternalScreenPlugin(BasePlugin):
         self._move_task: Optional[asyncio.Task] = None
         # Serialises enable/disable/toggle: HTTP, bus and stop() can all race
         # (double-click on the dashboard, a bus command mid-transition…).
-        self._lock = asyncio.Lock()
+        self._screen_lock = asyncio.Lock()
 
     @property
     def name(self) -> str: return "TkStrike External Screen"
@@ -91,7 +91,7 @@ class TkStrikeExternalScreenPlugin(BasePlugin):
 
     async def set_active(self, active: bool) -> bool:
         """Idempotent: enable/disable only when the state actually changes."""
-        async with self._lock:
+        async with self._screen_lock:
             if active and not self.is_active:
                 await self._enable()
             elif not active and self.is_active:
@@ -99,7 +99,7 @@ class TkStrikeExternalScreenPlugin(BasePlugin):
         return self.is_active
 
     async def toggle(self) -> bool:
-        async with self._lock:
+        async with self._screen_lock:
             if self.is_active:
                 await self._disable()
             else:
@@ -107,7 +107,7 @@ class TkStrikeExternalScreenPlugin(BasePlugin):
         return self.is_active
 
     async def toggle_mirror(self) -> bool:
-        async with self._lock:
+        async with self._screen_lock:
             if not self.is_active:
                 self.logger.info("Mirror toggle ignored — external screen is off.")
                 return self.is_mirror
@@ -218,7 +218,7 @@ class TkStrikeExternalScreenPlugin(BasePlugin):
     def _settings(self) -> TkStrikeExternalScreenSettings:
         return self.core_context["settings_manager"].get_settings(self.name)
 
-    def _status(self) -> dict:
+    def _screen_status(self) -> dict:
         return {"active": self.is_active, "mirror": self.is_mirror, "error": self.last_error}
 
     def get_dashboard_controls(self) -> list[dict]:
@@ -247,19 +247,19 @@ class TkStrikeExternalScreenPlugin(BasePlugin):
 
         @router.get("/status")
         async def status():
-            return self._status()
+            return self._screen_status()
 
         @router.post("/enable")
         async def enable():
             await self.set_active(True)
             if not self.is_active:
                 raise HTTPException(status_code=500, detail=self.last_error or "Enable failed")
-            return self._status()
+            return self._screen_status()
 
         @router.post("/disable")
         async def disable():
             await self.set_active(False)
-            return self._status()
+            return self._screen_status()
 
         @router.post("/toggle")
         async def toggle():
@@ -267,11 +267,11 @@ class TkStrikeExternalScreenPlugin(BasePlugin):
             await self.toggle()
             if want and not self.is_active:
                 raise HTTPException(status_code=500, detail=self.last_error or "Enable failed")
-            return self._status()
+            return self._screen_status()
 
         @router.post("/toggle-mirror")
         async def toggle_mirror():
             await self.toggle_mirror()
-            return self._status()
+            return self._screen_status()
 
         return router
