@@ -10,6 +10,11 @@ from plugins.core.firebase_sync.settings import FirebaseSyncSettings
 
 MATCH_NOTIFY_TIMEOUT_SECONDS = 5.0
 MATCH_PROCESS_TIMEOUT_SECONDS = 10.0
+# Published after processMatchResult ran for a poomsae match — the Poomsae
+# Control Panel reloads its schedule on it, so athletes advanced into the
+# next cut-off round / a winner propagated into the next bout show up on
+# the court without pressing Reload.
+POOMSAE_PROCESSED_EVENT = "firebase_sync.match_processed"
 
 # TODO: replace with the actual deployed URL of the processMatchResult
 # function once you deploy it (see functions_index.js) — this is NOT a
@@ -319,12 +324,20 @@ class FirebaseSyncPlugin(BasePlugin):
 
         await self._report_archived(match_id, True, None)
 
-        # Same post-processing call as kyorugi — but only for a side-by-side
-        # match with a decided winner, the case bracket propagation needs.
-        # A solo cut-off performance has no per-match winner; its ranking
-        # comes from the whole round's scores, not from one match doc.
-        if result.get("format") == "duel" and result.get("win"):
-            await self._trigger_result_processing(match_id, sport_id, discipline_id)
+        # Same post-processing call as kyorugi (processMatchResult):
+        #   side by side  winner → next bout, ELO, SF/F medals — only with a
+        #                 decided winner (a tie is settled on the floor and
+        #                 saved again).
+        #   cut-off solo  every performance — the function ranks the round
+        #                 once its last performance is in, advances the top
+        #                 athletes into the next round in performance order,
+        #                 and gives the Final's medals.
+        is_duel = result.get("format") == "duel"
+        if not is_duel or result.get("win"):
+            response = await self._trigger_result_processing(match_id, sport_id, discipline_id)
+            bus = self.core_context.get("event_bus")
+            if bus:
+                await bus.publish(POOMSAE_PROCESSED_EVENT, {"match_id": match_id, "response": response})
 
     async def _save_performances(self, sport_id: str, discipline_id: str, performances: list) -> None:
         """
@@ -472,7 +485,7 @@ class FirebaseSyncPlugin(BasePlugin):
         await self._trigger_result_processing(doc_id)
 
     async def _trigger_result_processing(self, doc_id: str, sport_id: Optional[str] = None,
-                                         discipline_id: Optional[str] = None) -> None:
+                                         discipline_id: Optional[str] = None) -> Optional[dict]:
         """
         Tells the processMatchResult Cloud Function to run medal/athlete-
         stat/bracket-propagation logic for this match NOW, via direct
@@ -504,6 +517,10 @@ class FirebaseSyncPlugin(BasePlugin):
                 resp.raise_for_status()
             self._process_trigger_count += 1
             self._last_error = None
+            try:
+                return resp.json()
+            except ValueError:
+                return None
         except Exception as exc:
             self._last_error = str(exc)
             self.logger.error(
@@ -512,6 +529,7 @@ class FirebaseSyncPlugin(BasePlugin):
                 "is retried",
                 exception=exc, doc_id=doc_id,
             )
+            return None
 
     # ------------------------------------------------------------------ HTTP router
 

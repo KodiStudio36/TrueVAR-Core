@@ -49,9 +49,21 @@ class GStreamerCorePlugin(BasePlugin):
 
     async def start(self) -> None:
         bus = self.core_context.get("event_bus")
-        self._pipeline_manager = PipelineManager(self, bus, self.logger)
+        if self._pipeline_manager is None:
+            self._pipeline_manager = PipelineManager(self, bus, self.logger)
+        else:
+            # Dashboard "Restart" reuses this instance: keep the manager so the
+            # extensions other plugins registered (external screen, livestream,
+            # AI cameraman…) survive the restart instead of silently vanishing.
+            self._pipeline_manager.activate()
         self.core_context["pipeline_manager"] = self._pipeline_manager
         await self._start_pipeline()
+        if bus and self._pipeline_manager._extensions:
+            # Same notification a normal rebuild sends (window placement etc.).
+            await bus.publish(
+                "gstreamer.pipeline.rebuilt",
+                {"extensions": list(self._pipeline_manager._extensions.keys())},
+            )
 
     async def stop(self) -> None:
         if self._pipeline_manager:
@@ -67,6 +79,11 @@ class GStreamerCorePlugin(BasePlugin):
         # from it whether to record the scoreboard (camera0) source.
         bus = self.core_context.get("event_bus")
         if bus:
+            # New pipeline = new xvimagesink window, so listeners must re-place it.
+            await bus.publish(
+                "gstreamer.pipeline.rebuilt",
+                {"extensions": list(self._pipeline_manager._extensions.keys())},
+            )
             await bus.publish("gstreamer.settings_changed", {
                 "is_scoreboard": bool(getattr(new_settings, "is_scoreboard", False)),
             })

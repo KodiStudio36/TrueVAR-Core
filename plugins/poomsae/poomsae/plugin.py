@@ -65,6 +65,10 @@ LIVE_HEARTBEAT_SECONDS = 3.0
 # publishes ARCHIVED_EVENT back so the panel can show "Saved ✓".
 RESULT_EVENT = "poomsae.FINAL_RESULTS"
 ARCHIVED_EVENT = "firebase_sync.match_archived"
+# processMatchResult (Cloud Function) ran for a saved result — it may have
+# advanced athletes into the next cut-off round or a winner into the next
+# bout, so the schedule is re-read from Firestore.
+PROCESSED_EVENT = "firebase_sync.match_processed"
 
 # ── Persisted panel settings ────────────────────────────────────────────
 # The settings the operator changes in the panel (Settings modal and the
@@ -80,7 +84,7 @@ ARCHIVED_EVENT = "firebase_sync.match_archived"
 # the secret must never be written to RTDB. They come only from the
 # framework's own settings store.
 PERSISTED_SETTINGS = (
-    "poomsae_seconds", "judge_count", "scoring_method", "restart_deduction", "penalty_deduction",
+    "poomsae_seconds", "freestyle_seconds", "judge_count", "scoring_method", "restart_deduction", "penalty_deduction",
     "auto_results_1", "auto_results_2", "auto_final_results", "auto_category_results",
     "final_results_delay", "category_results_delay",
 )
@@ -188,6 +192,9 @@ def match_category_label(match: Optional[dict]) -> str:
 #   "solo" — one athlete (cut-off): all four deduction buttons blue
 #   "duel" — two athletes side by side: left buttons blue, right red
 #   "para" — para poomsae: technical wheels instead of deduction buttons
+#   "freestyle" — freestyle poomsae: six technical wheels, four
+#            presentation wheels and a deductions page (any category whose
+#            code contains "freestyle")
 # Para is recognised from the category code, the same way the website
 # composes it (category-schema.js / _para_rules in api_router.py): a para
 # entry type's code starts with "para_", and a class split adds a
@@ -200,9 +207,15 @@ def is_para_category(code: Optional[str]) -> bool:
     return code.startswith("para_") or bool(_PARA_CLASS_SEGMENT.search(code))
 
 
+def is_freestyle_category(code: Optional[str]) -> bool:
+    return "freestyle" in str(code or "").lower()
+
+
 def scoring_mode(match: Optional[dict]) -> str:
     if not match:
         return "solo"
+    if is_freestyle_category(match.get("categoryCode")):
+        return "freestyle"
     if is_para_category(match.get("categoryCode")):
         return "para"
     return "solo" if match.get("red") is None else "duel"
@@ -240,9 +253,13 @@ def match_poomsae(match: Optional[dict]) -> list[dict]:
 
 
 def poomsae_count(match: Optional[dict]) -> int:
-    """How many performances (Poomsae 1 / Poomsae 2) this match has:
-    the number drawn; with nothing drawn, 1 for a cut-off preliminary /
+    """How many performances (Poomsae 1 / Poomsae 2) this match has.
+    Freestyle: always one, in every round (one routine per round, like a
+    cut-off preliminary / semi-final in recognized poomsae). Otherwise the
+    number drawn; with nothing drawn, 1 for a cut-off preliminary /
     semi-final and 2 otherwise."""
+    if match and is_freestyle_category(match.get("categoryCode")):
+        return 1
     drawn = match_poomsae(match)
     if drawn:
         return max(1, min(2, len(drawn)))
@@ -376,6 +393,9 @@ class PoomsaeControlSettings(BaseModel):
     # no timer (see _duration_for_stage). The countdown resets TO this
     # whenever a poomsae stage is (re)entered, before the operator starts it.
     poomsae_seconds: int = Field(90, ge=5)
+    # Freestyle poomsae's round time instead of poomsae_seconds — WT
+    # freestyle routines run up to 100 s.
+    freestyle_seconds: int = Field(100, ge=5)
     # How many judge slots this court has — changing this number is what
     # creates/removes numbered slots (1..judge_count), see
     # _reconcile_judge_slots.
@@ -666,6 +686,7 @@ class PoomsaeControlPlugin(BasePlugin):
         if bus and not self._bus_subscriptions:
             self._bus_subscriptions = [
                 (ARCHIVED_EVENT, self._on_archived),
+                (PROCESSED_EVENT, self._on_processed),
                 # The livestream extension asks for a fresh payload when it starts.
                 (LIVE_RESYNC_EVENT, self._on_live_resync),
             ]
@@ -764,6 +785,7 @@ class PoomsaeControlPlugin(BasePlugin):
             "displayNumberLabel": format_match_number(m.get("displayNumber")),
             "isSolo": m.get("red") is None,
             "isPara": is_para_category(m.get("categoryCode")),
+            "isFreestyle": is_freestyle_category(m.get("categoryCode")),
             "scoringMode": scoring_mode(m),
             "competitionSystem": competition_system(m),
             # "2/7" on the judge app — which performance of the category.
@@ -956,10 +978,23 @@ class PoomsaeControlPlugin(BasePlugin):
     # operator taps it — see /timer/start and /timer/pause. The ticking
     # is computed by every reader (see _remaining_now) — nothing is
     # written per second.
-    def _duration_for_stage(self, stage: str) -> Optional[int]:
-        if stage in STAGE_TO_ROUND_KEY:
-            return self._settings().poomsae_seconds
-        return None
+    def _duration_for_stage(self, stage: str, match: Optional[dict] = None) -> Optional[int]:
+        """Round time of a poomsae stage. The match doc's own `roundSeconds`
+        (written by the bracket builder per type — poomsae / para /
+        freestyle) wins; matches pushed before that field existed fall
+        back to this court's settings (freestyle_seconds for freestyle,
+        poomsae_seconds otherwise)."""
+        if stage not in STAGE_TO_ROUND_KEY:
+            return None
+        try:
+            from_match = int(float((match or {}).get("roundSeconds")))
+        except (TypeError, ValueError):
+            from_match = 0
+        if from_match >= 5:
+            return from_match
+        if match and is_freestyle_category(match.get("categoryCode")):
+            return self._settings().freestyle_seconds
+        return self._settings().poomsae_seconds
 
     def _round_key_for_events(self) -> Optional[str]:
         """The poomsae that penalties / timeline events belong to right now:
@@ -977,6 +1012,16 @@ class PoomsaeControlPlugin(BasePlugin):
         m = self.current_match
         if m is None:
             raise HTTPException(status_code=400, detail="No match selected.")
+        # A next-round slot whose athlete isn't known here yet: re-read the
+        # schedule first — the cloud may have advanced someone into it.
+        if self._has_unresolved_corner(m):
+            try:
+                await self._reload_matches()
+            except Exception as exc:
+                self.logger.info(f"[{self.name}] reload before Preparation failed (non-fatal): {exc}")
+            m = self.current_match
+            if m is None:
+                raise HTTPException(status_code=400, detail="No match selected.")
         self._auto = None
         self.stage = "preparation"
         self.live_match_id = m.get("id")
@@ -991,6 +1036,7 @@ class PoomsaeControlPlugin(BasePlugin):
             "displayNumberLabel": format_match_number(m.get("displayNumber")),
             "isSolo": m.get("red") is None,
             "isPara": is_para_category(m.get("categoryCode")),
+            "isFreestyle": is_freestyle_category(m.get("categoryCode")),
             "scoringMode": scoring_mode(m),
             "competitionSystem": competition_system(m),
             # "2/7" on the judge app — which performance of the category.
@@ -1012,6 +1058,7 @@ class PoomsaeControlPlugin(BasePlugin):
             "allJudgesSubmitted": False,
             "autoAdvance": None,
             "categoryResults": None,
+            "judgeCategoryResults": None,
             "corners": {
                 "blue": self._blank_corner(m.get("blue")),
                 "red": self._blank_corner(m.get("red")),
@@ -1043,7 +1090,7 @@ class PoomsaeControlPlugin(BasePlugin):
 
         self._auto = None
         self.stage = stage
-        duration = self._duration_for_stage(stage)
+        duration = self._duration_for_stage(stage, live)
         results_round_key = results_round_key_for(stage, live)
         state = await self.db.fetch_live_state(self.tournament_id, self.court_id) or {}
         corners = state.get("corners") or {}
@@ -1076,6 +1123,7 @@ class PoomsaeControlPlugin(BasePlugin):
             round_key = STAGE_TO_ROUND_KEY[stage]
             updates["roundToken"] = new_round_token()
             updates["allJudgesSubmitted"] = False
+            updates["judgeCategoryResults"] = None
             cleared = False
             for color in (("blue", "red") if has_red else ("blue",)):
                 updates[f"corners/{color}/roundAdjustments/{round_key}"] = None
@@ -1113,6 +1161,7 @@ class PoomsaeControlPlugin(BasePlugin):
 
         if stage == "final_results":
             await self._safe_record_category_result(live)
+            await self._write_judge_category_results(live)
             await self._publish_result()
         elif stage == "category_results":
             await self._safe_record_category_result(live)
@@ -1295,6 +1344,33 @@ class PoomsaeControlPlugin(BasePlugin):
                 m["status"] = "completed"
         return payload
 
+    async def _on_processed(self, data: dict) -> None:
+        """Results processed in the cloud — re-read the schedule so names
+        advanced into the next round replace "To be decided"."""
+        if not self.tournament_id or not self.court_id:
+            return
+        # Own task: this event can arrive while the save chain still holds
+        # _stage_lock (Final Results → firebase_sync → cloud → here), and
+        # the reload must not run in the middle of a stage change either.
+        asyncio.create_task(self._reload_after_processing())
+
+    async def _reload_after_processing(self) -> None:
+        try:
+            async with self._stage_lock:
+                await self._reload_matches()
+        except Exception as exc:
+            self.logger.info(f"[{self.name}] reload after results processing failed (non-fatal): {exc}")
+
+    @staticmethod
+    def _has_unresolved_corner(m: Optional[dict]) -> bool:
+        """A next-round slot still waiting for its athlete (cut-off
+        placeholder or single-elimination winner slot)."""
+        for color in ("blue", "red"):
+            corner = (m or {}).get(color)
+            if corner is not None and not corner.get("entryId"):
+                return True
+        return False
+
     async def _on_archived(self, data: dict) -> None:
         match_id = (data or {}).get("match_id")
         if not match_id:
@@ -1310,10 +1386,18 @@ class PoomsaeControlPlugin(BasePlugin):
         """Computes the live match's scores (standings.match_score — same
         maths as the panel's table) and stores them under
         poomsae_category_results/{category}/{matchId}."""
+        record = await self._compute_category_record(live, round_keys_for(live))
+        category_key = _rtdb_key(live.get("categoryCode"))
+        self._category_records.setdefault(category_key, {})[live.get("id")] = record
+        await asyncio.to_thread(lambda: self._category_results_ref(category_key).child(live.get("id")).set(record))
+        return record
+
+    async def _compute_category_record(self, live: dict, keys: list[str]) -> dict:
+        """The live match's category record over `keys` (the poomsae to
+        count). Nothing is stored — see _record_category_result."""
         state = await self.db.fetch_live_state(self.tournament_id, self.court_id) or {}
         registry = poomsae_standings.registry_numbers(await self.db.fetch_judges_registry(self.tournament_id, self.court_id))
         method = self._settings().scoring_method
-        keys = round_keys_for(live)
         corners_state = state.get("corners") or {}
         corners: dict = {}
         for color in ("blue", "red"):
@@ -1330,9 +1414,6 @@ class PoomsaeControlPlugin(BasePlugin):
             "corners": corners,
             "winner": poomsae_standings.duel_winner(corners.get("blue"), corners.get("red")) if "red" in corners else None,
         }
-        category_key = _rtdb_key(live.get("categoryCode"))
-        self._category_records.setdefault(category_key, {})[live.get("id")] = record
-        await asyncio.to_thread(lambda: self._category_results_ref(category_key).child(live.get("id")).set(record))
         return record
 
     async def _safe_record_category_result(self, live: dict) -> None:
@@ -1351,9 +1432,13 @@ class PoomsaeControlPlugin(BasePlugin):
         records.update(self._category_records.get(category_key, {}))
         return records
 
-    async def _build_category_results(self, live: dict) -> dict:
+    async def _build_category_results(self, live: dict, live_record: Optional[dict] = None) -> dict:
+        """live_record: the live match's not-yet-saved record (judges' view
+        mid-match) — used for this view only, never stored."""
         code = live.get("categoryCode")
         records = await self._read_category_records(_rtdb_key(code))
+        if live_record is not None:
+            records[live.get("id")] = live_record
         category = [m for m in self.matches if m.get("categoryCode") == code]
         info = [{
             "id": m.get("id"),
@@ -1389,7 +1474,29 @@ class PoomsaeControlPlugin(BasePlugin):
         except Exception as exc:
             self.logger.warning(f"[{self.name}] couldn't build category results: {exc}")
             view = {"error": str(exc), "generatedAt": datetime.now(timezone.utc).isoformat()}
-        await self.db.update_live_state(self.tournament_id, self.court_id, {"categoryResults": view})
+        # The judges' list shows the same ranking as the screen.
+        await self.db.update_live_state(self.tournament_id, self.court_id, {
+            "categoryResults": view,
+            "judgeCategoryResults": view,
+        })
+
+    # ── Category list for the judges (judge app's Category Results) ─────
+    # match_data.judgeCategoryResults — written once every judge submitted
+    # a poomsae, so judges can open the category list from their Submitted
+    # screen. Includes the live match with the poomsae scored so far.
+    # Cleared whenever a poomsae starts again; refreshed on Final Results,
+    # Category Results and operator corrections there.
+    async def _write_judge_category_results(self, live: dict, round_key: Optional[str] = None) -> None:
+        try:
+            keys = round_keys_for(live)
+            if round_key in keys:
+                keys = keys[:keys.index(round_key) + 1]
+            record = await self._compute_category_record(live, keys)
+            view = await self._build_category_results(live, live_record=record)
+        except Exception as exc:
+            self.logger.warning(f"[{self.name}] couldn't build the judges' category list: {exc}")
+            view = {"error": str(exc), "generatedAt": datetime.now(timezone.utc).isoformat()}
+        await self.db.update_live_state(self.tournament_id, self.court_id, {"judgeCategoryResults": view})
 
     # ── Poll loop: judges + automatic stages ─────────────────────────────
     async def _poll_loop(self) -> None:
@@ -1461,6 +1568,8 @@ class PoomsaeControlPlugin(BasePlugin):
         if state.get("allJudgesSubmitted") is not True:
             await self.db.update_live_state(self.tournament_id, self.court_id, {"allJudgesSubmitted": True})
             self._track("as")
+            if live is not None:
+                await self._write_judge_category_results(live, round_key)
         results_stage = ROUND_TO_RESULTS_STAGE[self.stage]
         if self._auto_enabled(results_stage):
             await self._advance_stage(results_stage)
@@ -1547,6 +1656,7 @@ class PoomsaeControlPlugin(BasePlugin):
         # round again from full marks.
         updates["roundToken"] = new_round_token()
         updates["allJudgesSubmitted"] = False
+        updates["judgeCategoryResults"] = None
         for color in ("blue", "red"):
             if corners.get(color):
                 self._track("rs", color, deduction)
@@ -1587,6 +1697,10 @@ class PoomsaeControlPlugin(BasePlugin):
             await self._publish_result()
             if self.stage == "category_results":
                 await self._write_category_results(live)
+            else:
+                await self._write_judge_category_results(live)
+        elif self.stage in STAGE_RESULTS_ROUND_KEY and state.get("judgeCategoryResults") is not None:
+            await self._write_judge_category_results(live, round_key)
         return {"roundKey": round_key, "accuracy": acc, "presentation": pres, "total": round(acc + pres, 2)}
 
     # ── Penalty ─────────────────────────────────────────────────────────

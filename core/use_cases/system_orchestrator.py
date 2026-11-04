@@ -382,6 +382,18 @@ class SystemOrchestrator:
 
         return {"name": attached.name, "class_name": class_name, "status": "attached"}
 
+    def _dashboard_controls(self, instance) -> list:
+        """Optional plugin hook: get_dashboard_controls() -> [{id, label, type,
+        state, endpoint, disabled?, error?}]. Rendered as Quick Controls."""
+        getter = getattr(instance, "get_dashboard_controls", None)
+        if not callable(getter):
+            return []
+        try:
+            return list(getter() or [])
+        except Exception as e:
+            self.root_logger.warning(f"Dashboard controls failed for {instance.name}", error=str(e))
+            return []
+
     def get_dashboard_status(self) -> dict:
         active_class_names = {type(p).__name__ for p in self.active_plugins.values()}
         active_classes = set(type(p) for p in self.active_plugins.values())
@@ -403,6 +415,7 @@ class SystemOrchestrator:
                 "message": status.message,
                 "dependencies": type(instance).dependencies,
                 "required_by": dependents,
+                "controls": self._dashboard_controls(instance),
             })
 
         available = []

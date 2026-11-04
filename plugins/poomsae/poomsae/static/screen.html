@@ -139,6 +139,48 @@
             gap: 2.5vh;
         }
 
+        .lineup-athletes {
+            flex-shrink: 0;
+            display: flex;
+            gap: 1.5vw;
+        }
+
+        .lineup-athlete {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 1.4vw;
+            padding: 2vh 2.4vw;
+            border-radius: 20px;
+            font-size: clamp(2rem, 4.6vw, 5.5rem);
+            font-weight: 900;
+        }
+
+        .lineup-athlete .flag {
+            height: 1em;
+        }
+
+        .lineup-athlete-who {
+            min-width: 0;
+        }
+
+        .lineup-athlete-name {
+            line-height: 1.05;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .lineup-athlete-club {
+            font-size: 0.42em;
+            font-weight: 600;
+            opacity: 0.85;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .lineup-card {
             flex: 1 1 0;
             min-height: 0;
@@ -1024,17 +1066,33 @@
                 live, drawn, count,
                 registry: state.judgesRegistry || {},
                 method: settings.scoring_method || "sum_all",
-                accLabel: live.isPara ? "Technical" : "Accuracy",
+                accLabel: live.isPara || live.scoringMode === "freestyle" ? "Technical" : "Accuracy",
             };
 
-            const html = view === "lineup" ? lineupHtml(drawn) : cornersHtml(view, ctx);
+            const html = view === "lineup" ? lineupHtml(live, drawn) : cornersHtml(view, ctx);
             showStage(`${live.matchId}|${live.stage}|${view}`, html);
 
             renderBar(view === "perform" || view === "result" ? { live, drawn, count, settings } : null);
         }
 
-        function lineupHtml(drawn) {
-            return `<div class="lineup">${drawn.slice(0, 2).map((name, i) => `
+        // Preparation: who is getting ready, then the poomsae they perform.
+        function lineupHtml(live, drawn) {
+            const corners = live.corners || {};
+            const sides = (live.isSolo === true ? ["blue"] : ["blue", "red"]).filter(s => corners[s]);
+            const athletes = sides.map(side => {
+                const c = corners[side];
+                const code = countryCode(c);
+                return `<div class="lineup-athlete corner-${side}">
+                    ${code ? flagHtml(code) : ""}
+                    <div class="lineup-athlete-who">
+                        <div class="lineup-athlete-name">${esc(c.name || "—")}</div>
+                        ${c.clubName ? `<div class="lineup-athlete-club">${esc(c.clubName)}</div>` : ""}
+                    </div>
+                </div>`;
+            }).join("");
+            return `<div class="lineup">
+                ${athletes ? `<div class="lineup-athletes">${athletes}</div>` : ""}
+                ${drawn.slice(0, 2).map((name, i) => `
                 <div class="lineup-card">
                     <div class="lineup-label">Poomsae ${i + 1}</div>
                     <div class="lineup-name">${esc(name)}</div>

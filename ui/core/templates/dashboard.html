@@ -6,36 +6,49 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body class="bg-gray-900 text-white p-8">
-    <div class="max-w-6xl mx-auto">
-        <div class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
-            <h1 class="text-3xl font-bold">System Status</h1>
+<!-- Full viewport, no page scroll: each column scrolls on its own, so the
+     header, quick controls and logs are always on screen. -->
+
+<body class="bg-gray-900 text-white h-screen overflow-hidden">
+    <div class="h-full flex flex-col px-4 py-3 gap-3">
+        <div class="flex justify-between items-center border-b border-gray-700 pb-2 shrink-0">
+            <h1 class="text-2xl font-bold">System Status</h1>
             <div id="tournamentInfo" class="text-right"></div>
         </div>
 
-        <div id="failureBanner" class="hidden mb-6 space-y-2"></div>
+        <div id="failureBanner" class="hidden space-y-2 shrink-0 max-h-40 overflow-y-auto"></div>
 
-        <div class="grid grid-cols-3 gap-6 mb-6">
-            <div class="bg-gray-800 p-6 rounded-lg col-span-1">
-                <h3 class="text-xl font-bold mb-4 text-green-400">Active Plugins</h3>
-                <div id="pluginList" class="space-y-4">
+        <div class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(340px,26rem)_1fr] gap-3">
+            <!-- Left: plugins -->
+            <div class="bg-gray-800 rounded-lg p-4 min-h-0 overflow-y-auto">
+                <h3 class="text-lg font-bold mb-2 text-green-400">Active Plugins</h3>
+                <div id="pluginList" class="space-y-3">
                     <p class="text-gray-400 italic">Polling engine...</p>
                 </div>
 
-                <h3 class="text-xl font-bold mt-6 mb-4 text-purple-400">Attach Plugin</h3>
-                <div id="availableList" class="space-y-4">
+                <h3 class="text-lg font-bold mt-4 mb-2 text-purple-400">Attach Plugin</h3>
+                <div id="availableList" class="space-y-3">
                     <p class="text-gray-400 italic">Loading...</p>
                 </div>
             </div>
 
-            <div class="bg-gray-800 p-6 rounded-lg col-span-2">
-                <h3 class="text-xl font-bold mb-4 text-blue-400">Live System Logs</h3>
-                <div id="logConsole" class="bg-black p-4 rounded h-64 overflow-y-auto font-mono text-sm text-green-500">
-                    System initialized. Waiting for stream...
+            <!-- Right: controls, logs, settings -->
+            <div class="min-h-0 flex flex-col gap-3">
+                <div id="controlsPanel" class="hidden bg-gray-800 rounded-lg p-4 shrink-0">
+                    <h3 class="text-lg font-bold mb-2 text-orange-400">Quick Controls</h3>
+                    <div id="controlsList" class="flex flex-wrap gap-3"></div>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg p-4 flex-1 min-h-[10rem] flex flex-col">
+                    <h3 class="text-lg font-bold mb-2 text-blue-400">Live System Logs</h3>
+                    <div id="logConsole"
+                        class="bg-black p-3 rounded flex-1 min-h-0 overflow-y-auto font-mono text-sm text-green-500">
+                        System initialized. Waiting for stream...
+                    </div>
                 </div>
 
                 <div id="settingsPanel"
-                    class="hidden bg-gray-950 border border-gray-700 mt-4 p-4 rounded max-h-96 overflow-y-auto">
+                    class="hidden bg-gray-950 border border-gray-700 p-4 rounded max-h-[45%] overflow-y-auto shrink-0">
                     <div class="flex justify-between items-center mb-3">
                         <h4 id="settingsTitle" class="font-bold text-yellow-400">Plugin Settings</h4>
                         <button onclick="closeSettings()" class="text-gray-400 hover:text-white">✕</button>
@@ -176,6 +189,7 @@
 
             renderTournamentInfo(data.tournament);
             renderFailures(data.failed_plugins);
+            renderControls(data.loaded_plugins);
 
             const list = document.getElementById("pluginList");
             list.innerHTML = "";
@@ -189,14 +203,15 @@
                     const dotColor = STATE_COLORS[p.status] || "bg-gray-500";
                     const canDetach = p.required_by.length === 0;
                     html += `
-                <li class="flex items-center justify-between bg-gray-700/40 rounded px-2 py-1" title="${loadedTooltip(p)}">
-                    <button onclick="openSettings('${p.name}')" class="flex items-center text-left hover:underline">
-                        <span class="w-2 h-2 rounded-full mr-2 ${dotColor}"></span> ${p.name}
+                <li class="flex items-center gap-2 bg-gray-700/40 rounded px-2 py-1" title="${loadedTooltip(p)}">
+                    <button onclick="openSettings('${p.name}')" class="flex items-center min-w-0 flex-1 text-left text-sm hover:underline">
+                        <span class="w-2 h-2 rounded-full mr-2 shrink-0 ${dotColor}"></span>
+                        <span class="truncate">${p.name}</span>
                     </button>
-                    <span class="space-x-2">
-                        <button onclick="restartPlugin('${p.name}')" class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded">Restart</button>
+                    <span class="flex gap-1 shrink-0">
+                        <button onclick="restartPlugin('${p.name}')" class="text-xs px-2 py-0.5 bg-blue-600 hover:bg-blue-500 rounded">Restart</button>
                         <button onclick="detachPlugin('${p.name}')"
-                            class="text-xs px-2 py-1 rounded ${canDetach ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-600 cursor-not-allowed'}"
+                            class="text-xs px-2 py-0.5 rounded ${canDetach ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-600 cursor-not-allowed'}"
                             ${canDetach ? '' : 'disabled title="Other plugins depend on this"'}>
                             Detach
                         </button>
@@ -232,9 +247,70 @@
             });
         }
 
+        // ------------------------------------------------------------------ quick controls
+
+        // Controls come from each plugin's optional get_dashboard_controls().
+        let controlBusy = new Set();
+
+        function renderControls(plugins) {
+            const panel = document.getElementById("controlsPanel");
+            const list = document.getElementById("controlsList");
+            const controls = plugins.flatMap(p => (p.controls || []).map(c => ({ ...c, plugin: p.name })));
+
+            if (controls.length === 0) {
+                panel.classList.add("hidden");
+                list.innerHTML = "";
+                return;
+            }
+            panel.classList.remove("hidden");
+            list.innerHTML = controls.map(c => {
+                const busy = controlBusy.has(c.id);
+                const disabled = c.disabled || busy;
+                const on = !!c.state;
+                const track = on ? "bg-green-500" : "bg-gray-600";
+                const knob = on ? "translate-x-5" : "translate-x-0";
+                return `
+                <button onclick="toggleControl('${c.id}', '${c.endpoint}', '${c.label}')"
+                    ${disabled ? "disabled" : ""}
+                    title="${c.plugin}${c.error ? "\n⚠ " + c.error : ""}"
+                    class="flex items-center gap-3 bg-gray-700/50 hover:bg-gray-700 rounded-lg px-3 py-2 text-sm
+                           ${disabled ? "opacity-50 cursor-not-allowed" : ""}">
+                    <span class="relative inline-flex w-10 h-5 rounded-full transition-colors ${track} ${busy ? "animate-pulse" : ""}">
+                        <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${knob}"></span>
+                    </span>
+                    <span class="font-medium">${c.label}</span>
+                    <span class="text-xs ${on ? "text-green-400" : "text-gray-400"}">${busy ? "…" : on ? "ON" : "OFF"}</span>
+                    ${c.error && !on ? `<span class="text-xs text-red-400">⚠</span>` : ""}
+                </button>`;
+            }).join("");
+        }
+
+        async function toggleControl(id, endpoint, label) {
+            if (controlBusy.has(id)) return;
+            controlBusy.add(id);
+            fetchStatus();
+            log(`Toggling ${label}...`);
+            try {
+                const res = await fetch(endpoint, { method: "POST" });
+                const body = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    log(`Failed to toggle ${label}: ${body.detail || res.status}`);
+                } else {
+                    const state = "active" in body && id === "external_screen" ? body.active
+                        : "mirror" in body ? body.mirror : null;
+                    log(`${label}${state === null ? " toggled" : state ? " ON" : " OFF"}.`);
+                }
+            } catch (e) {
+                log(`Failed to toggle ${label}: ${e}`);
+            } finally {
+                controlBusy.delete(id);
+                fetchStatus();
+            }
+        }
+
         async function restartPlugin(name) {
             log(`Restarting ${name}...`);
-            const res = await fetch(`/api/plugins/${name}/restart`, { method: "POST" });
+            const res = await fetch(`/api/plugins/${encodeURIComponent(name)}/restart`, { method: "POST" });
             log(res.ok ? `${name} restarted.` : `Failed to restart ${name}.`);
             fetchStatus();
         }
@@ -242,7 +318,7 @@
         async function detachPlugin(name) {
             if (!confirm(`Detach ${name}? It will stop running.`)) return;
             log(`Detaching ${name}...`);
-            const res = await fetch(`/api/plugins/${name}/detach`, { method: "POST" });
+            const res = await fetch(`/api/plugins/${encodeURIComponent(name)}/detach`, { method: "POST" });
             if (!res.ok) {
                 const err = await res.json();
                 log(`Failed to detach ${name}: ${err.detail}`);
@@ -390,7 +466,7 @@
 
         async function openSettings(name) {
             currentSettingsPlugin = name;
-            const res = await fetch(`/api/plugins/${name}/settings`);
+            const res = await fetch(`/api/plugins/${encodeURIComponent(name)}/settings`);
             if (!res.ok) {
                 log(`Failed to load settings for ${name}.`);
                 return;
@@ -421,7 +497,7 @@
         async function saveSettings(e) {
             e.preventDefault();
             const values = formToNestedObject(e.target);
-            const res = await fetch(`/api/plugins/${currentSettingsPlugin}/settings`, {
+            const res = await fetch(`/api/plugins/${encodeURIComponent(currentSettingsPlugin)}/settings`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ values }),

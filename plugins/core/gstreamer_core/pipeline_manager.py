@@ -100,6 +100,37 @@ class PipelineManager:
         if self._pending_rebuild and not self._pending_rebuild.done():
             self._pending_rebuild.cancel()
 
+    def activate(self) -> None:
+        """Re-enable rebuilds when the core plugin is restarted with this same
+        manager (registered extensions are kept)."""
+        self._active = True
+
+    def is_registered(self, name: str) -> bool:
+        return name in self._extensions
+
+    async def wait_for_rebuild(self, timeout: float = 5.0) -> bool:
+        """Await the pending (debounced) rebuild, if any.
+
+        Lets callers act only once the pipeline really reflects their
+        (un)registration — e.g. turn an output off only after its sink is gone.
+        Returns False on timeout.
+        """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while True:
+            task = self._pending_rebuild
+            if task is None or task.done():
+                return True
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return False
+            try:
+                # _debounced_rebuild swallows its own cancellation, so a superseded
+                # task just finishes; the loop then picks up the newer one.
+                await asyncio.wait_for(asyncio.shield(task), remaining)
+            except asyncio.TimeoutError:
+                return False
+
     @property
     def pipeline(self) -> Optional["Gst.Pipeline"]:
         """The live pipeline object. Changes identity on every rebuild."""

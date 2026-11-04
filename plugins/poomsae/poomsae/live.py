@@ -87,6 +87,8 @@ def has_live_score(state: dict) -> bool:
     """Para has no accuracy deductions and freestyle scores completely
     differently — neither gets the live score on the scoreboard."""
     text = f"{state.get('categoryLabel') or ''} {state.get('categoryCode') or ''}".lower()
+    if state.get("scoringMode") == "freestyle" or state.get("isFreestyle") is True:
+        return False
     if state.get("isPara") is True or state.get("scoringMode") == "para" or "para" in text.split():
         return False
     return "freestyle" not in text
@@ -110,10 +112,18 @@ _PRESENTATION_FLAGS = (("mode", "presentation"), ("phase", "presentation"), ("st
 
 
 def _judge_in_presentation(entry: dict) -> bool:
-    """A judge counts as giving presentation marks once they say so, have
-    moved presentation off the 6.0 default, or have submitted."""
+    """A judge counts as giving presentation marks once they're on the
+    presentation screens of the judge app, or have submitted.
+
+    The judge app writes `phase` ("accuracy" | "presentation") with every
+    push — it pushes on entering presentation and again when the judge
+    goes back to accuracy, so `phase` is trusted whenever it is there.
+    Older judge apps without it fall back to: moved presentation off the
+    6.0 default."""
     if entry.get("submitted") is True or entry.get("presentationMode") is True:
         return True
+    if "phase" in entry:
+        return str(entry.get("phase") or "").lower() == "presentation"
     if any(str(entry.get(k, "")).lower() == v for k, v in _PRESENTATION_FLAGS):
         return True
     pr = _num(entry.get("presentation"))
@@ -158,8 +168,9 @@ def corner_live_score(corner: dict, round_key: str, judge_numbers: list[int], me
             "trim_accuracy": False,
             "trim_presentation": False,
         })
-        # Para judges send a technical total instead of accuracy/presentation.
-        totals.append(tot if (acc is None and pr is None and tot is not None) else a + p)
+        # The judge's own total — for para it's the technical sum +
+        # presentation, for freestyle it already has the deductions off.
+        totals.append(tot if tot is not None else a + p)
 
     if para:
         base = combine(totals, method)
@@ -217,7 +228,8 @@ def shape_final(state: dict, corners: dict, is_solo: bool, judge_numbers: list[i
             continue
         flag2, flag3 = flags(c.get("country"))
         scores = [
-            corner_live_score(c, col["key"], judge_numbers, method, para=(mode == "para"), stored_adjustments=True)["score"]
+            corner_live_score(c, col["key"], judge_numbers, method, para=(mode in ("para", "freestyle")),
+                              stored_adjustments=True)["score"]
             for col in columns
         ]
         total = sum(scores) / len(scores)
@@ -335,7 +347,9 @@ def shape_live_payload(state: dict, judge_numbers: list[int], method: str, remai
             "deduction_label": "",
         }
         if round_key:
-            data.update(corner_live_score(c, round_key, judge_numbers, method, para=(mode == "para")))
+            # Para / freestyle: score from the judges' totals (freestyle
+            # totals have the deductions taken off).
+            data.update(corner_live_score(c, round_key, judge_numbers, method, para=(mode in ("para", "freestyle"))))
         return data
 
     blue = corner("blue")
@@ -347,7 +361,7 @@ def shape_live_payload(state: dict, judge_numbers: list[int], method: str, remai
     for c in (blue, red):
         if c is None:
             continue
-        value = c["score"] if (in_results or mode == "para") else c["accuracy"]
+        value = c["score"] if (in_results or mode in ("para", "freestyle")) else c["accuracy"]
         c["display_score"] = round(value, 3)
         c["display_label"] = f"{value:.2f}"
 
@@ -373,10 +387,11 @@ def shape_live_payload(state: dict, judge_numbers: list[int], method: str, remai
     if timer_running and start_value is not None and remaining_seconds is not None:
         run_seconds = int(max(0.0, start_value - float(remaining_seconds)))
 
-    # Presentation mode: the clock is stopped after the athlete performed and
-    # most judges are on their presentation marks (any corner).
+    # Presentation mode: most judges are on the presentation screens of the
+    # judge app (or already submitted) — any corner. Driven by the judges
+    # only, so it also shows if the operator forgot to stop the clock.
     presentation_mode = False
-    if stage in PERFORMING and not timer_running and (elapsed or 0) > 0:
+    if stage in PERFORMING:
         for c in (blue, red):
             if c and c.get("judges") and c.get("presenting", 0) >= c["judges"] // 2 + 1:
                 presentation_mode = True
