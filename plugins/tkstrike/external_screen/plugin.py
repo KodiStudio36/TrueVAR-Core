@@ -15,6 +15,7 @@ class TkStrikeExternalScreenPlugin(BasePlugin):
     by registering / unregistering TkStrikeExternalScreenExtension.
 
     Bus events consumed:
+        ivr.toggle_external_screen — IVR's toggle_external_screen_key → toggle mirroring
         screen.cmd.enable         — activate the screen
         screen.cmd.disable        — deactivate the screen
         screen.cmd.toggle         — flip active state
@@ -66,6 +67,8 @@ class TkStrikeExternalScreenPlugin(BasePlugin):
                 ("screen.cmd.disable",       self._cmd_disable),
                 ("screen.cmd.toggle",        self._cmd_toggle),
                 ("screen.cmd.toggle_mirror", self._cmd_toggle_mirror),
+                # IVR app: operator pressed toggle_external_screen_key
+                ("ivr.toggle_external_screen", self._cmd_toggle_mirror),
                 # After GStreamer rebuilds with the screen extension, move the window
                 ("gstreamer.pipeline.rebuilt", self._on_pipeline_rebuilt),
             ]
@@ -106,6 +109,7 @@ class TkStrikeExternalScreenPlugin(BasePlugin):
     async def toggle_mirror(self) -> bool:
         async with self._lock:
             if not self.is_active:
+                self.logger.info("Mirror toggle ignored — external screen is off.")
                 return self.is_mirror
             s = self._settings()
             self.is_mirror = await DisplayManager.async_toggle_mirror(s.main_display, s.external_display)
@@ -184,11 +188,15 @@ class TkStrikeExternalScreenPlugin(BasePlugin):
 
         await DisplayManager.async_reset(s.external_display)
 
+        was_mirror = self.is_mirror
         self.is_active = False
         self.is_mirror = False
 
         bus = self.core_context.get("event_bus")
         if bus:
+            if was_mirror:
+                # Listeners (IVR badge / closeup) must learn mirroring ended too.
+                await bus.publish("screen.mirror_changed", {"is_mirror": False})
             await bus.publish("screen.external.deactivated", {})
 
     # ------------------------------------------------------------------ helpers

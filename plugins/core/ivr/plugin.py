@@ -32,6 +32,14 @@ class IVRPlugin(BasePlugin):
         "ivr.cmd.hide_settings":    "hide_settings",
     }
 
+    # Every inbound IVR event is published as ivr.<event> (e.g.
+    # ivr.toggle_external_screen, listened to by the external screen plugin).
+    # Some are additionally translated into another plugin's bus command:
+    #   livestream_closeup   → livestream plugin, data {"active": bool}
+    _INBOUND_COMMANDS = {
+        "livestream_closeup": "livestream.cmd.closeup",
+    }
+
     _HTTP_ALLOWED = frozenset({
         "start_recording", "stop_recording", "toggle_recording",
         "show_replay", "hide_replay", "show_settings", "hide_settings",
@@ -48,6 +56,9 @@ class IVRPlugin(BasePlugin):
 
         self.is_recording = False
         self.fight_num: Optional[str] = None
+        # Last known external-screen mirror state, re-sent on every (re)connect
+        # so the IVR "Mirroring the screen" badge is right after an IVR restart.
+        self._is_mirror = False
 
     # ------------------------------------------------------------------ identity
 
@@ -90,6 +101,8 @@ class IVRPlugin(BasePlugin):
                 # Scoreboard source toggled in camera settings — re-push so the
                 # IVR app starts/stops recording the scoreboard accordingly.
                 ("gstreamer.settings_changed", self._on_gstreamer_settings_changed),
+                # External screen mirror state → IVR (badge + closeup logic).
+                ("screen.mirror_changed", self._on_mirror_changed),
             ]
             bus.subscribe_many(self._subscriptions)
 
@@ -122,12 +135,12 @@ class IVRPlugin(BasePlugin):
         self.logger.warning("IVR plugin stopped.")
 
     async def on_settings_changed(self, new_settings: IVRSettings) -> None:
-        self.logger.info("IVR settings changed — reconnecting.")
+        # stop() terminates the IVR app and drops every bus subscription, so a
+        # plain reconnect left the plugin deaf to all ivr.cmd.* / screen events.
+        # Do a full restart instead (start() re-reads the new settings).
+        self.logger.info("IVR settings changed — restarting IVR.")
         await self.stop()
-        self._settings = new_settings
-        self.core_context["ivr_plugin"] = self
-        self._subscriptions = []
-        self._reconnect_task = asyncio.create_task(self._reconnect_loop())
+        await self.start()
 
     # ------------------------------------------------------------------ connection
 
@@ -145,6 +158,7 @@ class IVRPlugin(BasePlugin):
 
                     self.logger.info("IVR connection established.")
                     await self._push_settings()
+                    await self.send_event("mirror_changed", {"is_mirror": self._is_mirror})
                     await self._listen(ws)
 
             except (ConnectionRefusedError, OSError,
@@ -188,6 +202,11 @@ class IVRPlugin(BasePlugin):
         if bus:
             await bus.publish(f"ivr.{event}", data)
 
+            # Commands for other plugins (external screen, livestream…)
+            command = self._INBOUND_COMMANDS.get(event)
+            if command:
+                await bus.publish(command, data or {})
+
         # Also forward to Socket.IO frontend if the broadcaster is up
         # broadcaster = self.core_context.get("overlay_broadcaster")
         # if broadcaster:
@@ -213,6 +232,11 @@ class IVRPlugin(BasePlugin):
         if self.is_recording:
             self.logger.info("IVR Requested — triggering IVR replay.")
             await self.send_event("show_replay")
+
+    async def _on_mirror_changed(self, data: dict):
+        self._is_mirror = bool(data.get("is_mirror", False))
+        if self._connected:
+            await self.send_event("mirror_changed", {"is_mirror": self._is_mirror})
 
     async def _on_gstreamer_settings_changed(self, data: dict):
         if self._connected:
