@@ -1,6 +1,6 @@
 {
-    "current_scene": "Main Scene",
-    "current_program_scene": "Main Scene",
+    "name": "Universal Integrated",
+    "groups": [],
     "scene_order": [
         {
             "name": "Main Scene"
@@ -12,8 +12,41 @@
             "name": "Audio - Tool"
         }
     ],
-    "name": "Universal Integrated",
-    "groups": [],
+    "current_scene": "Main Scene",
+    "current_program_scene": "Main Scene",
+    "canvases": [],
+    "current_transition": "Move",
+    "transition_duration": 650,
+    "transitions": [
+        {
+            "name": "Move",
+            "id": "move_transition",
+            "settings": {
+                "transition_match": "Move",
+                "transition_in": "None",
+                "transition_out": "None",
+                "name_part_match": true,
+                "transition_scale_match": 1,
+                "easing_match": 3,
+                "easing_in": 0,
+                "easing_out": 0,
+                "easing_function_in": 1,
+                "easing_function_out": 1,
+                "position_in": 0,
+                "position_out": 0,
+                "curve_in": 0.0,
+                "switch_percentage": 50
+            }
+        },
+        {
+            "name": "TrueVAR Stinger",
+            "id": "obs_stinger_transition",
+            "settings": {
+                "transition_point": 350,
+                "path": "/home/kodi/Documents/programs/var/TrueVAR/obs/truevar-stinger.webm"
+            }
+        }
+    ],
     "quick_transitions": [
         {
             "name": "Cut",
@@ -37,43 +70,10 @@
             "fade_to_black": true
         }
     ],
-    "transitions": [
-        {
-            "name": "TrueVAR Stinger",
-            "id": "obs_stinger_transition",
-            "settings": {
-                "transition_point": 350,
-                "path": "/home/kodi/Documents/programs/var/TrueVAR/obs/truevar-stinger.webm"
-            }
-        },
-        {
-            "name": "Move",
-            "id": "move_transition",
-            "settings": {
-                "transition_match": "Move",
-                "transition_in": "None",
-                "transition_out": "None",
-                "name_part_match": true,
-                "transition_scale_match": 1,
-                "easing_match": 3,
-                "easing_in": 0,
-                "easing_out": 0,
-                "easing_function_in": 1,
-                "easing_function_out": 1,
-                "position_in": 0,
-                "position_out": 0,
-                "curve_in": 0.0,
-                "switch_percentage": 50
-            }
-        }
-    ],
     "saved_projectors": [],
-    "canvases": [],
-    "current_transition": "Fade",
-    "transition_duration": 650,
     "preview_locked": false,
     "scaling_enabled": false,
-    "scaling_level": -5,
+    "scaling_level": -2,
     "scaling_off_x": 0.0,
     "scaling_off_y": 0.0,
     "virtual-camera": {
@@ -107,7 +107,7 @@
     "version": 2,
     "sources": [
         {
-            "prev_ver": 536870916,
+            "prev_ver": 553648129,
             "name": "Audio - Tool",
             "uuid": "ccd712d3-bc51-486b-824c-c16fa0563d31",
             "id": "scene",
@@ -192,11 +192,12 @@
             "deinterlace_mode": 0,
             "deinterlace_field_order": 0,
             "monitoring_type": 0,
+            "monitoring_enabled": false,
             "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
             "private_settings": {}
         },
         {
-            "prev_ver": 536870916,
+            "prev_ver": 553648129,
             "name": "Background",
             "uuid": "c8a042b7-e636-4e0b-9c1b-d854b496dc00",
             "id": "image_source",
@@ -219,10 +220,11 @@
             "deinterlace_mode": 0,
             "deinterlace_field_order": 0,
             "monitoring_type": 0,
+            "monitoring_enabled": false,
             "private_settings": {}
         },
         {
-            "prev_ver": 536870916,
+            "prev_ver": 553648129,
             "name": "Main Camera",
             "uuid": "9dc45d55-e4cc-4edb-8950-64a185d858f9",
             "id": "gstreamer-source",
@@ -244,16 +246,19 @@
             "hotkeys": {
                 "libobs.mute": [],
                 "libobs.unmute": [],
+                "libobs.monitor-on": [],
+                "libobs.monitor-off": [],
                 "libobs.push-to-mute": [],
                 "libobs.push-to-talk": []
             },
             "deinterlace_mode": 0,
             "deinterlace_field_order": 0,
             "monitoring_type": 0,
+            "monitoring_enabled": false,
             "private_settings": {}
         },
         {
-            "prev_ver": 536870916,
+            "prev_ver": 553648129,
             "name": "Main Scene",
             "uuid": "0eb37784-e16d-4a37-af94-7686e9e1f961",
             "id": "scene",
@@ -428,61 +433,6 @@
                         "private_settings": {}
                     },
                     {
-                        "name": "Wattermark",
-                        "source_uuid": "9a165760-7a30-415b-9644-41c912f73823",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0.0,
-                        "scale_ref": {
-                            "x": 1280.0,
-                            "y": 720.0
-                        },
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 9,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 1097.5,
-                            "y": 40.5
-                        },
-                        "pos_rel": {
-                            "x": 1.2708333730697632,
-                            "y": -0.887499988079071
-                        },
-                        "scale": {
-                            "x": 0.6666666865348816,
-                            "y": 0.6666666865348816
-                        },
-                        "scale_rel": {
-                            "x": 0.6666666865348816,
-                            "y": 0.6666666865348816
-                        },
-                        "bounds": {
-                            "x": 0.0,
-                            "y": 0.0
-                        },
-                        "bounds_rel": {
-                            "x": 0.0,
-                            "y": 0.0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
                         "name": "Scoreboard",
                         "source_uuid": "9f680cf1-b773-4562-9477-2a38a0cb89fd",
                         "visible": true,
@@ -536,6 +486,61 @@
                             "duration": 0
                         },
                         "private_settings": {}
+                    },
+                    {
+                        "name": "Wattermark",
+                        "source_uuid": "9a165760-7a30-415b-9644-41c912f73823",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1280.0,
+                            "y": 720.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 9,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 1097.5,
+                            "y": 40.5
+                        },
+                        "pos_rel": {
+                            "x": 1.2708333730697632,
+                            "y": -0.887499988079071
+                        },
+                        "scale": {
+                            "x": 0.6666666865348816,
+                            "y": 0.6666666865348816
+                        },
+                        "scale_rel": {
+                            "x": 0.6666666865348816,
+                            "y": 0.6666666865348816
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
                     }
                 ]
             },
@@ -556,16 +561,17 @@
                 "libobs.hide_scene_item.7": [],
                 "libobs.show_scene_item.11": [],
                 "libobs.hide_scene_item.11": [],
-                "libobs.show_scene_item.9": [],
-                "libobs.hide_scene_item.9": [],
                 "libobs.show_scene_item.16": [],
                 "libobs.hide_scene_item.16": [],
                 "libobs.show_scene_item.18": [],
-                "libobs.hide_scene_item.18": []
+                "libobs.hide_scene_item.18": [],
+                "libobs.show_scene_item.9": [],
+                "libobs.hide_scene_item.9": []
             },
             "deinterlace_mode": 0,
             "deinterlace_field_order": 0,
             "monitoring_type": 0,
+            "monitoring_enabled": false,
             "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
             "private_settings": {
                 "transition": "",
@@ -573,7 +579,7 @@
             }
         },
         {
-            "prev_ver": 536870916,
+            "prev_ver": 553648129,
             "name": "Main View  - Tool",
             "uuid": "79c2a451-c15b-426c-8a64-dac158f67cd3",
             "id": "scene",
@@ -658,11 +664,12 @@
             "deinterlace_mode": 0,
             "deinterlace_field_order": 0,
             "monitoring_type": 0,
+            "monitoring_enabled": false,
             "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
             "private_settings": {}
         },
         {
-            "prev_ver": 536870916,
+            "prev_ver": 553648129,
             "name": "Microphone",
             "uuid": "5ff20b5c-1fad-4c63-9e00-edb85084373f",
             "id": "pulse_input_capture",
@@ -684,16 +691,19 @@
             "hotkeys": {
                 "libobs.mute": [],
                 "libobs.unmute": [],
+                "libobs.monitor-on": [],
+                "libobs.monitor-off": [],
                 "libobs.push-to-mute": [],
                 "libobs.push-to-talk": []
             },
             "deinterlace_mode": 0,
             "deinterlace_field_order": 0,
             "monitoring_type": 0,
+            "monitoring_enabled": false,
             "private_settings": {}
         },
         {
-            "prev_ver": 536870916,
+            "prev_ver": 553648129,
             "name": "Scoreboard",
             "uuid": "9f680cf1-b773-4562-9477-2a38a0cb89fd",
             "id": "xshm_input_v2",
@@ -717,10 +727,11 @@
             "deinterlace_mode": 0,
             "deinterlace_field_order": 0,
             "monitoring_type": 0,
+            "monitoring_enabled": false,
             "private_settings": {}
         },
         {
-            "prev_ver": 536870916,
+            "prev_ver": 553648129,
             "name": "Wattermark",
             "uuid": "9a165760-7a30-415b-9644-41c912f73823",
             "id": "image_source",
@@ -743,6 +754,7 @@
             "deinterlace_mode": 0,
             "deinterlace_field_order": 0,
             "monitoring_type": 0,
+            "monitoring_enabled": false,
             "private_settings": {}
         }
     ]
