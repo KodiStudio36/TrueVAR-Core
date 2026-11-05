@@ -272,10 +272,17 @@ class TkStrikeStateEngine:
         self.on_stable_update(self.data)
 
     def on_win_data(self, parts):
-        self.data["win_score"], self.data["win_type"] = parts[2].lower().split(" ")
-
-        self.on_event_trigger("WIN", copy.deepcopy(self.data))
-        self.data["state"] = INIT_STATE
+        # Tolerant parsing: a malformed wmh used to raise here, so WIN never
+        # fired and the state never went back to INIT (old fight stayed on air).
+        try:
+            tokens = parts[2].lower().split() if len(parts) > 2 else []
+            self.data["win_score"] = tokens[0] if tokens else ""
+            self.data["win_type"] = " ".join(tokens[1:])
+        except Exception as exc:
+            print(f"⚠️ [PARSER] Bad wmh packet {parts!r}: {exc}")
+        finally:
+            self.on_event_trigger("WIN", copy.deepcopy(self.data))
+            self.data["state"] = INIT_STATE
 
     # --- Helper Lifecycles ---
     def evaluate_match_init(self):

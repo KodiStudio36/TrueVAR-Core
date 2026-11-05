@@ -127,11 +127,13 @@ class IVRPlugin(BasePlugin):
             except asyncio.CancelledError:
                 pass
 
-        if self._ws:
-            await self._ws.close()
-            self._ws = None
-
-        self._connected = False
+        ws = self._ws
+        await self._mark_disconnected("plugin stopped")
+        if ws:
+            try:
+                await ws.close()
+            except Exception:
+                pass
         self.logger.warning("IVR plugin stopped.")
 
     async def on_settings_changed(self, new_settings: IVRSettings) -> None:
@@ -161,16 +163,39 @@ class IVRPlugin(BasePlugin):
                     await self.send_event("mirror_changed", {"is_mirror": self._is_mirror})
                     await self._listen(ws)
 
+                # IVR closed the connection cleanly (app quit / restarted).
+                # Previously the loop reconnected straight away while still
+                # marked connected, and nobody learned the replay was gone.
+                await self._mark_disconnected("connection closed")
+                await asyncio.sleep(delay)
+
             except (ConnectionRefusedError, OSError,
                     websockets.exceptions.WebSocketException) as exc:
-                self._connected = False
-                self._ws = None
+                await self._mark_disconnected(str(exc))
                 self.logger.warning(f"IVR unreachable ({exc}). Retry in {delay:.0f}s.")
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, self._RECONNECT_DELAY_MAX)
 
             except asyncio.CancelledError:
                 return
+
+    async def _mark_disconnected(self, reason: str) -> None:
+        """Publishes ivr.disconnected once per lost connection, so plugins
+        that follow the IVR state (livestream!) never stay stuck in a replay
+        the IVR app can no longer close."""
+        was_connected = self._connected
+        self._connected = False
+        self._ws = None
+        if not was_connected:
+            return
+        self.is_recording = False
+        self.logger.warning(f"IVR disconnected ({reason}).")
+        bus = self.core_context.get("event_bus")
+        if bus:
+            try:
+                await bus.publish("ivr.disconnected", {"reason": reason})
+            except Exception as exc:
+                self.logger.error("Failed to publish ivr.disconnected", exception=exc)
 
     async def _listen(self, ws):
         async for raw in ws:

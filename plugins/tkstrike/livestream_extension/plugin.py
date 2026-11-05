@@ -75,6 +75,8 @@ class TkStrikeLivestreamExtension(BaseLivestreamExtension):
                 ("ivr.replay_opened",         self.automation.on_ivr_replay_opened),
                 ("ivr.replay_closed",         self.automation.on_ivr_replay_closed),
                 ("ivr.recording_started",     self.automation.on_ivr_recording_started),
+                # IVR app gone (crash / restart) → replay can't be closed normally
+                ("ivr.disconnected",          self.automation.on_ivr_disconnected),
                 # External screen
                 ("screen.mirror_changed",     self.automation.on_screen_mirror_changed),
                 # System lifecycle — fired on plugin boot and via REST
@@ -91,10 +93,10 @@ class TkStrikeLivestreamExtension(BaseLivestreamExtension):
             await bus.publish("system.livestream_start", {})
 
     async def teardown_discipline(self) -> None:
-        # Cancel the YouTube loop before unsubscribing so no ghost tasks remain
-        if self.automation and self.automation._youtube_loop_task:
-            if not self.automation._youtube_loop_task.done():
-                self.automation._youtube_loop_task.cancel()
+        # Cancel background tasks (YouTube loop, fight intro, history fetch)
+        # before unsubscribing so no ghost tasks remain
+        if self.automation:
+            self.automation.shutdown()
 
         bus = self.core_context.get("event_bus")
         if bus and self._subscriptions:
