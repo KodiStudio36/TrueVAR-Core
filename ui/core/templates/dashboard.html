@@ -39,12 +39,32 @@
                     <div id="controlsList" class="flex flex-wrap gap-3"></div>
                 </div>
 
-                <div class="bg-gray-800 rounded-lg p-4 flex-1 min-h-[10rem] flex flex-col">
-                    <h3 class="text-lg font-bold mb-2 text-blue-400">Live System Logs</h3>
-                    <div id="logConsole"
-                        class="bg-black p-3 rounded flex-1 min-h-0 overflow-y-auto font-mono text-sm text-green-500">
-                        System initialized. Waiting for stream...
+                <!-- Shown only while the Pipeline Diagnostics plugin is attached -->
+                <div id="healthPanel" class="hidden bg-gray-800 rounded-lg p-4 shrink-0">
+                    <div class="flex items-center gap-3 mb-2">
+                        <h3 class="text-lg font-bold text-emerald-400">Video Path Health</h3>
+                        <span id="healthMeta" class="text-xs text-gray-400"></span>
+                        <button id="healthToggle" onclick="toggleDiagnostics()"
+                            class="ml-auto text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600">…</button>
                     </div>
+                    <div id="healthBody" class="overflow-x-auto"></div>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg p-4 flex-1 min-h-[10rem] flex flex-col">
+                    <div class="flex flex-wrap items-center gap-2 mb-2">
+                        <h3 class="text-lg font-bold text-blue-400 mr-1">Live System Logs</h3>
+                        <div id="logSources" class="flex flex-wrap gap-1"></div>
+                        <input id="logSearch" placeholder="filter  (-clk hides clk)"
+                            class="ml-auto bg-gray-900 border border-gray-700 rounded px-2 py-0.5 text-xs w-48">
+                        <button id="logPauseBtn" onclick="toggleLogPause()"
+                            class="text-xs px-2 py-0.5 bg-gray-700 hover:bg-gray-600 rounded">Pause</button>
+                        <button onclick="clearLog()"
+                            class="text-xs px-2 py-0.5 bg-gray-700 hover:bg-gray-600 rounded">Clear</button>
+                    </div>
+                    <div id="logConsole"
+                        class="bg-black p-3 rounded flex-1 min-h-0 overflow-y-auto font-mono text-xs leading-5 text-gray-200">
+                    </div>
+                    <div id="logStatus" class="text-[11px] text-gray-500 mt-1"></div>
                 </div>
 
                 <div id="settingsPanel"
@@ -78,10 +98,215 @@
             uncategorized: "Uncategorized",
         };
 
-        function log(msg) {
+        // ------------------------------------------------------------------ live log
+        // Entries come from GET /api/system/logs (core/log_hub.py): raw UDP
+        // packets, scoreboard events, IVR commands + IVR app logs, pipeline
+        // rebuilds, GStreamer errors, diagnostics. Dashboard actions are "ui".
+
+        const LOG_SOURCES = {
+            udp: { label: "UDP", badge: "bg-gray-700 text-gray-200" },
+            scoreboard: { label: "Scoreboard", badge: "bg-cyan-800 text-cyan-100" },
+            ivr: { label: "IVR", badge: "bg-purple-800 text-purple-100" },
+            "ivr-app": { label: "IVR app", badge: "bg-fuchsia-900 text-fuchsia-100" },
+            pipeline: { label: "Pipeline", badge: "bg-orange-800 text-orange-100" },
+            gst: { label: "GStreamer", badge: "bg-amber-800 text-amber-100" },
+            diag: { label: "Diagnostics", badge: "bg-emerald-800 text-emerald-100" },
+            stats: { label: "Stats", badge: "bg-teal-900 text-teal-100", off: true },
+            ui: { label: "Dashboard", badge: "bg-blue-800 text-blue-100" },
+        };
+        const LEVEL_CLASS = { error: "text-red-400", warning: "text-yellow-300", info: "", debug: "text-gray-500" };
+        const MAX_ENTRIES = 5000, MAX_DOM = 2000;
+
+        let logEntries = [];
+        let logSeq = 0, logBoot = null, logPaused = false, logPollDelay = 1000;
+        let logEnabled = {};
+        try { logEnabled = JSON.parse(localStorage.getItem("logSources") || "{}"); } catch (e) { }
+
+        function esc(s) {
+            return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+        }
+
+        function sourceOn(src) {
+            if (src in logEnabled) return logEnabled[src];
+            return !(LOG_SOURCES[src] && LOG_SOURCES[src].off);
+        }
+
+        function renderSourceChips() {
+            const seen = new Set([...Object.keys(LOG_SOURCES), ...logEntries.map(e => e.source)]);
+            document.getElementById("logSources").innerHTML = [...seen].map(src => {
+                const cfg = LOG_SOURCES[src] || { label: src, badge: "bg-gray-700 text-gray-200" };
+                const on = sourceOn(src);
+                return `<button onclick="toggleSource('${esc(src)}')"
+                    class="text-[11px] px-2 py-0.5 rounded ${on ? cfg.badge : "bg-gray-900 text-gray-600 line-through"}">${esc(cfg.label)}</button>`;
+            }).join("");
+        }
+
+        function toggleSource(src) {
+            logEnabled[src] = !sourceOn(src);
+            try { localStorage.setItem("logSources", JSON.stringify(logEnabled)); } catch (e) { }
+            renderSourceChips();
+            rerenderLog();
+        }
+
+        function matchesFilter(e) {
+            if (!sourceOn(e.source)) return false;
+            const q = document.getElementById("logSearch").value.trim().toLowerCase();
+            if (!q) return true;
+            const hay = `${e.source} ${e.msg}`.toLowerCase();
+            return q.split(/\s+/).every(t => t.startsWith("-") ? (t.length < 2 || !hay.includes(t.slice(1))) : hay.includes(t));
+        }
+
+        function entryHtml(e) {
+            const d = new Date(e.ts * 1000);
+            const t = d.toLocaleTimeString([], { hour12: false }) + "." + String(d.getMilliseconds()).padStart(3, "0");
+            const cfg = LOG_SOURCES[e.source] || { label: e.source, badge: "bg-gray-700 text-gray-200" };
+            const extra = e.data && e.data.debug ? `\n    ${e.data.debug}` : "";
+            return `<div class="whitespace-pre-wrap break-words ${LEVEL_CLASS[e.level] || ""}">` +
+                `<span class="text-gray-500">${t}</span> <span class="px-1 rounded ${cfg.badge}">${esc(cfg.label)}</span> ${esc(e.msg)}` +
+                (extra ? `<span class="text-gray-500">${esc(extra)}</span>` : "") + `</div>`;
+        }
+
+        function nearBottom(c) { return c.scrollTop + c.clientHeight >= c.scrollHeight - 40; }
+
+        function appendToConsole(entries) {
             const c = document.getElementById("logConsole");
-            c.innerHTML += `<div>&gt; ${msg}</div>`;
+            const stick = nearBottom(c);
+            const html = entries.filter(matchesFilter).map(entryHtml).join("");
+            if (html) c.insertAdjacentHTML("beforeend", html);
+            while (c.childElementCount > MAX_DOM) c.removeChild(c.firstElementChild);
+            if (stick) c.scrollTop = c.scrollHeight;
+        }
+
+        function rerenderLog() {
+            const c = document.getElementById("logConsole");
+            c.innerHTML = "";
+            appendToConsole(logEntries.slice(-MAX_DOM * 3));
             c.scrollTop = c.scrollHeight;
+        }
+
+        function addEntries(entries) {
+            if (!entries.length) return;
+            const newSource = entries.some(e => !(e.source in LOG_SOURCES) && !logEntries.some(x => x.source === e.source));
+            logEntries.push(...entries);
+            if (logEntries.length > MAX_ENTRIES) logEntries = logEntries.slice(-MAX_ENTRIES);
+            if (newSource) renderSourceChips();
+            if (!logPaused) appendToConsole(entries);
+        }
+
+        function log(msg, level = "info") {
+            addEntries([{ ts: Date.now() / 1000, source: "ui", level, msg }]);
+        }
+
+        function toggleLogPause() {
+            logPaused = !logPaused;
+            document.getElementById("logPauseBtn").textContent = logPaused ? "Resume" : "Pause";
+            if (!logPaused) rerenderLog();
+        }
+
+        function clearLog() {
+            logEntries = [];
+            document.getElementById("logConsole").innerHTML = "";
+        }
+
+        async function pollLogs() {
+            const status = document.getElementById("logStatus");
+            try {
+                const res = await fetch(`/api/system/logs?since=${logSeq}&limit=1000`);
+                if (res.status === 404) {
+                    status.textContent = "Log stream not available: the core does not serve /api/system/logs (include core.log_hub.get_log_router()).";
+                    logPollDelay = 10000;
+                } else if (res.ok) {
+                    const data = await res.json();
+                    if (logBoot && data.boot_id !== logBoot) {
+                        log("Core restarted — log stream reset.", "warning");
+                    }
+                    logBoot = data.boot_id;
+                    addEntries(data.entries || []);
+                    logSeq = data.last_seq;
+                    status.textContent = data.file ? `Session timeline: ${data.file}` : "";
+                    logPollDelay = 1000;
+                }
+            } catch (e) {
+                status.textContent = `Log stream unreachable (${e}) — retrying…`;
+                logPollDelay = 3000;
+            }
+            setTimeout(pollLogs, logPollDelay);
+        }
+
+        // ------------------------------------------------------------------ video path health
+
+        const HEALTH_STATE = {
+            ok: "bg-green-900/60 text-green-200",
+            waiting: "bg-yellow-900/60 text-yellow-200",
+            stalled: "bg-red-800 text-red-100",
+            dead: "bg-red-800 text-red-100",
+            error: "bg-red-800 text-red-100",
+            unknown: "bg-red-900/70 text-red-200",
+            idle: "text-gray-600",
+            missing: "text-gray-600",
+        };
+        let diagEnabled = false, healthDelay = 1000;
+
+        function renderHealth(st) {
+            diagEnabled = st.enabled;
+            const btn = document.getElementById("healthToggle");
+            btn.textContent = st.enabled ? "Probes ON" : "Probes OFF";
+            btn.className = `ml-auto text-xs px-2 py-1 rounded ${st.enabled ? "bg-emerald-700 hover:bg-emerald-600" : "bg-gray-700 hover:bg-gray-600"}`;
+            document.getElementById("healthMeta").textContent =
+                `pipeline ${st.running ? "#" + st.generation + " up " + Math.round(st.pipeline_age_s || 0) + "s" : "NOT RUNNING"}` +
+                ` · IVR ${st.ivr.connected ? (st.ivr.recording ? "recording" : "connected, idle") : "DISCONNECTED"}` +
+                ` · stall > ${st.stall_ms} ms`;
+
+            const body = document.getElementById("healthBody");
+            if (!st.enabled) { body.innerHTML = `<p class="text-sm text-gray-500">Probes are off.</p>`; return; }
+            if (!st.sources.length) { body.innerHTML = `<p class="text-sm text-gray-500">No sources monitored.</p>`; return; }
+
+            const heads = st.sources[0].stages.map(s => `<th class="px-2 py-1 font-medium">${esc(s.label)}</th>`).join("");
+            const rows = st.sources.map(src => {
+                const cells = src.stages.map(s => {
+                    const cls = HEALTH_STATE[s.state] || "";
+                    const shown = s.state === "idle" || s.state === "missing" ? "—"
+                        : s.fps != null ? s.fps.toFixed(1) : s.state;
+                    const tip = `${s.state}` + (s.ms_since_last != null ? ` · last frame ${s.ms_since_last} ms ago` : "")
+                        + (s.max_gap_ms != null ? ` · max gap ${s.max_gap_ms} ms` : "");
+                    return `<td class="px-2 py-1 text-center rounded ${cls}" title="${esc(tip)}">${esc(shown)}</td>`;
+                }).join("");
+                const shm = src.shm.queue == null ? "—"
+                    : `q ${src.shm.queue}/${src.shm.queue_max} ms · ${src.shm.clients} cl · ${src.shm.overruns} drop`;
+                const vcls = src.verdict_level === "error" ? "text-red-400" : src.verdict_level === "ok" ? "text-green-400" : "text-yellow-300";
+                return `<tr class="border-t border-gray-700">
+                    <td class="px-2 py-1 font-medium whitespace-nowrap">${esc(src.label)}</td>${cells}
+                    <td class="px-2 py-1 text-xs text-gray-400 whitespace-nowrap">${esc(shm)}</td>
+                    <td class="px-2 py-1 text-xs ${vcls}">${esc(src.verdict)}</td></tr>`;
+            }).join("");
+            body.innerHTML = `<table class="w-full text-sm border-separate border-spacing-y-0.5">
+                <thead class="text-xs text-gray-400"><tr><th class="px-2 py-1 text-left">Source</th>${heads}
+                <th class="px-2 py-1">shm</th><th class="px-2 py-1 text-left">Verdict</th></tr></thead>
+                <tbody>${rows}</tbody></table>
+                <p class="text-[11px] text-gray-500 mt-1">fps per stage, left → right along the video path. The first red cell is where the video is lost.</p>`;
+        }
+
+        async function pollHealth() {
+            const panel = document.getElementById("healthPanel");
+            try {
+                const res = await fetch("/api/diagnostics/status");
+                if (res.ok) {
+                    panel.classList.remove("hidden");
+                    renderHealth(await res.json());
+                    healthDelay = 1000;
+                } else {
+                    panel.classList.add("hidden");
+                    healthDelay = 10000;
+                }
+            } catch (e) {
+                healthDelay = 5000;
+            }
+            setTimeout(pollHealth, healthDelay);
+        }
+
+        async function toggleDiagnostics() {
+            const res = await fetch(`/api/diagnostics/enable?on=${!diagEnabled}`, { method: "POST" });
+            if (res.ok) renderHealth(await (await fetch("/api/diagnostics/status")).json());
         }
 
         function loadedTooltip(p) {
@@ -297,7 +522,8 @@
                     log(`Failed to toggle ${label}: ${body.detail || res.status}`);
                 } else {
                     const state = "active" in body && id === "external_screen" ? body.active
-                        : "mirror" in body ? body.mirror : null;
+                        : "mirror" in body ? body.mirror
+                            : "state" in body ? body.state : null;
                     log(`${label}${state === null ? " toggled" : state ? " ON" : " OFF"}.`);
                 }
             } catch (e) {
@@ -516,8 +742,14 @@
             currentSettingsPlugin = null;
         }
 
+        document.getElementById("logSearch").addEventListener("input", rerenderLog);
+        renderSourceChips();
+        log("Dashboard opened. Waiting for log stream…");
+
         fetchStatus();
         setInterval(fetchStatus, 5000);
+        pollLogs();
+        pollHealth();
     </script>
 </body>
 

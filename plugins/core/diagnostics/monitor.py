@@ -65,8 +65,11 @@ class FrameCounter:
         self.frames = 0
         self.last: float | None = None
         self.max_gap = 0.0
+        self.hiccups = 0                 # gaps > HICCUP_S since last read
         self._tick_frames = 0
         self._tick_time = time.monotonic()
+
+    HICCUP_S = 0.15                      # > ~4 frames missing at 30 fps: visible stutter
 
     def hit(self, n: int = 1):
         now = time.monotonic()
@@ -75,6 +78,8 @@ class FrameCounter:
                 gap = now - self.last
                 if gap > self.max_gap:
                     self.max_gap = gap
+                if gap > self.HICCUP_S:
+                    self.hiccups += 1
             self.last = now
             self.frames += n
 
@@ -88,9 +93,10 @@ class FrameCounter:
             if self.last is not None:
                 gap = max(gap, now - self.last)
             self.max_gap = 0.0
+            hiccups, self.hiccups = self.hiccups, 0
             since = None if self.last is None else int((now - self.last) * 1000)
         return {"frames": self.frames, "fps": round(fps, 1), "ms_since_last": since,
-                "max_gap_ms": int(gap * 1000)}
+                "max_gap_ms": int(gap * 1000), "hiccups": hiccups}
 
 
 @dataclass
@@ -101,11 +107,12 @@ class SourceState:
     snaps: dict = field(default_factory=dict)           # stage -> last snapshot (all stages)
     states: dict = field(default_factory=dict)          # stage -> ok/stalled/dead/waiting/missing/idle/unknown/error
     window_gap: dict = field(default_factory=dict)      # stage -> max gap (ms) in the summary window
+    window_hiccups: dict = field(default_factory=dict)  # stage -> gaps > 150 ms in the summary window
     shm_clients: int = 0
     shm_overruns: int = 0
     overruns_reported: int = 0
-    queue_level: int | None = None
-    queue_max: int | None = None
+    queue_level: int | None = None      # ms of video waiting in the shm queue
+    queue_max: int | None = None        # ms the queue holds before it starts dropping
     verdict: str = "starting"
     verdict_level: str = "info"
     bad_stage: str | None = None
@@ -157,7 +164,7 @@ class PipelineMonitor:
                     self._signals.append((shm, hid))
             queue = pipeline.get_by_name(f"cam{idx}_shmq")
             if queue is not None:
-                st.queue_max = queue.get_property("max-size-buffers") or None
+                st.queue_max = (queue.get_property("max-size-time") // 1_000_000) or None   # ms
                 hid = queue.connect("overrun", self._on_overrun, st)
                 self._signals.append((queue, hid))
 
@@ -228,6 +235,7 @@ class PipelineMonitor:
                 st.snaps[stage] = snap
                 st.states[stage] = self._state(snap, age)
                 st.window_gap[stage] = max(st.window_gap.get(stage, 0), snap["max_gap_ms"])
+                st.window_hiccups[stage] = st.window_hiccups.get(stage, 0) + snap["hiccups"]
 
             # --- IVR stages (reported by the IVR app)
             ivr = ivr_streams.get(str(idx))
@@ -253,7 +261,7 @@ class PipelineMonitor:
             # --- shm queue fill (back-pressure)
             if self.pipeline is not None:
                 q = self.pipeline.get_by_name(f"cam{idx}_shmq")
-                st.queue_level = q.get_property("current-level-buffers") if q else None
+                st.queue_level = q.get_property("current-level-time") // 1_000_000 if q else None   # ms
 
             if st.has_probes:
                 events.extend(self._update_verdict(st, now, ivr_streams.get(str(idx))))
@@ -308,7 +316,7 @@ class PipelineMonitor:
                           f"no frame for {since} ms")
                 extra = ""
                 if bad == "shm_out" and st.queue_level is not None:
-                    extra = f" [shm queue {st.queue_level}/{st.queue_max}, {st.shm_clients} client(s)]"
+                    extra = f" [shm queue {st.queue_level}/{st.queue_max} ms, {st.shm_clients} client(s)]"
                 events.append(("error", f"⛔ {st.label}: video lost at '{STAGE_LABELS[bad]}' — {detail}. "
                                         f"{flow}=> {_BREAK_EXPLANATION[bad]}{extra}"))
             st.bad_stage = bad
@@ -353,17 +361,18 @@ class PipelineMonitor:
                 if state in (None, "missing", "idle"):
                     continue
                 fps = (st.snaps.get(stage) or {}).get("fps")
+                gap = st.window_gap.get(stage, 0)
+                hic = st.window_hiccups.get(stage)
                 parts.append(f"{STAGE_LABELS[stage]} {fps if fps is not None else '?'}"
-                             + ("" if state == "ok" else f"({state})"))
-            gaps = {s: g for s, g in st.window_gap.items() if g}
-            worst = max(gaps.items(), key=lambda kv: kv[1]) if gaps else None
+                             + ("" if state == "ok" else f"({state})")
+                             + (f" [gap {gap}ms" + (f", {hic}x>150ms" if hic else "") + "]" if gap > 100 else ""))
             lines.append(
                 f"{st.label}: " + " → ".join(parts) + " fps"
-                + (f" | max gap {worst[1]} ms @ {STAGE_LABELS[worst[0]]}" if worst else "")
-                + (f" | shm q {st.queue_level}/{st.queue_max} overruns {st.shm_overruns} clients {st.shm_clients}"
+                + (f" | shm q {st.queue_level}/{st.queue_max}ms overruns {st.shm_overruns} clients {st.shm_clients}"
                    if st.queue_level is not None else "")
             )
             st.window_gap.clear()
+            st.window_hiccups.clear()
         return lines
 
     def status(self) -> list[dict]:
