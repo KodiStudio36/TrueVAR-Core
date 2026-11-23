@@ -200,7 +200,7 @@ class GStreamerCorePlugin(BasePlugin):
                 f"tee_src0. ! "
                 f"queue name=cam0_shmq max-size-buffers=30 max-size-bytes=0 max-size-time=0 leaky=upstream ! "
                 f"shmsink name=cam0_shm socket-path={base_dir}/camera0_shm_socket "
-                f"wait-for-connection=false shm-size=200000000 buffer-time=0"
+                f"wait-for-connection=false shm-size=200000000 buffer-time=0 sync=false"
             )
             # Extension branches for source 0
             parts.extend(self._pipeline_manager.get_branches_for_source(0, settings))
@@ -251,12 +251,19 @@ class GStreamerCorePlugin(BasePlugin):
                 # buffers. A blocking queue here then stalled tee_srcN and froze
                 # this camera on EVERY output (livestream, external screen, ...).
                 # Now only the shm output drops frames (counted as overruns).
+                #
+                # sync=false on every shmsink: with sync=true each frame was held
+                # until timestamp + pipeline latency (rtspsrc latency=800 -> ~0.8 s).
+                # The 10-frame leaky queue holds only 0.33 s, so it dropped almost
+                # everything and the shm got ~2 fps (OBS + IVR choppy). The readers
+                # (IVR shmsrc do-timestamp=true, OBS) timestamp frames on arrival,
+                # so syncing here only added delay. Bonus: 0.8 s less lag for them.
                 parts.append(
                     f"tee_src{idx}. ! "
                     f"queue name=cam{idx}_shmq leaky=downstream max-size-buffers=10 "
                     f"max-size-bytes=0 max-size-time=0 ! "
                     f"shmsink name=cam{idx}_shm socket-path={base_dir}/camera{idx}_shm_socket "
-                    f"wait-for-connection=false shm-size=200000000"
+                    f"wait-for-connection=false shm-size=200000000 sync=false"
                 )
             elif need_scaled and not ext_branches:
                 # replaced but nothing consumes the 720p tee: terminate it cleanly
