@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from core.event_bus import EventBus
 
 from plugins.core.gstreamer_core.base_extension import BaseGStreamerExtension
+from core.log_hub import log_hub
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +48,8 @@ class PipelineManager:
             self._logger.warning(f"Extension '{ext.name}' already registered — replacing.")
         self._extensions[ext.name] = ext
         self._logger.info(f"Pipeline extension registered: '{ext.name}'")
+        log_hub.push("pipeline", f"Extension registered: '{ext.name}' -> full pipeline rebuild scheduled",
+                     level="warning", extension=ext.name)
         self._schedule_rebuild()
 
     def unregister_extension(self, name: str) -> None:
@@ -54,6 +57,8 @@ class PipelineManager:
             return
         del self._extensions[name]
         self._logger.info(f"Pipeline extension unregistered: '{name}'")
+        log_hub.push("pipeline", f"Extension unregistered: '{name}' -> full pipeline rebuild scheduled",
+                     level="warning", extension=name)
         self._schedule_rebuild()
 
     def get_branches_for_source(

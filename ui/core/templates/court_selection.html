@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    <meta charset="UTF-8">
     <title>TrueVAR - Select Court</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -9,10 +10,15 @@
 <body class="bg-gray-900 text-white p-8">
     <div class="max-w-2xl mx-auto">
 
-        <button onclick="window.location.href='/tournaments'"
+        <button id="backBtn" onclick="window.location.href='/tournaments'"
             class="text-gray-500 hover:text-white text-sm mb-6 flex items-center gap-1">
             ← Back to tournaments
         </button>
+
+        <p id="scheduledNote" class="hidden mb-4 text-sm bg-green-900 text-green-300 px-3 py-2 rounded">
+            This tournament is scheduled for this case today. Picking a different tournament overrides it until
+            tomorrow.
+        </p>
 
         <h2 class="text-3xl font-bold mb-2 text-blue-400">Select Court</h2>
         <p id="tournamentTitle" class="text-gray-400 mb-8"></p>
@@ -29,14 +35,20 @@
         const params = new URLSearchParams(window.location.search);
         const tournamentId = params.get("tournament_id");
         const title = params.get("title") ?? "Tournament";
+        // Opened automatically because the tournament is scheduled for this case today.
+        const isScheduled = params.get("scheduled") === "1";
 
         async function init() {
             const key = localStorage.getItem("truevar_license");
             if (!key || !tournamentId) { window.location.href = "/"; return; }
 
             document.getElementById("tournamentTitle").innerText = title;
+            if (isScheduled) {
+                document.getElementById("scheduledNote").classList.remove("hidden");
+                document.getElementById("backBtn").textContent = "← Choose a different tournament";
+            }
 
-            const res = await fetch(`/api/system/tournaments/${tournamentId}/courts`);
+            const res = await fetch(`/api/system/tournaments/${encodeURIComponent(tournamentId)}/courts`);
             if (!res.ok) { window.location.href = "/tournaments"; return; }
 
             const data = await res.json();
@@ -49,7 +61,11 @@
                 btn.className =
                     "bg-gray-800 p-6 rounded-lg text-center text-2xl font-bold border border-gray-700 " +
                     "hover:border-blue-500 hover:bg-gray-700 transition";
-                btn.innerHTML = `Court<br><span class="text-blue-400">${courtId}</span>`;
+                btn.innerHTML = "Court<br>";
+                const num = document.createElement("span");
+                num.className = "text-blue-400";
+                num.textContent = courtId;
+                btn.appendChild(num);
                 btn.onclick = () => bindAndBoot(courtId);
                 grid.appendChild(btn);
             });
@@ -63,6 +79,9 @@
             document.getElementById("bootingOverlay").classList.remove("hidden");
 
             try {
+                // /api/system/boot saves the binding (update_case_binding), which
+                // stamps tournamentChosenAt — so this tournament + court reopen at
+                // every power-on today, even if a different one is scheduled.
                 const res = await fetch("/api/system/boot", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },

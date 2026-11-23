@@ -84,7 +84,8 @@ PROCESSED_EVENT = "firebase_sync.match_processed"
 # the secret must never be written to RTDB. They come only from the
 # framework's own settings store.
 PERSISTED_SETTINGS = (
-    "poomsae_seconds", "freestyle_seconds", "judge_count", "scoring_method", "restart_deduction", "penalty_deduction",
+    "poomsae_seconds", "freestyle_seconds", "para_seconds", "judge_count", "scoring_method",
+    "restart_deduction", "penalty_deduction",
     "auto_results_1", "auto_results_2", "auto_final_results", "auto_category_results",
     "final_results_delay", "category_results_delay",
 )
@@ -389,13 +390,18 @@ def _remaining_now(state: dict, allow_negative: bool = False) -> Optional[float]
 
 
 class PoomsaeControlSettings(BaseModel):
-    # Poomsae round duration ONLY — Preparation and the result stages have
-    # no timer (see _duration_for_stage). The countdown resets TO this
-    # whenever a poomsae stage is (re)entered, before the operator starts it.
+    # Round time per poomsae type — used ONLY when a match doc has no
+    # `roundSeconds` of its own (pushed before the bracket builder wrote
+    # it, or inserted by hand from the live queue). The bracket builder's
+    # defaults are the same: poomsae 90 s, para 120 s, freestyle 100 s.
+    # Preparation and the result stages have no timer (see
+    # _duration_for_stage). The countdown resets TO this whenever a
+    # poomsae stage is (re)entered, before the operator starts it.
     poomsae_seconds: int = Field(90, ge=5)
-    # Freestyle poomsae's round time instead of poomsae_seconds — WT
-    # freestyle routines run up to 100 s.
+    # Freestyle poomsae — WT freestyle routines run up to 100 s.
     freestyle_seconds: int = Field(100, ge=5)
+    # Para poomsae runs longer than recognized poomsae.
+    para_seconds: int = Field(120, ge=5)
     # How many judge slots this court has — changing this number is what
     # creates/removes numbered slots (1..judge_count), see
     # _reconcile_judge_slots.
@@ -580,6 +586,9 @@ class PoomsaeControlPlugin(BasePlugin):
         False = the read failed or returned something invalid. Nothing is
                 applied and nothing is written; the caller must not act on
                 settings until a later call returns True.
+
+        A setting missing from the saved node (e.g. para_seconds, saved by
+        an older version) keeps its framework / default value.
         """
         try:
             saved = await asyncio.to_thread(lambda: self._settings_ref().get())
@@ -979,11 +988,16 @@ class PoomsaeControlPlugin(BasePlugin):
     # is computed by every reader (see _remaining_now) — nothing is
     # written per second.
     def _duration_for_stage(self, stage: str, match: Optional[dict] = None) -> Optional[int]:
-        """Round time of a poomsae stage. The match doc's own `roundSeconds`
-        (written by the bracket builder per type — poomsae / para /
-        freestyle) wins; matches pushed before that field existed fall
-        back to this court's settings (freestyle_seconds for freestyle,
-        poomsae_seconds otherwise)."""
+        """
+        Round time of a poomsae stage.
+
+        1. The match doc's own `roundSeconds` wins — written by the bracket
+           builder per type (secondsPerMatchFor: poomsae / para / freestyle).
+        2. Otherwise (match pushed before that field existed, or inserted
+           by hand) this court's settings, in the builder's order:
+           freestyle first (para freestyle is freestyle), then para, then
+           recognized poomsae.
+        """
         if stage not in STAGE_TO_ROUND_KEY:
             return None
         try:
@@ -992,9 +1006,13 @@ class PoomsaeControlPlugin(BasePlugin):
             from_match = 0
         if from_match >= 5:
             return from_match
-        if match and is_freestyle_category(match.get("categoryCode")):
-            return self._settings().freestyle_seconds
-        return self._settings().poomsae_seconds
+        settings = self._settings()
+        code = (match or {}).get("categoryCode")
+        if is_freestyle_category(code):
+            return settings.freestyle_seconds
+        if is_para_category(code):
+            return settings.para_seconds
+        return settings.poomsae_seconds
 
     def _round_key_for_events(self) -> Optional[str]:
         """The poomsae that penalties / timeline events belong to right now:
@@ -1764,6 +1782,9 @@ class PoomsaeControlPlugin(BasePlugin):
                     "displayNumber": format_match_number(selected.get("displayNumber")),
                     "poomsae": match_poomsae(selected),
                     "poomsaeCount": poomsae_count(selected),
+                    # The round time this match will use (its own
+                    # roundSeconds, or the court's fallback for its type).
+                    "roundSeconds": self._duration_for_stage("poomsae_1", selected),
                 } if selected else None,
                 # Names/clubs for the selected match's corners, for showing
                 # it before it's live.
@@ -1980,12 +2001,21 @@ class PoomsaeControlPlugin(BasePlugin):
             return {"ok": True, "matchId": payload["match_id"], "result": payload["result"]}
 
         @router.post("/settings")
-        async def update_settings(payload: PoomsaeControlSettings):
+        async def update_settings(payload: dict):
             # Only the panel-managed fields — video_sync_* (the panel never
-            # sends them) keep coming from the framework settings.
-            values = {k: getattr(payload, k) for k in PERSISTED_SETTINGS}
+            # sends them) keep coming from the framework settings. A field
+            # the panel doesn't send (e.g. para_seconds from an older
+            # panel.html) KEEPS its current value instead of falling back
+            # to the default.
             if not self.tournament_id or not self.court_id:
                 raise HTTPException(status_code=400, detail="Court isn't bound to a tournament yet — settings not saved.")
+            current = {k: getattr(self._settings(), k) for k in PERSISTED_SETTINGS}
+            sent = {k: payload[k] for k in PERSISTED_SETTINGS if k in (payload or {})}
+            try:
+                validated = PoomsaeControlSettings.model_validate({**self._settings().model_dump(), **current, **sent})
+            except Exception as exc:
+                raise HTTPException(status_code=422, detail=f"Invalid settings: {exc}")
+            values = {k: getattr(validated, k) for k in PERSISTED_SETTINGS}
             async with self._stage_lock:
                 await self._save_persisted_settings(values)
                 if self.live_match_id:

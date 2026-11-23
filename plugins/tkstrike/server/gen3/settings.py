@@ -33,13 +33,15 @@ class TkStrikeServerGen3Settings(BaseModel):
                     "court_id as an int if it looks numeric, else 0.",
     )
 
-    # --- Defaults used to synthesize match-configurations, since Firebase
-    #     doesn't currently store an official WT rules config per match. ---
-    default_rules: str = Field(default="BESTOF3", description="CONVENTIONAL or BESTOF3.")
-    default_rounds: int = Field(default=3, ge=1, le=5)
-    default_round_time: str = Field(default="01:30")
-    default_rest_time: str = Field(default="00:30")
-    default_injury_time: str = Field(default="01:00")
+    # --- Fallbacks used to synthesize match-configurations. Per-match values
+    #     from the Firebase match document (roundTime, breakTime/restTime,
+    #     injuryTime, rules, rounds) always take precedence; these apply only
+    #     when the document doesn't carry the field. ---
+    default_rules: str = Field(default="BESTOF3", description="CONVENTIONAL or BESTOF3. Fallback if match doc has no 'rules'.")
+    default_rounds: int = Field(default=3, ge=1, le=5, description="Fallback if match doc has no 'rounds'.")
+    default_round_time: str = Field(default="01:30", description="Fallback if match doc has no 'roundTime'.")
+    default_rest_time: str = Field(default="00:30", description="Fallback if match doc has no 'breakTime'/'restTime'.")
+    default_injury_time: str = Field(default="01:00", description="Fallback if match doc has no 'injuryTime'.")
     default_max_penalties: int = Field(default=5, ge=1, le=30)
     default_golden_point_enabled: bool = Field(default=False)
     default_golden_point_time: str = Field(default="01:00")

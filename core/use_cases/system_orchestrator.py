@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, time, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from core.domain.entities import SystemStatus, Tournament
 from core.event_bus import EventBus
@@ -11,6 +12,12 @@ from plugins.plugin_registry import PluginRegistry
 
 from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin
 from plugins.core.ivr.plugin import IVRPlugin
+
+
+# The calendar day a case lives in, for "scheduled for today" / "chosen
+# today". Tournament times are stored in UTC; a 00:30 local start must
+# still count as that local day.
+VENUE_TZ = ZoneInfo("Europe/Bratislava")
 
 
 class SystemOrchestrator:
@@ -51,6 +58,7 @@ class SystemOrchestrator:
         self.system_status.network_alive = self.network_adapter.ping_internet()
 
         case_data = None
+        scheduled_tournament_id = None
         self._license_key = device_license_key
 
         if self.system_status.network_alive:
@@ -64,6 +72,8 @@ class SystemOrchestrator:
                         f"Fetched {len(self.system_status.active_tournaments)} tournaments."
                     )
                     case_data = await self._validate_case_binding(device_license_key, case_data)
+                    scheduled = await self._apply_schedule(device_license_key, case_data)
+                    scheduled_tournament_id = scheduled.id if scheduled else None
                 else:
                     self.root_logger.warning("License key invalid or missing. Booting offline mode.")
 
@@ -76,6 +86,13 @@ class SystemOrchestrator:
             "licensed": self.system_status.is_licensed,
             "tournaments": [t.model_dump() for t in self.system_status.active_tournaments],
             "case": case_data,
+            # Set when the case should open this tournament by itself and go
+            # straight to COURT SELECTION (no court is known yet). None when
+            # there's nothing scheduled today, more than one tournament is,
+            # or a tournament chosen on the case today takes precedence —
+            # then "case" carries that binding (tournamentId + courtId) as
+            # before.
+            "scheduledTournamentId": scheduled_tournament_id,
         }
 
     async def _validate_case_binding(self, license_key: str, case_data: dict) -> dict:
@@ -106,6 +123,78 @@ class SystemOrchestrator:
 
         return case_data
 
+    # ------------------------------------------------------------------ scheduling
+
+    @staticmethod
+    def _venue_date(value) -> Optional["datetime.date"]:
+        """datetime or ISO string → calendar date in VENUE_TZ (naive = UTC)."""
+        if isinstance(value, str):
+            try:
+                value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+        if not isinstance(value, datetime):
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(VENUE_TZ).date()
+
+    async def _apply_schedule(self, license_key: str, case_data: Optional[dict]) -> Optional[Tournament]:
+        """Decides between a tournament chosen on the case and today's schedule.
+
+          1. A tournament chosen on the case TODAY wins — it's reopened as
+             before (case_data keeps its tournamentId/courtId).
+          2. Otherwise, if exactly ONE tournament is scheduled for this case
+             today, that one is returned: the frontend opens it and goes to
+             court selection. An older choice (from a previous day) is
+             cleared first, unless it IS that scheduled tournament.
+          3. Nothing scheduled today, or several (ambiguous) → no auto-pick;
+             everything behaves exactly as before scheduling existed.
+
+        Picking a court afterwards calls update_case_binding, which stamps
+        tournamentChosenAt — so from then on rule 1 applies for the day.
+        """
+        if not case_data:
+            return None
+        try:
+            scheduled = await self.db_adapter.fetch_scheduled_tournaments(license_key)
+        except Exception as e:
+            self.root_logger.error("Failed to read the case's schedule", exception=e)
+            return None
+
+        today = datetime.now(VENUE_TZ).date()
+        todays = [t for t in scheduled if self._venue_date(getattr(t, "dateTime", None)) == today]
+        if not todays:
+            return None
+
+        bound_id = case_data.get("tournamentId")
+        if bound_id:
+            chosen_today = self._venue_date(case_data.get("tournamentChosenAt")) == today
+            if chosen_today or any(t.id == bound_id for t in todays):
+                return None  # today's own choice (or the scheduled tournament itself) stands
+            self.root_logger.info(
+                f"Case bound to {bound_id} from an earlier day — today's schedule takes over."
+            )
+            try:
+                await self.db_adapter.clear_case_binding(license_key)
+            except Exception as e:
+                self.root_logger.error("Failed to clear the earlier binding", exception=e)
+            for key in ("tournamentId", "courtId", "tournamentChosenAt"):
+                case_data.pop(key, None)
+
+        if len(todays) > 1:
+            self.root_logger.warning(
+                f"Case scheduled for {len(todays)} tournaments today "
+                f"({', '.join(t.id for t in todays)}) — not picking one automatically."
+            )
+            return None
+
+        pick = todays[0]
+        if not any(t.id == pick.id for t in self.system_status.active_tournaments):
+            self.system_status.active_tournaments.append(pick)
+        self.root_logger.info(f"Scheduled for today: {pick.title} ({pick.id}) — opening court selection.")
+        return pick
+
     @staticmethod
     def _is_tournament_current(tournament: Tournament) -> bool:
         tournament_dt = getattr(tournament, "dateTime", None)
@@ -115,9 +204,9 @@ class SystemOrchestrator:
         if tournament_dt.tzinfo is None:
             tournament_dt = tournament_dt.replace(tzinfo=timezone.utc)
 
-        start_of_today = datetime.combine(
-            datetime.now(timezone.utc).date(), time.min, tzinfo=timezone.utc
-        )
+        # Midnight in the venue's time zone, not UTC: a tournament starting
+        # at 00:30 Bratislava time (23:30 UTC the day before) is still today's.
+        start_of_today = datetime.combine(datetime.now(VENUE_TZ).date(), time.min, tzinfo=VENUE_TZ)
         return tournament_dt >= start_of_today
 
     # ------------------------------------------------------------------ plugin (de)registration

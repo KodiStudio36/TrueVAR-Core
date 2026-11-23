@@ -1,11 +1,28 @@
 import asyncio
 from datetime import datetime, time, timezone
+from zoneinfo import ZoneInfo
 import firebase_admin
 # Import the Realtime Database module ('db') alongside firestore
 from firebase_admin import credentials, firestore, db
 from google.cloud.firestore_v1.base_query import FieldFilter
 from core.domain.ports.database_port import DatabasePort
 from core.domain.entities import Tournament
+
+# ── Where a case finds its licence ────────────────────────────────────────
+# Cases now live in the web app's shared `inventory` collection
+# (inventory/{licenseKey}, type "truevar_case"), next to SIM routers, access
+# points, etc. The old `cases/{licenseKey}` collection is still read as a
+# FALLBACK so a case keeps working before/while its data is migrated
+# (web app: scripts/migrate_cases_to_inventory.py). Once every case is in
+# `inventory`, LEGACY_CASES_COLLECTION can be set to None.
+# Same "today" as SystemOrchestrator.VENUE_TZ — a tournament at 00:30 local
+# time (23:30 UTC the day before) belongs to the local day.
+VENUE_TZ = ZoneInfo("Europe/Bratislava")
+
+INVENTORY_COLLECTION = "inventory"
+CASE_TYPE = "truevar_case"
+LEGACY_CASES_COLLECTION = "cases"
+
 
 class FirebaseAdapter(DatabasePort):
     def __init__(self, 
@@ -23,20 +40,41 @@ class FirebaseAdapter(DatabasePort):
         # Initialize both clients so you don't break your legacy tournament/license fetching
         self.firestore_db = firestore.client()
 
+    def _find_case(self, license_key: str):
+        """(DocumentReference, DocumentSnapshot) of this case's licence doc,
+        or (None, None). Blocking — call from inside asyncio.to_thread.
+
+        inventory/{key} wins when it exists: it must be a TrueVAR case
+        (any other inventory type with that id is NOT a licence, and there's
+        no fallback then). Only when there's no inventory doc at all is the
+        legacy cases/{key} doc used."""
+        ref = self.firestore_db.collection(INVENTORY_COLLECTION).document(license_key)
+        snap = ref.get()
+        if snap.exists:
+            if (snap.to_dict() or {}).get('type') == CASE_TYPE:
+                return ref, snap
+            return None, None
+
+        if LEGACY_CASES_COLLECTION:
+            ref = self.firestore_db.collection(LEGACY_CASES_COLLECTION).document(license_key)
+            snap = ref.get()
+            if snap.exists:
+                return ref, snap
+        return None, None
+
     async def verify_license(self, license_key: str) -> bool:
         if not license_key:
             return False
-            
+
         def _verify():
-            doc_ref = self.firestore_db.collection('cases').document(license_key)
-            return doc_ref.get().exists
-            
+            ref, _ = self._find_case(license_key)
+            return ref is not None
+
         return await asyncio.to_thread(_verify)
 
     async def fetch_today_tournaments(self) -> list[Tournament]:
         def _fetch():
-            now = datetime.now(timezone.utc)
-            start_of_day = datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
+            start_of_day = datetime.combine(datetime.now(VENUE_TZ).date(), time.min, tzinfo=VENUE_TZ)
             # end_of_day = datetime.combine(now.date(), time.max, tzinfo=timezone.utc)
             
             query = self.firestore_db.collection('tournaments')\
@@ -70,19 +108,37 @@ class FirebaseAdapter(DatabasePort):
         if not license_key:
             return None
         def _fetch():
-            doc = self.firestore_db.collection('cases').document(license_key).get()
-            if not doc.exists:
+            _, snap = self._find_case(license_key)
+            if snap is None:
                 return None
-            data = doc.to_dict()
-            data['id'] = doc.id
-            return data
+            data = snap.to_dict() or {}
+            data['id'] = snap.id
+            # Inventory docs also carry photoUrl/createdAt/createdBy/... —
+            # return only what a case uses, so the preflight response
+            # ("case": ...) keeps the same shape as with the old `cases` docs.
+            case = {k: data[k] for k in ('id', 'name', 'type', 'tournamentId', 'courtId') if k in data}
+            # When the bound tournament was chosen ON THE CASE — ISO string,
+            # so the preflight response stays plain JSON. The orchestrator
+            # compares its date with today's schedule.
+            chosen = data.get('tournamentChosenAt')
+            if isinstance(chosen, datetime):
+                case['tournamentChosenAt'] = (chosen if chosen.tzinfo else chosen.replace(tzinfo=timezone.utc)).isoformat()
+            return case
         return await asyncio.to_thread(_fetch)
 
     async def update_case_binding(self, license_key: str, tournament_id: str, court_id: int) -> None:
         def _update():
-            self.firestore_db.collection('cases').document(license_key).update({
+            ref, _ = self._find_case(license_key)
+            if ref is None:
+                raise LookupError(f"No TrueVAR case with licence key '{license_key}'.")
+            ref.update({
                 'tournamentId': tournament_id,
                 'courtId': court_id,
+                # Every choice made on the case is timestamped: a tournament
+                # chosen today is reopened at the next power-on today, even
+                # if a different one is scheduled for the case (see
+                # SystemOrchestrator._apply_schedule).
+                'tournamentChosenAt': firestore.SERVER_TIMESTAMP,
             })
         await asyncio.to_thread(_update)
 
@@ -93,11 +149,44 @@ class FirebaseAdapter(DatabasePort):
         the normal tournament-selection flow on next preflight.
         """
         def _clear():
-            self.firestore_db.collection('cases').document(license_key).update({
+            ref, _ = self._find_case(license_key)
+            if ref is None:
+                return  # licence gone (e.g. deleted in inventory) — nothing to clear
+            ref.update({
                 'tournamentId': firestore.DELETE_FIELD,
                 'courtId': firestore.DELETE_FIELD,
+                'tournamentChosenAt': firestore.DELETE_FIELD,
             })
         await asyncio.to_thread(_clear)
+
+    async def fetch_scheduled_tournaments(self, license_key: str) -> list[Tournament]:
+        """Tournaments this case is scheduled for (set on the web: tournament
+        page → Equipment card), read LIVE from tournaments/{id} — the copy on
+        the inventory doc is only used for the ids, because a tournament's
+        date may have been edited since it was scheduled. Missing/deleted
+        tournaments are skipped. A legacy `cases` doc has no schedule → []."""
+        if not license_key:
+            return []
+
+        def _fetch():
+            _, snap = self._find_case(license_key)
+            if snap is None:
+                return []
+            entries = (snap.to_dict() or {}).get('scheduledTournaments') or []
+            ids = list(dict.fromkeys(e.get('tournamentId') for e in entries if e.get('tournamentId')))
+            if not ids:
+                return []
+            refs = [self.firestore_db.collection('tournaments').document(i) for i in ids]
+            result = []
+            for t_snap in self.firestore_db.get_all(refs):
+                if not t_snap.exists:
+                    continue
+                data = t_snap.to_dict()
+                data['id'] = t_snap.id
+                result.append(Tournament(**data))
+            return result
+
+        return await asyncio.to_thread(_fetch)
 
     async def fetch_tournament_by_id(self, tournament_id: str) -> Tournament | None:
         def _fetch():

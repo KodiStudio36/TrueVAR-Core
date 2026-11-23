@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    <meta charset="UTF-8">
     <title>TrueVAR - Authentication</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -75,6 +76,33 @@
             }
         }
 
+        // Where to go after a successful preflight:
+        //   1. tournament + court bound (chosen on this case today, or an
+        //      unscheduled binding)            → boot straight into it
+        //   2. a tournament scheduled for this case today (set on the web,
+        //      tournament page → Equipment)     → court selection for it
+        //   3. otherwise                         → pick a tournament
+        // The core decides 1 vs 2 (SystemOrchestrator._apply_schedule).
+        async function routeAfterPreflight(key, data) {
+            const { tournamentId, courtId } = data.case ?? {};
+            if (tournamentId && courtId) {
+                await bootWithBinding(key, tournamentId, courtId);
+                return;
+            }
+            if (data.scheduledTournamentId) {
+                const t = (data.tournaments || []).find(x => x.id === data.scheduledTournamentId);
+                showAutoConnect(`Scheduled for today: ${t ? t.title : "tournament"}…`);
+                const params = new URLSearchParams({
+                    tournament_id: data.scheduledTournamentId,
+                    title: t ? t.title : "Tournament",
+                    scheduled: "1",
+                });
+                window.location.href = `/court-selection?${params}`;
+                return;
+            }
+            window.location.href = "/tournaments";
+        }
+
         // ── startup sequence ─────────────────────────────────────────────────────────
 
         async function init() {
@@ -114,15 +142,7 @@
                 }
 
                 const data = await res.json();
-                const { tournamentId, courtId } = data.case ?? {};
-
-                if (tournamentId && courtId) {
-                    // Device was already bound — boot immediately, no selection needed.
-                    await bootWithBinding(key, tournamentId, courtId);
-                } else {
-                    // Licensed but never bound (or binding was cleared) — go pick a tournament.
-                    window.location.href = "/tournaments";
-                }
+                await routeAfterPreflight(key, data);
             } catch (_) {
                 showForm("Network error. Check connection and try again.");
             }
@@ -148,13 +168,7 @@
 
             localStorage.setItem("truevar_license", key);
             const data = await res.json();
-            const { tournamentId, courtId } = data.case ?? {};
-
-            if (tournamentId && courtId) {
-                await bootWithBinding(key, tournamentId, courtId);
-            } else {
-                window.location.href = "/tournaments";
-            }
+            await routeAfterPreflight(key, data);
         }
 
         async function bootOffline() {

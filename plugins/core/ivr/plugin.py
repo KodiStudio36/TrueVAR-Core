@@ -7,6 +7,7 @@ import websockets.exceptions
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from core.log_hub import log_hub
 from core.use_cases.application_bootstrapper import ApplicationBootstrapper
 from plugins.base_plugin import BasePlugin
 from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin
@@ -39,6 +40,11 @@ class IVRPlugin(BasePlugin):
     _INBOUND_COMMANDS = {
         "livestream_closeup": "livestream.cmd.closeup",
     }
+
+    # High-rate IVR -> core events: not written to the core log / dashboard as events.
+    #   diagnostics → per-source frame stats (Pipeline Diagnostics plugin)
+    #   log         → IVR app log records, shown on the dashboard as source "ivr-app"
+    _QUIET_INBOUND = frozenset({"diagnostics", "log"})
 
     _HTTP_ALLOWED = frozenset({
         "start_recording", "stop_recording", "toggle_recording",
@@ -159,6 +165,7 @@ class IVRPlugin(BasePlugin):
                     delay = self._RECONNECT_DELAY_MIN
 
                     self.logger.info("IVR connection established.")
+                    log_hub.push("ivr", f"Connected to IVR app at {uri}")
                     await self._push_settings()
                     await self.send_event("mirror_changed", {"is_mirror": self._is_mirror})
                     await self._listen(ws)
@@ -188,8 +195,12 @@ class IVRPlugin(BasePlugin):
         self._ws = None
         if not was_connected:
             return
+        was_recording = self.is_recording
         self.is_recording = False
         self.logger.warning(f"IVR disconnected ({reason}).")
+        log_hub.push("ivr", f"IVR app disconnected ({reason})"
+                     + (" WHILE RECORDING — app crashed/closed?" if was_recording else ""),
+                     level="error" if was_recording else "warning")
         bus = self.core_context.get("event_bus")
         if bus:
             try:
@@ -211,7 +222,15 @@ class IVRPlugin(BasePlugin):
     # ------------------------------------------------------------------ inbound events
 
     async def _handle_inbound_event(self, event: str, data: dict):
-        self.logger.info(f"IVR → core: {event}", data=data)
+        if event == "log":
+            d = data or {}
+            log_hub.push("ivr-app", d.get("msg", ""), level=d.get("level", "info"),
+                         logger=d.get("logger"))
+            return
+        if event not in self._QUIET_INBOUND:
+            self.logger.info(f"IVR → core: {event}", data=data)
+            log_hub.push("ivr", f"IVR → core: {event}" + (f" {data}" if data else ""),
+                         level="error" if event == "error" else "info")
 
         # Mirror state locally
         if event == "recording_started":
@@ -250,13 +269,22 @@ class IVRPlugin(BasePlugin):
         """Auto-start IVR recording when the scoreboard signals a fight has begun."""
         if not self.is_recording:
             self.logger.info("Fight started — triggering IVR recording.")
+            log_hub.push("ivr", "START_FIGHT -> start_recording")
             await self.send_event("start_recording")
+        else:
+            log_hub.push("ivr", "START_FIGHT: IVR already recording, start_recording not sent")
 
     async def _on_ivr_requested(self, data: dict):
         """Open the IVR replay when the scoreboard signals a video review request."""
         if self.is_recording:
             self.logger.info("IVR Requested — triggering IVR replay.")
+            log_hub.push("ivr", "Scoreboard IVR request -> show_replay")
             await self.send_event("show_replay")
+        else:
+            # Shows up as "the IVR didn't open" — usually recording had already
+            # stopped (replay open, never started, or the IVR app restarted).
+            log_hub.push("ivr", "Scoreboard IVR request IGNORED: core believes the IVR is not recording",
+                         level="warning")
 
     async def _on_mirror_changed(self, data: dict):
         self._is_mirror = bool(data.get("is_mirror", False))
@@ -272,12 +300,15 @@ class IVRPlugin(BasePlugin):
     async def send_event(self, event: str, data: Optional[dict] = None) -> bool:
         if not self._ws or not self._connected:
             self.logger.warning(f"IVR not connected — dropped event '{event}'")
+            log_hub.push("ivr", f"core → IVR: '{event}' DROPPED (IVR not connected)", level="error")
             return False
         try:
             await self._ws.send(json.dumps({"type": "event", "event": event, "data": data or {}}))
+            log_hub.push("ivr", f"core → IVR: {event}" + (f" {data}" if data else ""))
             return True
         except Exception as exc:
             self.logger.error(f"Failed to send IVR event '{event}'", exception=exc)
+            log_hub.push("ivr", f"core → IVR: '{event}' FAILED: {exc}", level="error")
             self._connected = False
             return False
 
@@ -306,6 +337,8 @@ class IVRPlugin(BasePlugin):
         try:
             await self._ws.send(json.dumps({"type": "settings", "data": payload}))
             self.logger.info("Settings pushed to IVR.", is_scoreboard=payload["is_scoreboard"])
+            log_hub.push("ivr", f"core → IVR: settings (cameras={payload['camera_count']}, "
+                                f"scoreboard={payload['is_scoreboard']}, fps={payload['fps']})")
         except Exception as exc:
             self.logger.error("Failed to push settings to IVR", exception=exc)
 

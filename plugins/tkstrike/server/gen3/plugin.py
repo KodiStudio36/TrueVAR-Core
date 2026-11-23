@@ -26,12 +26,50 @@ REMOVE_DIACRITICS: bool = True  # Toggle diacritics stripping globally before JS
 
 # ============================================================ DIACRITICS & SANITIZATION HELPERS
 
+# Letters that are NOT "base letter + combining accent" in Unicode, so NFD
+# decomposition can't strip them (e.g. Đ is its own letter, not D + mark).
+# They need an explicit ASCII mapping.
+_TRANSLITERATE = str.maketrans({
+    "Đ": "D", "đ": "d",     # Croatian / Serbian / Bosnian / Vietnamese
+    "Ð": "D", "ð": "d",     # Icelandic eth
+    "Ł": "L", "ł": "l",     # Polish
+    "Ø": "O", "ø": "o",     # Danish / Norwegian
+    "Ħ": "H", "ħ": "h",     # Maltese
+    "Ŧ": "T", "ŧ": "t",
+    "Ŀ": "L", "ŀ": "l",
+    "Ƚ": "L", "ƚ": "l",
+    "Ɨ": "I", "ɨ": "i",
+    "ı": "i", "ȷ": "j",     # Turkish dotless i
+    "Æ": "AE", "æ": "ae",
+    "Œ": "OE", "œ": "oe",
+    "ß": "ss", "ẞ": "SS",
+    "Þ": "Th", "þ": "th",
+    "Ŋ": "N", "ŋ": "n",
+    "ĸ": "k",
+    # Typographic punctuation that often sneaks in from copy-paste
+    "‘": "'", "’": "'", "‚": "'", "‛": "'", "ʼ": "'", "`": "'",
+    "“": '"', "”": '"', "„": '"',
+    "–": "-", "—": "-", "‐": "-", "‑": "-", "−": "-",
+    " ": " ", " ": " ", " ": " ",
+    "…": "...",
+})
+
+
 def _strip_diacritics(text: str) -> str:
-    """Removes diacritics/accents from a string (e.g. Sabína -> Sabina)."""
+    """
+    Converts a string to plain ASCII for the TkStrike console:
+      Sabína -> Sabina, Đorđe Mirković -> Dorde Mirkovic, Łukasz -> Lukasz.
+
+    1. explicit map for letters NFD can't decompose (Đ, Ł, Ø, ß, ...)
+    2. NFKD + drop combining marks (á, č, ö, ...; also fullwidth/ligature forms)
+    3. drop anything still outside ASCII so nothing unrenderable reaches the console
+    """
     if not isinstance(text, str):
         return text
-    normalized = unicodedata.normalize('NFD', text)
-    return "".join(c for c in normalized if unicodedata.category(c) != 'Mn')
+    text = text.translate(_TRANSLITERATE)
+    normalized = unicodedata.normalize("NFKD", text)
+    stripped = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+    return stripped.encode("ascii", "ignore").decode("ascii")
 
 
 def _clean_diacritics_obj(obj: Any) -> Any:
@@ -63,13 +101,13 @@ def normalize_category(code: Optional[str]) -> str:
     """
     if not code:
         return ""
-    
+
     clean = code.replace("ev-", "").strip()
-    
+
     # Extract weight category modifiers
     plus_match = re.search(r'_plus_(\d+)$', clean, re.IGNORECASE)
     minus_match = re.search(r'_(\d+)$', clean, re.IGNORECASE)
-    
+
     weight_str = ""
     if plus_match:
         weight_str = f"+{plus_match.group(1)}kg"
@@ -77,10 +115,10 @@ def normalize_category(code: Optional[str]) -> str:
     elif minus_match:
         weight_str = f"-{minus_match.group(1)}kg"
         clean = clean[:minus_match.start()]
-        
+
     words = [w.capitalize() for w in clean.split('_') if w]
     base_name = " ".join(words)
-    
+
     if weight_str:
         return f"{base_name} {weight_str}"
     return base_name
@@ -181,14 +219,33 @@ def _parse_category_code(code: Optional[str]) -> tuple[Optional[str], Optional[s
     return division, gender
 
 
-def _default_live_state(settings: TkStrikeServerGen3Settings, doc: Optional[dict] = None) -> dict:
+# ============================================================ TIMING RESOLUTION
+#
+# Per-match values from the Firebase match document always win; settings
+# defaults are only a fallback when the document doesn't carry a value.
+
+def _round_time_for(settings: TkStrikeServerGen3Settings, doc: Optional[dict]) -> str:
     doc = doc or {}
+    return doc.get("roundTime") or settings.default_round_time
+
+
+def _rest_time_for(settings: TkStrikeServerGen3Settings, doc: Optional[dict]) -> str:
+    doc = doc or {}
+    return doc.get("breakTime") or doc.get("restTime") or settings.default_rest_time
+
+
+def _injury_time_for(settings: TkStrikeServerGen3Settings, doc: Optional[dict]) -> str:
+    doc = doc or {}
+    return doc.get("injuryTime") or settings.default_injury_time
+
+
+def _default_live_state(settings: TkStrikeServerGen3Settings, doc: Optional[dict] = None) -> dict:
     return {
         "status": "available",
         "score": {"home": 0, "away": 0},
         "penalties": {"home": 0, "away": 0},
         "round": 1,
-        "roundTime": doc.get("roundTime") or settings.default_round_time,
+        "roundTime": _round_time_for(settings, doc),
         "result": None,
     }
 
@@ -334,7 +391,10 @@ class TkStrikeServerGen3Plugin(BasePlugin):
 
         for doc in matches:
             self._raw_matches[doc["id"]] = doc
-            self._live_state.setdefault(doc["id"], _default_live_state(self._settings, doc))
+            live = self._live_state.setdefault(doc["id"], _default_live_state(self._settings, doc))
+            # Keep timing in sync with Firebase edits until the match actually starts.
+            if live["status"] == "available":
+                live["roundTime"] = _round_time_for(self._settings, doc)
 
         current_ids = tuple(sorted(m["id"] for m in matches))
         stale_ids = [mid for mid in self._raw_matches if mid not in current_ids]
@@ -364,7 +424,7 @@ class TkStrikeServerGen3Plugin(BasePlugin):
     def _competitor_resource(self, cid: str, corner: dict, event_id: str, match_id: Optional[str] = None) -> dict:
         name = corner.get("name")
         org_id = _organization_id_for(corner.get("country"))
-        
+
         relationships = {
             "organization": {"type": "organizations", "id": org_id} if org_id else None,
             "event": {"type": "events", "id": event_id},
@@ -390,7 +450,7 @@ class TkStrikeServerGen3Plugin(BasePlugin):
         given, family = _split_name(name)
         org_id = _organization_id_for(corner.get("country"))
         return resource("participants", cid, {
-            "licenseNumber": None, #corner.get("clubId"),
+            "licenseNumber": None,  # corner.get("clubId"),
             "givenName": given,
             "familyName": family,
             "passportGivenName": given,
@@ -415,7 +475,7 @@ class TkStrikeServerGen3Plugin(BasePlugin):
         normalized_name = normalize_category(raw_code)
         weight_cat = _extract_weight_category(raw_code)
         division, gender = _parse_category_code(raw_code)
-        
+
         relationships = {
             "matches": [{"type": "matches", "id": match_id}] if match_id else [],
             "medalWinners": [],
@@ -438,9 +498,9 @@ class TkStrikeServerGen3Plugin(BasePlugin):
             "rules": doc.get("rules") or s.default_rules,
             "rounds": doc.get("rounds") or s.default_rounds,
             "timing": {
-                "round": s.default_round_time,
-                "rest": s.default_rest_time,
-                "injury": s.default_injury_time,
+                "round": _round_time_for(s, doc),
+                "rest": _rest_time_for(s, doc),
+                "injury": _injury_time_for(s, doc),
             },
             "thresholds": {"body": doc.get("hitLevel") or 0, "head": 5, "punch": 5},
             "videoReplayQuota": {"home": 1, "away": 1},
@@ -619,7 +679,7 @@ class TkStrikeServerGen3Plugin(BasePlugin):
 
             # body = await request.json()
             # attributes = dict(body.get("data", {}).get("attributes", {}))
-            # live = self._live_state.setdefault(match_id, _default_live_state(self._settings))
+            # live = self._live_state.setdefault(match_id, _default_live_state(self._settings, doc))
 
             # _apply_action(live, attributes)
 
