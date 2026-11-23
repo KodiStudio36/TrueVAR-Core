@@ -1,6 +1,7 @@
 from typing import Dict, Optional, Type
 
 from plugins.base_plugin import BasePlugin
+from plugins.core.diagnostics.plugin import PipelineDiagnosticsPlugin
 from plugins.core.firebase_sync.plugin import FirebaseSyncPlugin
 from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin
 from plugins.core.ivr.plugin import IVRPlugin
@@ -26,6 +27,7 @@ class PluginRegistry:
         cls.__name__: cls
         for cls in [
             GStreamerCorePlugin,
+            PipelineDiagnosticsPlugin,
             FirebaseSyncPlugin,
             LivestreamCorePlugin,
             IVRPlugin,
