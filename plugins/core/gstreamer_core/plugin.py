@@ -218,7 +218,7 @@ class GStreamerCorePlugin(BasePlugin):
             # its timestamps ran into the future and the shmsink starved.
             cam_src = (
                 f"videotestsrc is-live=true name=cam{idx}_in" if settings.debug else
-                f"rtspsrc name=cam{idx}_rtsp location={url} latency=800 ! "
+                f"rtspsrc name=cam{idx}_rtsp location={url} latency=800 protocols=tcp ! "
                 f"rtph264depay ! h264parse name=cam{idx}_in ! {decoder}"
             )
             scaled = (

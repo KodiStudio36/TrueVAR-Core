@@ -117,6 +117,7 @@ class SourceState:
     verdict_level: str = "info"
     bad_stage: str | None = None
     bad_since: float | None = None
+    rtp_last: dict = field(default_factory=dict)        # jitterbuffer counters at the last summary
     candidate: str | None = "init"   # verdict seen on the previous tick (hysteresis)
     candidate_ticks: int = 0
     has_probes: bool = True
@@ -348,6 +349,56 @@ class PipelineMonitor:
             return f"'{STAGE_LABELS[stage]}' still flows ({snap.get('fps', 0)} fps) "
         return ""
 
+    # ------------------------------------------------------------------ RTP packet loss
+
+    _RTP_FIELDS = ("num-pushed", "num-lost", "num-late", "num-duplicates")
+
+    def _rtp_counters(self, idx: int) -> dict | None:
+        """Sum of the stats of every rtpjitterbuffer inside camN_rtsp. These count
+        packets lost anywhere between camera and PC (switch, cable, camera NIC),
+        which the kernel's UDP counters (nstat) cannot see."""
+        if self.pipeline is None:
+            return None
+        rtsp = self.pipeline.get_by_name(f"cam{idx}_rtsp")
+        if rtsp is None or not hasattr(rtsp, "iterate_recurse"):
+            return None
+        totals, found = dict.fromkeys(self._RTP_FIELDS, 0), False
+        it = rtsp.iterate_recurse()
+        while True:
+            res, el = it.next()
+            if res == Gst.IteratorResult.RESYNC:
+                it.resync(); totals, found = dict.fromkeys(self._RTP_FIELDS, 0), False
+                continue
+            if res != Gst.IteratorResult.OK:
+                break
+            factory = el.get_factory()
+            if not factory or factory.get_name() != "rtpjitterbuffer":
+                continue
+            stats = el.get_property("stats")
+            if stats is None:
+                continue
+            found = True
+            for f in self._RTP_FIELDS:
+                try:
+                    totals[f] += int(stats.get_value(f) or 0)
+                except Exception:
+                    pass
+        return totals if found else None
+
+    def _rtp_part(self, st: SourceState) -> str:
+        now = self._rtp_counters(st.idx)
+        if now is None:
+            return ""
+        prev, st.rtp_last = st.rtp_last or dict.fromkeys(now, 0), now
+        d = {k: max(0, now[k] - prev.get(k, 0)) for k in now}
+        if d["num-lost"] or d["num-late"]:
+            with self._events_lock:
+                self._events.append(("warning", f"{st.label}: network lost {d['num-lost']} RTP packets"
+                                                f" (+{d['num-late']} too late) in the last window — "
+                                                f"expect broken/smeared frames"))
+        return (f" | rtp {d['num-pushed']} pkts, lost {d['num-lost']}, late {d['num-late']}"
+                f" (total lost {now['num-lost']})")
+
     # ------------------------------------------------------------------ reporting
 
     def summary_lines(self) -> list[str]:
@@ -370,6 +421,7 @@ class PipelineMonitor:
                 f"{st.label}: " + " → ".join(parts) + " fps"
                 + (f" | shm q {st.queue_level}/{st.queue_max}ms overruns {st.shm_overruns} clients {st.shm_clients}"
                    if st.queue_level is not None else "")
+                + self._rtp_part(st)
             )
             st.window_gap.clear()
             st.window_hiccups.clear()
