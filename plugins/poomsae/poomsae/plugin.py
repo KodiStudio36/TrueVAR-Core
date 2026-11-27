@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 import secrets
+import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -33,10 +34,15 @@ def _load_local_module(module_name: str, file_name: str):
     import importlib.util
     spec = importlib.util.spec_from_file_location(module_name, Path(__file__).with_name(file_name))
     module = importlib.util.module_from_spec(spec)
+    # Registered so the other helpers can `import poomsae_control_scoring`.
+    sys.modules[module_name] = module
     spec.loader.exec_module(module)
     return module
 
 
+# scoring.py is the ONE place points are calculated — loaded first, the other
+# helpers (results / standings / live) and the /state "scores" block use it.
+poomsae_scoring = _load_local_module("poomsae_control_scoring", "scoring.py")
 poomsae_results = _load_local_module("poomsae_control_results", "results.py")
 poomsae_standings = _load_local_module("poomsae_control_standings", "standings.py")
 poomsae_live = _load_local_module("poomsae_control_live", "live.py")
@@ -448,6 +454,12 @@ class JudgeScorePayload(BaseModel):
     judge: int = Field(ge=1, le=99)
     accuracy: float = Field(ge=0, le=4)
     presentation: float = Field(ge=0, le=6)
+
+
+class DisqualifyPayload(BaseModel):
+    corner: str = Field("blue", pattern="^(blue|red)$")
+    # False = take the disqualification back.
+    disqualified: bool = True
 
 
 class AutoTogglePayload(BaseModel):
@@ -945,6 +957,8 @@ class PoomsaeControlPlugin(BasePlugin):
             "country": corner_country(corner),
             "judges": {},
             "deduction": 0,
+            # Set by the Disqualify button (see _set_disqualified).
+            "disqualified": False,
             "finalScore": None,
             # Sum of every Penalty tap this round (see _add_penalty).
             "roundPenalty": None,
@@ -1321,7 +1335,7 @@ class PoomsaeControlPlugin(BasePlugin):
         settings = self._settings()
         result = poomsae_results.build_match_result(
             state, registry, settings.scoring_method, poomsae_count(live),
-            match_poomsae(live), state.get("resultsRoundKey"),
+            match_poomsae(live), state.get("resultsRoundKey"), scoring_mode(live),
         )
         payload = {
             "match_id": match_id,
@@ -1422,7 +1436,7 @@ class PoomsaeControlPlugin(BasePlugin):
             ident = self._identity(live.get(color))
             if ident is None:
                 continue
-            score = poomsae_standings.match_score(corners_state.get(color) or {}, keys, registry, method) or {}
+            score = poomsae_standings.match_score(corners_state.get(color) or {}, keys, registry, method, scoring_mode(live)) or {}
             corners[color] = {**ident, **score}
         record = {
             "matchId": live.get("id"),
@@ -1721,6 +1735,36 @@ class PoomsaeControlPlugin(BasePlugin):
             await self._write_judge_category_results(live, round_key)
         return {"roundKey": round_key, "accuracy": acc, "presentation": pres, "total": round(acc + pres, 2)}
 
+    # ── Disqualification ────────────────────────────────────────────────
+    # The athlete's score becomes 0 and, side by side, the opponent wins
+    # (scoring.py). The judges' marks stay untouched, so reinstating gives
+    # the real score back. Allowed at any stage of the live match. After
+    # Final Results the saved result and the category ranking are rebuilt
+    # right away, like an operator score correction.
+    async def _set_disqualified(self, corner: str, disqualified: bool) -> dict:
+        live = self.live_match
+        if live is None:
+            raise HTTPException(status_code=400, detail="No live match.")
+        if corner == "red" and live.get("red") is None:
+            raise HTTPException(status_code=400, detail="This is a solo performance — there is no red athlete.")
+        await self.db.update_live_state(self.tournament_id, self.court_id, {
+            f"corners/{corner}/disqualified": True if disqualified else False,
+            f"corners/{corner}/disqualifiedAt": datetime.now(timezone.utc).isoformat() if disqualified else None,
+        })
+        self._track("dq" if disqualified else "dc", corner)
+        if self.stage in ("final_results", "category_results"):
+            await self._safe_record_category_result(live)
+            await self._publish_result()
+            if self.stage == "category_results":
+                await self._write_category_results(live)
+            else:
+                await self._write_judge_category_results(live)
+        else:
+            state = await self.db.fetch_live_state(self.tournament_id, self.court_id) or {}
+            if state.get("judgeCategoryResults") is not None:
+                await self._write_judge_category_results(live, self._round_key_for_events())
+        return {"corner": corner, "disqualified": disqualified}
+
     # ── Penalty ─────────────────────────────────────────────────────────
     # Adds settings.penalty_deduction to one corner's penalty total for the
     # poomsae being performed, or the one whose Results are on screen.
@@ -1741,6 +1785,30 @@ class PoomsaeControlPlugin(BasePlugin):
         })
         self._track("pn", corner, total)
         return total
+
+    # ── Points for the panel and the external screen ────────────────────
+    def _scores_view(self, live_state: Optional[dict], registry: dict) -> Optional[dict]:
+        """Every number the panel and the screen show for the LIVE match,
+        calculated by scoring.py — the pages only display it. Same function
+        results.py, standings.py and live.py use, so they cannot disagree."""
+        match = self.live_match
+        if match is None or not live_state or live_state.get("matchId") != match.get("id"):
+            return None
+        method = self._settings().scoring_method
+        mode = scoring_mode(match)
+        round_keys = round_keys_for(match)
+        current = live_state.get("resultsRoundKey") or results_round_key_for(self.stage, match)
+        corners = live_state.get("corners") or {}
+        view: dict = {}
+        for color in ("blue", "red"):
+            corner = corners.get(color)
+            if not isinstance(corner, dict) or (color == "red" and match.get("red") is None):
+                continue
+            view[color] = poomsae_scoring.corner_result(corner, registry, round_keys, method, mode, current)
+        winner, win_type = poomsae_scoring.decide_winner(view.get("blue"), view.get("red"))
+        view["winner"] = winner
+        view["winType"] = win_type
+        return view
 
     # ── HTTP API + static panel ─────────────────────────────────────────
     def get_router(self) -> APIRouter:
@@ -1806,6 +1874,8 @@ class PoomsaeControlPlugin(BasePlugin):
                 # match_data in RTDB — what the external screen shows
                 # (includes autoAdvance and, in Category Results, categoryResults).
                 "live": live,
+                # Points of the live match (scoring.py) — the pages do no maths.
+                "scores": self._scores_view(live, judges_registry or {}),
                 "categoryMatches": self._category_matches(),
                 "judgesRegistry": judges_registry,
                 "settings": self._settings().model_dump(exclude={"video_sync_secret"}),
@@ -1970,6 +2040,13 @@ class PoomsaeControlPlugin(BasePlugin):
             _require_live()
             total = await self._add_penalty(payload.corner)
             return {"ok": True, "corner": payload.corner, "roundPenalty": total}
+
+        @router.post("/disqualify")
+        async def disqualify(payload: DisqualifyPayload):
+            _require_live()
+            async with self._stage_lock:
+                result = await self._set_disqualified(payload.corner, payload.disqualified)
+            return {"ok": True, **result}
 
         @router.post("/penalty/clear")
         async def clear_penalty(payload: PenaltyPayload):

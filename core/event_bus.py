@@ -23,11 +23,16 @@ class EventBus:
         scoreboard.RED_SCORE
         scoreboard.IVR
 
-        ivr.recording_started       — {"fight_num": "..."}
-        ivr.recording_stopped
+        ivr.recording_started       — {"fight_num", "match_id", "segment"}
+        ivr.recording_stopped       — {"fight_num", "match_id", "segment"}
+        ivr.recording_suspended     — {"was_recording": bool} (ack of a pipeline-stop suspend)
+        ivr.state                   — IVR status, sent on every (re)connect
         ivr.replay_opened
         ivr.replay_closed
         ivr.error                   — {"message": "..."}
+
+        gstreamer.pipeline.stopping — awaited before the core pipeline goes down
+        gstreamer.pipeline.started  — core pipeline PLAYING again
 
         ivr.cmd.start_recording     — commands directed at the IVR app
         ivr.cmd.stop_recording

@@ -21,8 +21,10 @@ class IVRSettings(BaseModel):
     app_path:       str = Field(default="/home/truevar/Documents/TrueVAR-IVR/main.py", description="Path to external application")
     window_class:   str = Field(default="truevar_ivr",                      description="WM_CLASS name for the window manager")
     workspace:      int = Field(default=3,                              description="Target i3 workspace")
-    fps:            int  = Field(default=30,                   description="Recording frame rate")
-    res_height:     int  = Field(default=720,                  description="Vertical resolution (width derived at 16:9)")
+    # Recording resolution / frame rate are NOT settings: they must equal the
+    # format the GStreamer core writes to shm (gstreamer_core.plugin.SHM_*), or
+    # the recorder misreads the raw frames. The IVR plugin pushes those values.
+    stop_delay_s:   float = Field(default=10.0,                description="Stop recording this many seconds after the winner is decided")
     camera_count:   int  = Field(default=1,                    description="Number of recording cameras")
     delete_records: bool = Field(default=True,                 description="Wipe old recordings on new session start")
     auto_record:    bool = Field(default=False,                description="Start recording automatically on launch")

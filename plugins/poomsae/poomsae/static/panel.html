@@ -915,6 +915,50 @@
             font-size: 0.72rem;
             padding: 0 0 0 0.3rem;
         }
+
+        /* Judge's highest / lowest value of that column — not counted. */
+        .score-trimmed-cell {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        /* Disqualification */
+        .penalty-btn.dq-btn {
+            background: #991b1b;
+        }
+
+        .penalty-btn.dq-btn.dq-blue {
+            border-left: 6px solid var(--blue-2);
+        }
+
+        .penalty-btn.dq-btn.dq-red {
+            border-left: 6px solid var(--orange-2);
+        }
+
+        .penalty-btn.dq-btn.on {
+            background: transparent;
+            border: 2px solid #ef4444;
+            color: #fca5a5;
+        }
+
+        .dq-badge {
+            align-self: flex-start;
+            margin-top: 0.5rem;
+            padding: 0.15rem 0.6rem;
+            border-radius: 6px;
+            background: #7f1d1d;
+            color: #fecaca;
+            border: 1px solid #ef4444;
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+
+        .cat-badge--dsq {
+            background: #7f1d1d;
+            color: #fecaca;
+        }
     </style>
 </head>
 
@@ -966,7 +1010,8 @@
                 <span>Scoring method</span>
                 <select id="settingsScoringMethod">
                     <option value="sum_all">Count all judges</option>
-                    <option value="trim_high_low">Remove highest &amp; lowest</option>
+                    <option value="trim_high_low">Remove highest &amp; lowest (accuracy and presentation separately)
+                    </option>
                 </select>
             </label>
             <div class="settings-row">
@@ -1052,6 +1097,7 @@
         <button class="restart-btn" id="restartBtn" onclick="restartRound()"
             title="Solo performance only: clears every judge's score for the CURRENT poomsae — does not touch the timer — and applies the automatic restart deduction">Restart</button>
         <div class="penalty-group" id="penaltyGroup"></div>
+        <div class="penalty-group" id="dqGroup"></div>
         <div class="timer" id="timerEl" onclick="toggleTimer()">
             <div>
                 <div class="timer-label" id="timerLabel">Preparation</div>
@@ -1339,6 +1385,19 @@
             }
         }
 
+        async function setDisqualified(corner, disqualified) {
+            const live = (state && state.live) || {};
+            const name = ((live.corners || {})[corner] || {}).name || (corner === "blue" ? "Blue" : "Red");
+            const solo = !!(state && state.match && state.match.red == null);
+            if (disqualified && !confirm(`Disqualify ${name}?\n\nTheir score becomes 0${solo ? " and they are ranked after everyone else" : " and the opponent wins the match"}. The judges' marks are kept, and you can reinstate them.`)) return;
+            try {
+                await api("/disqualify", "POST", { corner, disqualified });
+                await loadState();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
         async function clearPenalty(corner) {
             if (!confirm("Remove this athlete's penalties for this poomsae?")) return;
             try {
@@ -1428,7 +1487,7 @@
                     : ` · <span class="text-muted">no poomsae drawn</span>`);
 
             renderLiveLine(state.liveMatch, isLive);
-            renderActions(isLive, m.red == null, state.stage, state.settings || {}, state.selectedCorners || {});
+            renderActions(isLive, m.red == null, state.stage, state.settings || {}, state.selectedCorners || {}, isLive ? (live.corners || {}) : {});
 
             document.getElementById("prevMatchBtn").disabled = state.index <= 0;
             document.getElementById("nextMatchBtn").disabled = state.index + 1 >= state.total;
@@ -1439,9 +1498,8 @@
             if (isLive && state.stage === "category_results") {
                 document.getElementById("cornersEl").innerHTML = categoryPreviewHtml(live.categoryResults);
             } else {
-                renderCorners(isLive ? (live.corners || {}) : (state.selectedCorners || {}), m.red == null, state.judgesRegistry || {},
-                    isLive ? (live.resultsRoundKey || STAGE_TO_ROUND_KEY[state.stage] || null) : null,
-                    (state.settings && state.settings.scoring_method) || "sum_all", isLive);
+                renderCorners(isLive ? (live.corners || {}) : (state.selectedCorners || {}), m.red == null,
+                    isLive ? (live.resultsRoundKey || STAGE_TO_ROUND_KEY[state.stage] || null) : null, isLive);
             }
             renderQueuePanel(state.categoryMatches || []);
             renderLifecycle({
@@ -1485,26 +1543,28 @@
             }
         }
 
-        function renderCorners(corners, isSolo, judgesRegistry, roundKey, scoringMethod, isLive) {
+        function renderCorners(corners, isSolo, roundKey, isLive) {
             const el = document.getElementById("cornersEl");
-            el.innerHTML = renderCorner(corners.blue, "blue", judgesRegistry, roundKey, scoringMethod, isLive)
-                + (isSolo ? "" : renderCorner(corners.red, "red", judgesRegistry, roundKey, scoringMethod, isLive));
+            el.innerHTML = renderCorner(corners.blue, "blue", roundKey, isLive)
+                + (isSolo ? "" : renderCorner(corners.red, "red", roundKey, isLive));
         }
 
-        function renderCorner(corner, side, judgesRegistry, roundKey, scoringMethod, isLive) {
+        function renderCorner(corner, side, roundKey, isLive) {
             if (!corner) return "";
             const scoresHtml = !isLive
                 ? `<div class="not-live-note">Not on the floor yet.<br>Click <strong>Preparation</strong> to put this match on the external screen.</div>`
                 : (roundKey == null)
                     ? `<div class="score-waiting">No active poomsae</div>`
-                    : buildJudgesTable(corner.judges, judgesRegistry, roundKey, scoringMethod, corner.roundDeduction, corner.roundPenalty, side);
-            const currentTotal = corner.finalScore != null ? `Final Score: ${corner.finalScore}` : "";
+                    : buildJudgesTable(side, roundKey);
+            const dq = corner.disqualified === true;
+            const currentTotal = !dq && corner.finalScore != null ? `Final Score: ${corner.finalScore}` : "";
 
             return `
             <div class="corner corner-${side}">
                 <div class="corner-identity">
                     <div class="corner-name">${escapeHtml(corner.name || "—")}</div>
                     <div class="corner-club">${escapeHtml(corner.clubName || "")}</div>
+                    ${dq ? `<div class="dq-badge">Disqualified</div>` : ""}
                     ${currentTotal ? `<div class="corner-current-score">${escapeHtml(currentTotal)}</div>` : ""}
                 </div>
                 <div class="corner-scores">${scoresHtml}</div>
@@ -1512,74 +1572,55 @@
         `;
         }
 
-        // Rows = registered judge slots ∪ judges with data. Missing judges
-        // count as full marks; trim_high_low drops highest + lowest Total
-        // (3+ judges). Same maths as screen.html and standings.py.
-        function buildJudgesTable(judgesMap, judgesRegistry, roundKey, scoringMethod, roundDeduction, roundPenalty, side) {
-            const registryNumbers = Object.keys(judgesRegistry || {}).map(Number).filter(isValidJudgeNumber);
-            const scoredNumbers = Object.keys(judgesMap || {}).map(Number).filter(isValidJudgeNumber);
-            const allNumbers = [...new Set([...registryNumbers, ...scoredNumbers])].sort((a, b) => a - b);
+        // Every number here is calculated by the server (scoring.py) and
+        // arrives in state.scores — the same figures the external screen, the
+        // saved result, the category ranking and the livestream use. This
+        // page only displays them. With "Remove highest & lowest" the
+        // highest and lowest ACCURACY and — separately — the highest and
+        // lowest PRESENTATION are left out (struck through).
+        function roundScoreFor(side, roundKey) {
+            const sc = state && state.scores && state.scores[side];
+            return sc && roundKey ? (sc.rounds || []).find(r => r.roundKey === roundKey) || null : null;
+        }
 
-            const entries = allNumbers.map(number => {
-                const roundData = judgesMap && judgesMap[number] && judgesMap[number][roundKey];
-                const has = !!roundData;
-                return {
-                    number,
-                    edited: !!(roundData && roundData.editedByOperator),
-                    status: roundData && roundData.submitted === true ? "submitted" : roundData ? "scoring" : "waiting",
-                    accuracy: has ? roundData.accuracy : 4.0,
-                    presentation: has ? roundData.presentation : 6.0,
-                    total: has ? roundData.total : 10.0,
-                    isDefault: !has,
-                };
-            });
-
-            let included = entries;
-            let trimmedNumbers = new Set();
-            if (scoringMethod === "trim_high_low" && entries.length >= 3) {
-                const sorted = [...entries].sort((a, b) => a.total - b.total);
-                trimmedNumbers = new Set([sorted[0].number, sorted[sorted.length - 1].number]);
-                included = entries.filter(e => !trimmedNumbers.has(e.number));
-            }
+        function buildJudgesTable(side, roundKey) {
+            const sc = state.scores && state.scores[side];
+            const r = roundScoreFor(side, roundKey);
+            if (!sc || !r) return `<div class="score-waiting">Waiting for scores…</div>`;
 
             const statusBadge = {
                 submitted: `<span class="judge-status judge-status--submitted" title="Submitted">✓ Submitted</span>`,
                 scoring: `<span class="judge-status judge-status--scoring" title="Scores in, not submitted yet">Scoring…</span>`,
                 waiting: `<span class="judge-status judge-status--waiting" title="Nothing from this judge yet">Waiting</span>`,
             };
-            const submittedCount = entries.filter(e => e.status === "submitted").length;
-            shownJudgeValues[side] = Object.fromEntries(entries.map(e => [e.number, { accuracy: e.accuracy, presentation: e.presentation }]));
-            const editCell = (e, field) =>
-                `<td class="num score-edit" title="Click to change Judge ${e.number}'s ${field}" onclick="openScoreEditor('${side}', ${e.number}, '${field}')">${formatScore(e[field])}</td>`;
-            const rows = entries.map(e => {
-                const classes = [e.isDefault ? "score-default-row" : "", trimmedNumbers.has(e.number) ? "score-trimmed-row" : "", e.status === "submitted" ? "score-submitted-row" : ""].filter(Boolean).join(" ");
+            const statusOf = e => e.submitted ? "submitted" : e.started ? "scoring" : "waiting";
+            shownJudgeValues[side] = Object.fromEntries(r.judges.map(e => [e.judge, { accuracy: e.accuracy, presentation: e.presentation }]));
+            const editCell = (e, field, trimmed) =>
+                `<td class="num score-edit${trimmed ? " score-trimmed-cell" : ""}" title="Click to change Judge ${e.judge}'s ${field}${trimmed ? " (not counted: highest or lowest)" : ""}" onclick="openScoreEditor('${side}', ${e.judge}, '${field}')">${formatScore(e[field])}</td>`;
+            const rows = r.judges.map(e => {
+                const classes = [e.default ? "score-default-row" : "", e.submitted ? "score-submitted-row" : ""].filter(Boolean).join(" ");
                 return `
             <tr class="${classes}">
-                <td>Judge ${e.number} ${statusBadge[e.status]}${e.edited ? ` <span class="judge-status judge-status--edited" title="Changed by the operator">Edited</span>` : ""}</td>
-                ${editCell(e, "accuracy")}
-                ${editCell(e, "presentation")}
-                <td class="num">${formatScore(e.total)}</td>
+                <td>Judge ${e.judge} ${statusBadge[statusOf(e)]}${e.edited ? ` <span class="judge-status judge-status--edited" title="Changed by the operator">Edited</span>` : ""}</td>
+                ${editCell(e, "accuracy", e.trimAccuracy)}
+                ${editCell(e, "presentation", e.trimPresentation)}
+                <td class="num${e.trimmed ? " score-trimmed-cell" : ""}">${formatScore(e.total)}</td>
             </tr>
         `;
             }).join("");
 
-            const count = included.length || 1;
-            const sum = (key) => included.reduce((s, e) => s + (e[key] ?? 0), 0);
-            const totalAcc = sum("accuracy"), totalPres = sum("presentation"), totalTot = sum("total");
-            const avgAcc = totalAcc / count, avgPres = totalPres / count, avgTot = totalTot / count;
-
-            const restart = roundDeduction ? Number(roundDeduction) : 0;
-            const penalty = roundPenalty ? Number(roundPenalty) : 0;
-            const finalTotal = avgTot + restart + penalty;
+            const restart = r.restart ? Number(r.restart) : 0;
+            const penalty = r.penalty ? Number(r.penalty) : 0;
+            const dq = sc.disqualified === true;
             const fmt = v => `${v > 0 ? "+" : ""}${v.toFixed(1)}`;
             const parts = [];
             if (restart) parts.push(`<span style="color:var(--accent);" title="Restart deduction">R ${fmt(restart)}</span>`);
             if (penalty) parts.push(`<span style="color:#f59e0b;" title="Penalties">P ${fmt(penalty)}</span><button class="penalty-clear" title="Remove penalties" onclick="clearPenalty('${side}')">✕</button>`);
-            const deductionCell = parts.length
-                ? parts.join(" ")
-                : `<span class="text-muted" style="font-size:0.72rem;">No deductions</span>`;
+            const deductionCell = (dq ? `<span style="color:#fca5a5;font-weight:700;" title="The judges gave ${r.points.toFixed(3)}">Disqualified</span> ` : "")
+                + (parts.length ? parts.join(" ") : (dq ? "" : `<span class="text-muted" style="font-size:0.72rem;">No deductions</span>`));
+            const finalCell = dq ? `<span style="color:#fca5a5;">DSQ</span>` : r.points.toFixed(3);
 
-            const allIn = entries.length > 0 && submittedCount === entries.length;
+            const allIn = r.allSubmitted;
             // One Reset button per match (on the blue panel): during a poomsae
             // or its Results.
             const canReset = !!(STAGE_TO_ROUND_KEY[state.stage] || STAGE_RESULTS_ROUND_KEY[state.stage]);
@@ -1588,7 +1629,7 @@
                 onclick="resetFullPerformance()">&#x21ba; Reset performance</button>`;
             return `
             <div class="scores-head">
-                <div class="judges-submitted ${allIn ? "judges-submitted--all" : ""}">${submittedCount} / ${entries.length} judges submitted</div>
+                <div class="judges-submitted ${allIn ? "judges-submitted--all" : ""}">${r.submittedCount} / ${r.judgeCount} judges submitted</div>
                 ${resetBtn}
             </div>
             <table class="score-table">
@@ -1596,13 +1637,13 @@
                 <tbody>
                     ${rows}
                     <tr class="score-summary-row">
-                        <td>Total</td><td class="num">${totalAcc.toFixed(2)}</td><td class="num">${totalPres.toFixed(2)}</td><td class="num">${totalTot.toFixed(1)}</td>
+                        <td>Total</td><td class="num">${r.sumAccuracy.toFixed(2)}</td><td class="num">${r.sumPresentation.toFixed(2)}</td><td class="num">${r.sumTotal.toFixed(1)}</td>
                     </tr>
                     <tr class="score-summary-row">
-                        <td>Avg. Points</td><td class="num">${avgAcc.toFixed(3)}</td><td class="num">${avgPres.toFixed(3)}</td><td class="num">${avgTot.toFixed(3)}</td>
+                        <td>Avg. Points</td><td class="num">${r.avgAccuracy.toFixed(3)}</td><td class="num">${r.avgPresentation.toFixed(3)}</td><td class="num">${r.average.toFixed(3)}</td>
                     </tr>
                     <tr class="score-final-row">
-                        <td>Final Score</td><td class="num">${deductionCell}</td><td></td><td class="num">${finalTotal.toFixed(3)}</td>
+                        <td>Final Score</td><td class="num">${deductionCell}</td><td></td><td class="num">${finalCell}</td>
                     </tr>
                 </tbody>
             </table>
@@ -1626,9 +1667,9 @@
                     ${matches.map(m => `<tr class="${m.isCurrent ? "current" : ""} ${m.played ? "" : "pending"}">
                         <td>${escapeHtml(m.displayNumberLabel || "")}</td>
                         <td>${m.winner === "blue" ? "<strong>" : ""}${escapeHtml(m.blue?.name || "—")}${m.winner === "blue" ? "</strong> ✓" : ""}</td>
-                        <td class="num">${fmt(m.blue?.score)}</td>
+                        <td class="num">${m.blue?.disqualified ? "DSQ" : fmt(m.blue?.score)}</td>
                         <td>${m.winner === "red" ? "<strong>" : ""}${escapeHtml(m.red?.name || "—")}${m.winner === "red" ? "</strong> ✓" : ""}</td>
-                        <td class="num">${fmt(m.red?.score)}</td>
+                        <td class="num">${m.red?.disqualified ? "DSQ" : fmt(m.red?.score)}</td>
                     </tr>`).join("")}</tbody></table></div>`;
             }
 
@@ -1636,13 +1677,14 @@
             const rows = asArray(cr.rows);
             return `<div class="cat-preview">${head}<table class="score-table"><thead><tr><th>#</th><th>Athlete</th>${rr ? `<th class="num">W–L</th>` : ""}<th class="num">${rr ? "Points" : "Score"}</th></tr></thead><tbody>
                 ${rows.map(r => {
-                const badge = r.medal ? `<span class="cat-badge cat-badge--m${r.medal}">${["", "Gold", "Silver", "Bronze"][r.medal]}</span>`
-                    : r.qualified ? `<span class="cat-badge cat-badge--q">Q</span>` : "";
-                return `<tr class="${r.isCurrent ? "current" : ""} ${r.score == null ? "pending" : ""}">
+                const badge = r.disqualified ? `<span class="cat-badge cat-badge--dsq">DSQ</span>`
+                    : r.medal ? `<span class="cat-badge cat-badge--m${r.medal}">${["", "Gold", "Silver", "Bronze"][r.medal]}</span>`
+                        : r.qualified ? `<span class="cat-badge cat-badge--q">Q</span>` : "";
+                return `<tr class="${r.isCurrent ? "current" : ""} ${r.score == null && !r.disqualified ? "pending" : ""}">
                         <td>${r.rank ?? ""}</td>
                         <td>${escapeHtml(r.name || "—")}${badge}</td>
                         ${rr ? `<td class="num">${r.wins ?? 0}–${r.losses ?? 0}</td>` : ""}
-                        <td class="num">${fmt(r.score)}</td>
+                        <td class="num">${r.disqualified ? "DSQ" : fmt(r.score)}</td>
                     </tr>`;
             }).join("")}</tbody></table></div>`;
         }
@@ -1757,7 +1799,7 @@
 
         // Restart: solo, while a poomsae is performed. Penalty: during a
         // poomsae or its Results.
-        function renderActions(isLive, isSolo, stage, settings, corners) {
+        function renderActions(isLive, isSolo, stage, settings, corners, liveCorners) {
             const inRound = isLive && !!STAGE_TO_ROUND_KEY[stage];
             const penaltyOk = inRound || (isLive && !!STAGE_RESULTS_ROUND_KEY[stage]);
             const restartBtn = document.getElementById("restartBtn");
@@ -1777,6 +1819,14 @@
                 ? `<button class="penalty-btn" ${disabled}${title} onclick="givePenalty('blue')">Penalty (${amount})</button>`
                 : `<button class="penalty-btn corner-blue-btn" ${disabled}${title} onclick="givePenalty('blue')">Penalty (${amount})<small>${name("blue")}</small></button>
                    <button class="penalty-btn corner-red-btn" ${disabled}${title} onclick="givePenalty('red')">Penalty (${amount})<small>${name("red")}</small></button>`;
+
+            // Disqualify / Reinstate: any time the match is on the floor.
+            const dqDisabled = isLive ? "" : ` disabled title="Available while the match is live"`;
+            const dqButton = c => {
+                const on = ((liveCorners || {})[c] || {}).disqualified === true;
+                return `<button class="penalty-btn dq-btn ${isSolo ? "" : `dq-${c}`} ${on ? "on" : ""}"${dqDisabled} onclick="setDisqualified('${c}', ${!on})">${on ? "Reinstate" : "Disqualify"}${isSolo ? "" : `<small>${name(c)}</small>`}</button>`;
+            };
+            document.getElementById("dqGroup").innerHTML = isSolo ? dqButton("blue") : dqButton("blue") + dqButton("red");
         }
 
         // ── Timer ────────────────────────────────────────────────────────

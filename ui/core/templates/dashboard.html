@@ -491,6 +491,14 @@
             list.innerHTML = controls.map(c => {
                 const busy = controlBusy.has(c.id);
                 const disabled = c.disabled || busy;
+                if (c.type === "link") {
+                    return disabled
+                        ? `<span class="flex items-center gap-2 bg-gray-700/50 rounded-lg px-3 py-2 text-sm opacity-50 cursor-not-allowed">
+                               <span class="font-medium">${c.label}</span></span>`
+                        : `<a href="${c.url}" target="_blank" rel="noopener" title="${c.plugin}"
+                               class="flex items-center gap-2 bg-gray-700/50 hover:bg-gray-700 rounded-lg px-3 py-2 text-sm">
+                               <span class="font-medium">${c.label}</span><span class="text-xs text-blue-400">open ↗</span></a>`;
+                }
                 const on = !!c.state;
                 const track = on ? "bg-green-500" : "bg-gray-600";
                 const knob = on ? "translate-x-5" : "translate-x-0";
@@ -521,8 +529,8 @@
                 if (!res.ok) {
                     log(`Failed to toggle ${label}: ${body.detail || res.status}`);
                 } else {
-                    const state = "active" in body && id === "external_screen" ? body.active
-                        : "mirror" in body ? body.mirror
+                    const state = id.endsWith("_mirror") ? body.mirror
+                        : "active" in body ? body.active
                             : "state" in body ? body.state : null;
                     log(`${label}${state === null ? " toggled" : state ? " ON" : " OFF"}.`);
                 }

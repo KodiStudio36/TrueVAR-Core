@@ -8,6 +8,7 @@ from plugins.core.ivr.plugin import IVRPlugin
 from plugins.bout_cntrl.livestream_extension.plugin import BoutCntrlLivestreamExtension
 from plugins.core.livestream.plugin import LivestreamCorePlugin
 from plugins.core.shuttle_xpress.plugin import ShuttleXpressPlugin
+from plugins.poomsae.external_screen.plugin import PoomsaeExternalScreenPlugin
 from plugins.poomsae.livestream_extension.plugin import PoomsaeLivestreamExtension
 from plugins.poomsae.poomsae.plugin import PoomsaeControlPlugin
 from plugins.tkstrike.listener.gen2.plugin import TkStrikeListenerGen2Plugin
@@ -41,6 +42,7 @@ class PluginRegistry:
             TkStrikeServerGen3Plugin,
             TkStrikeGen2Plugin,
             TkStrikeLivestreamExtension,
+            PoomsaeExternalScreenPlugin,
             PoomsaeControlPlugin,
             PoomsaeLivestreamExtension,
             BoutCntrlPlugin,

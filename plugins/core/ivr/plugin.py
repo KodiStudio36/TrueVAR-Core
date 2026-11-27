@@ -10,11 +10,27 @@ from pydantic import BaseModel
 from core.log_hub import log_hub
 from core.use_cases.application_bootstrapper import ApplicationBootstrapper
 from plugins.base_plugin import BasePlugin
-from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin
+from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin, SHM_HEIGHT, SHM_FPS
 from plugins.core.ivr.settings import IVRSettings
 
 
 class IVRPlugin(BasePlugin):
+    """Bridge to the IVR (instant video replay) app over WebSocket.
+
+    Recording lifecycle, driven by the scoreboard:
+        scoreboard.NEW_FIGHT   match loaded      -> start_recording {match_id}
+        scoreboard.START_FIGHT fallback only: start if the IVR is not recording
+                               a match that is still on (core/IVR restarted
+                               mid-match, NEW_FIGHT missed)
+        scoreboard.WIN         winner decided    -> stop_recording {delay_s, match_id}
+                               (the IVR app runs the delay itself)
+
+    Recording protection: before the GStreamer core stops its pipeline (rebuild,
+    settings change, restart) it awaits gstreamer.pipeline.stopping; we tell the
+    IVR to finalize its files (suspend_recording) and wait for its ack. On
+    gstreamer.pipeline.started the recording resumes as a new segment.
+    """
+
     _RECONNECT_DELAY_MIN = 1.0
     _RECONNECT_DELAY_MAX = 30.0
 
@@ -22,6 +38,9 @@ class IVRPlugin(BasePlugin):
     # needs CameraSettings.is_scoreboard to know whether a scoreboard
     # capture source (camera0 shm socket) exists to record from.
     _GSTREAMER_SETTINGS_NAME = "GStreamer Core Plugin"
+
+    _SUSPEND_ACK_TIMEOUT = 6.0   # IVR waits up to 3 s for EOS per stop
+    _TERMINATE_TIMEOUT = 8.0     # IVR finalizes its recording on SIGTERM
 
     _CMD_EVENTS = {
         "ivr.cmd.start_recording":  "start_recording",
@@ -62,6 +81,13 @@ class IVRPlugin(BasePlugin):
 
         self.is_recording = False
         self.fight_num: Optional[str] = None
+        # Scoreboard match currently loaded, and the last one that got a winner.
+        self._match_id: Optional[str] = None
+        self._ended_match_id: Optional[str] = None
+        # Pipeline-rebuild protection (see _on_pipeline_stopping)
+        self._suspended_for_rebuild = False
+        self._suspend_ack: Optional[asyncio.Event] = None
+        self._stopping = False
         # Last known external-screen mirror state, re-sent on every (re)connect
         # so the IVR "Mirroring the screen" badge is right after an IVR restart.
         self._is_mirror = False
@@ -82,6 +108,7 @@ class IVRPlugin(BasePlugin):
     # ------------------------------------------------------------------ lifecycle
 
     async def start(self) -> None:
+        self._stopping = False
         self._settings = self.core_context["settings_manager"].get_settings(self.name)
         self.core_context["ivr_plugin"] = self
 
@@ -101,9 +128,14 @@ class IVRPlugin(BasePlugin):
                 # Wire up every ivr.cmd.* event to the matching WS send
                 *[(bus_ev, self._make_cmd_handler(ws_ev))
                   for bus_ev, ws_ev in self._CMD_EVENTS.items()],
-                # Cross-plugin: auto-start recording when a fight begins
+                # Recording lifecycle: match load -> start, winner (+delay) -> stop
+                ("scoreboard.NEW_FIGHT", self._on_new_fight),
                 ("scoreboard.START_FIGHT", self._on_fight_started),
+                ("scoreboard.WIN", self._on_win),
                 ("scoreboard.IVR", self._on_ivr_requested),
+                # Finalize the recording before the core pipeline (shm) goes down
+                ("gstreamer.pipeline.stopping", self._on_pipeline_stopping),
+                ("gstreamer.pipeline.started", self._on_pipeline_started),
                 # Scoreboard source toggled in camera settings — re-push so the
                 # IVR app starts/stops recording the scoreboard accordingly.
                 ("gstreamer.settings_changed", self._on_gstreamer_settings_changed),
@@ -119,7 +151,11 @@ class IVRPlugin(BasePlugin):
         self._reconnect_task = asyncio.create_task(self._reconnect_loop())
 
     async def stop(self) -> None:
-        self._bootstrapper.terminate()
+        self._stopping = True
+        # Wait for the app to exit: on SIGTERM it finalizes the running
+        # recording (EOS -> AVI index), and a restart must not start a second
+        # instance while the old one still holds the port and the records.
+        await self._bootstrapper.terminate_and_wait(self._TERMINATE_TIMEOUT)
 
         bus = self.core_context.get("event_bus")
         if bus and self._subscriptions:
@@ -197,10 +233,13 @@ class IVRPlugin(BasePlugin):
             return
         was_recording = self.is_recording
         self.is_recording = False
+        if self._suspend_ack is not None:
+            self._suspend_ack.set()          # don't hold up a pipeline rebuild
+        unexpected = was_recording and not self._stopping
         self.logger.warning(f"IVR disconnected ({reason}).")
         log_hub.push("ivr", f"IVR app disconnected ({reason})"
-                     + (" WHILE RECORDING — app crashed/closed?" if was_recording else ""),
-                     level="error" if was_recording else "warning")
+                     + (" WHILE RECORDING — app crashed/closed?" if unexpected else ""),
+                     level="error" if unexpected else "warning")
         bus = self.core_context.get("event_bus")
         if bus:
             try:
@@ -238,6 +277,11 @@ class IVRPlugin(BasePlugin):
             self.fight_num = data.get("fight_num")
         elif event == "recording_stopped":
             self.is_recording = False
+        elif event == "recording_suspended":
+            if self._suspend_ack is not None:
+                self._suspend_ack.set()
+        elif event == "state":
+            await self._on_ivr_state(data or {})
         elif event == "error":
             self.logger.error("IVR application error", message=data.get("message"))
 
@@ -265,26 +309,100 @@ class IVRPlugin(BasePlugin):
         _handler.__name__ = f"_cmd_{ws_event}"
         return _handler
 
+    # ------------------------------------------------------------------ recording lifecycle
+
+    @staticmethod
+    def _match_id_of(data: dict) -> Optional[str]:
+        mid = (data or {}).get("match_id")
+        return str(mid) if mid not in (None, "", 0, "0") else None
+
+    def _match_is_on(self) -> bool:
+        return self._match_id is not None and self._match_id != self._ended_match_id
+
+    async def _on_new_fight(self, data: dict):
+        """Match loaded on the scoreboard -> fresh recording for it. The IVR
+        ignores a repeated NEW_FIGHT for the match it is already recording."""
+        self._match_id = self._match_id_of(data)
+        self.logger.info(f"Match {self._match_id} loaded — starting IVR recording.")
+        log_hub.push("ivr", f"NEW_FIGHT #{self._match_id} -> start_recording")
+        await self.send_event("start_recording", {"match_id": self._match_id})
+
     async def _on_fight_started(self, data: dict):
-        """Auto-start IVR recording when the scoreboard signals a fight has begun."""
-        if not self.is_recording:
-            self.logger.info("Fight started — triggering IVR recording.")
-            log_hub.push("ivr", "START_FIGHT -> start_recording")
-            await self.send_event("start_recording")
-        else:
-            log_hub.push("ivr", "START_FIGHT: IVR already recording, start_recording not sent")
+        """Fallback only: NEW_FIGHT normally started the recording already."""
+        if self.is_recording or self._suspended_for_rebuild:
+            return
+        if self._match_id is not None and not self._match_is_on():
+            log_hub.push("ivr", f"START_FIGHT: match {self._match_id} already ended, not recording",
+                         level="warning")
+            return
+        log_hub.push("ivr", f"START_FIGHT while IVR not recording (NEW_FIGHT missed?) "
+                            f"-> start_recording #{self._match_id}", level="warning")
+        await self.send_event("start_recording", {"match_id": self._match_id})
+
+    async def _on_win(self, data: dict):
+        """Winner decided -> stop after stop_delay_s (timer runs in the IVR app).
+        Sent even when not recording: a replay open at that moment must not
+        resume recording when it closes."""
+        match_id = self._match_id_of(data) or self._match_id
+        self._ended_match_id = match_id
+        delay = float(self._settings.stop_delay_s) if self._settings else 10.0
+        log_hub.push("ivr", f"WIN #{match_id} -> stop_recording in {delay:.0f}s")
+        await self.send_event("stop_recording", {"delay_s": delay, "match_id": match_id})
+
+    async def _on_ivr_state(self, state: dict):
+        """IVR (re)connected and reported what it is doing."""
+        self.is_recording = bool(state.get("is_recording"))
+        self.fight_num = state.get("fight_num") or self.fight_num
+        ivr_match = state.get("match_id")
+        # IVR restarted / was down at NEW_FIGHT while a match is on: record it.
+        if (not self.is_recording and self._match_is_on()
+                and state.get("screen") == "main" and not state.get("suspended")
+                and ivr_match != self._match_id):
+            log_hub.push("ivr", f"IVR connected idle during match #{self._match_id} -> start_recording",
+                         level="warning")
+            await self.send_event("start_recording", {"match_id": self._match_id})
+
+    async def _on_pipeline_stopping(self, data: dict):
+        """Awaited by the GStreamer core before its pipeline goes down: the IVR
+        finalizes its files while the shm sockets still deliver frames."""
+        if not self._connected or not self.is_recording:
+            return
+        self._suspend_ack = asyncio.Event()
+        self._suspended_for_rebuild = True
+        log_hub.push("ivr", "Core pipeline stopping -> suspend_recording (finalizing segment)",
+                     level="warning")
+        try:
+            if await self.send_event("suspend_recording"):
+                await asyncio.wait_for(self._suspend_ack.wait(), self._SUSPEND_ACK_TIMEOUT)
+        except asyncio.TimeoutError:
+            log_hub.push("ivr", f"IVR did not confirm suspend within {self._SUSPEND_ACK_TIMEOUT:.0f}s "
+                                f"— pipeline stops anyway", level="error")
+        finally:
+            self._suspend_ack = None
+
+    async def _on_pipeline_started(self, data: dict):
+        if not self._suspended_for_rebuild:
+            return
+        self._suspended_for_rebuild = False
+        if not self._connected:
+            return
+        # Settings first (is_scoreboard may have changed with the rebuild), so
+        # the new segment is built with them.
+        await self._push_settings()
+        log_hub.push("ivr", "Core pipeline started -> resume_recording (new segment)")
+        await self.send_event("resume_recording")
 
     async def _on_ivr_requested(self, data: dict):
-        """Open the IVR replay when the scoreboard signals a video review request."""
-        if self.is_recording:
+        """Open the IVR replay when the scoreboard signals a video review request.
+        The IVR decides: it also opens the finished recording after the match
+        ended, and refuses (with a toast) when there is nothing recorded."""
+        if not self.is_recording:
+            log_hub.push("ivr", "Scoreboard IVR request while not recording -> show_replay "
+                                "(IVR opens the last recording if there is one)", level="warning")
+        else:
             self.logger.info("IVR Requested — triggering IVR replay.")
             log_hub.push("ivr", "Scoreboard IVR request -> show_replay")
-            await self.send_event("show_replay")
-        else:
-            # Shows up as "the IVR didn't open" — usually recording had already
-            # stopped (replay open, never started, or the IVR app restarted).
-            log_hub.push("ivr", "Scoreboard IVR request IGNORED: core believes the IVR is not recording",
-                         level="warning")
+        await self.send_event("show_replay")
 
     async def _on_mirror_changed(self, data: dict):
         self._is_mirror = bool(data.get("is_mirror", False))
@@ -312,6 +430,23 @@ class IVRPlugin(BasePlugin):
             self._connected = False
             return False
 
+    def _camera_count(self) -> int:
+        """IVR camera_count, capped at the cameras the core actually streams
+        (more would make the replay look for files that are never written)."""
+        wanted = self._settings.camera_count
+        try:
+            cam_settings = self.core_context["settings_manager"].get_settings(
+                self._GSTREAMER_SETTINGS_NAME
+            )
+            available = len(getattr(cam_settings, "camera_ips", []) or [])
+        except Exception:
+            return wanted
+        if available and wanted > available:
+            log_hub.push("ivr", f"IVR camera_count {wanted} > {available} core cameras — using {available}",
+                         level="warning")
+            return available
+        return wanted
+
     def _is_scoreboard_enabled(self) -> bool:
         try:
             cam_settings = self.core_context["settings_manager"].get_settings(
@@ -323,12 +458,13 @@ class IVRPlugin(BasePlugin):
             return False
 
     async def _push_settings(self):
-        if not self._settings:
+        if not self._settings or not self._ws:
             return
         payload = {
-            "fps":            self._settings.fps,
-            "res_height":     self._settings.res_height,
-            "camera_count":   self._settings.camera_count,
+            # Must describe what the core writes to shm (not a preference).
+            "fps":            SHM_FPS,
+            "res_height":     SHM_HEIGHT,
+            "camera_count":   self._camera_count(),
             "delete_records": self._settings.delete_records,
             "auto_record":    self._settings.auto_record,
             "is_scoreboard":  self._is_scoreboard_enabled(),

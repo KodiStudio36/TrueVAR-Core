@@ -4,42 +4,40 @@ the operator clicks Final Results, then archived to the match doc in
 Firestore by the Firebase Sync plugin (see firebase_sync/plugin.py,
 _on_poomsae_result).
 
-Pure functions, no I/O — the SAME rules the operator panel and external
-screen use (panel.html buildJudgesTable / screen.html computeAggregate),
-so the saved number is exactly the number the audience saw:
+No scoring maths lives here: every number comes from scoring.py — the same
+module the operator panel, external screen, category ranking and livestream
+scoreboard use — so the saved number is exactly the number the audience saw.
+This file only shapes that result into the match-doc format:
 
-  • judge rows = every registered judge slot ∪ every judge with data;
-    a judge with nothing for a round counts as full marks (4.0 / 6.0 /
-    10.0) and is flagged submitted: False
-  • "trim_high_low": with 3+ judges, the single lowest-total and single
-    highest-total judge are dropped before averaging
-  • a round's score = avg total + restart deduction + penalties
-  • the match score = the average of its rounds (one poomsae in round 1
-    and the semi-final, two in the final)
-  • side by side: higher score wins; tie → higher presentation, then the
-    higher total of ALL judges' scores (trimmed ones included) — the WT
-    tie-break order; still equal → no winner (decided on the floor)
-
-Shape follows the kyorugi match doc (firebase_sync._archive_match): each
-corner's `points` is a LIST with one entry per round — for poomsae one per
-poomsae performed — and the match gets round / win / win_score / win_type.
+  • each corner's `points` is a LIST with one entry per round — for poomsae
+    one per poomsae performed — like kyorugi's per-round points
+  • the match gets round / win / win_score / win_type
+  • a disqualified athlete is saved with finalScore 0 and
+    `disqualified: true` (the judges' own average is kept as `rawScore`);
+    the other side wins with win_type "DSQ"
+  • trimming is per component: a judge entry can carry `trimmedAccuracy`
+    and / or `trimmedPresentation`, and the round lists the judges concerned
+    in `trimmedAccuracy` / `trimmedPresentation`. `trimmedJudges` (whole
+    judge) is only written for para / freestyle, which trim by judge Total.
 """
 from typing import Optional
 
-DEFAULT_ACCURACY = 4.0
-DEFAULT_PRESENTATION = 6.0
-DEFAULT_TOTAL = 10.0
-ROUND_KEYS = ("poomsae1", "poomsae2")
+try:  # registered by plugin.py (see _load_local_module)
+    import poomsae_control_scoring as scoring
+except ImportError:  # loaded on its own (tests): pick up the sibling file
+    import importlib.util
+    import sys
+    from pathlib import Path
+    _spec = importlib.util.spec_from_file_location("poomsae_control_scoring", Path(__file__).with_name("scoring.py"))
+    scoring = importlib.util.module_from_spec(_spec)
+    sys.modules["poomsae_control_scoring"] = scoring
+    _spec.loader.exec_module(scoring)
 
-
-def normalize_map(value) -> dict:
-    """RTDB returns a node keyed by small integers as a list — see
-    plugin._normalize_firebase_map; duplicated here to stay import-free."""
-    if isinstance(value, dict):
-        return value
-    if isinstance(value, list):
-        return {str(i): v for i, v in enumerate(value) if v is not None}
-    return {}
+DEFAULT_ACCURACY = scoring.FULL_ACCURACY
+DEFAULT_PRESENTATION = scoring.FULL_PRESENTATION
+DEFAULT_TOTAL = DEFAULT_ACCURACY + DEFAULT_PRESENTATION
+ROUND_KEYS = scoring.ROUND_KEYS
+normalize_map = scoring.as_map
 
 
 def prune(value):
@@ -60,126 +58,82 @@ def prune(value):
 
 
 def _num(value, default: float = 0.0) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
+    return scoring.num(value, default)
 
 
-def _judge_numbers(judges_map: dict, registry: dict) -> list[int]:
-    numbers = set()
-    for key in list(registry.keys()) + list(judges_map.keys()):
-        try:
-            n = int(key)
-        except (TypeError, ValueError):
-            continue
-        if n >= 1:
-            numbers.add(n)
-    return sorted(numbers)
-
-
-def round_result(corner: dict, registry: dict, round_key: str, scoring_method: str,
-                 restart: float, penalty: float, poomsae: Optional[dict]) -> dict:
-    judges_map = normalize_map(corner.get("judges"))
-    entries = []
-    for n in _judge_numbers(judges_map, registry):
-        data = normalize_map(judges_map.get(str(n))).get(round_key)
+def _archive_round(corner: dict, r: dict, poomsae: Optional[dict]) -> dict:
+    """One scoring.round_result → the `points` entry saved on the match doc."""
+    judges_map = scoring.as_map(corner.get("judges"))
+    judges = {}
+    for e in r["judges"]:
+        entry = {"accuracy": e["accuracy"], "presentation": e["presentation"],
+                 "total": e["total"], "submitted": e["submitted"]}
+        if e["default"]:
+            entry["noScore"] = True
+        if e["trimAccuracy"]:
+            entry["trimmedAccuracy"] = True
+        if e["trimPresentation"]:
+            entry["trimmedPresentation"] = True
+        if e["trimmed"]:
+            entry["trimmed"] = True
+        data = scoring.as_map(judges_map.get(str(e["judge"]))).get(r["roundKey"])
         if isinstance(data, dict):
-            entry = {
-                "judge": n,
-                "accuracy": _num(data.get("accuracy"), DEFAULT_ACCURACY),
-                "presentation": _num(data.get("presentation"), DEFAULT_PRESENTATION),
-                "total": _num(data.get("total"), DEFAULT_TOTAL),
-                "submitted": data.get("submitted") is True,
-            }
             if isinstance(data.get("presentationCategories"), dict):
                 entry["presentationCategories"] = data["presentationCategories"]
             if isinstance(data.get("technical"), dict):
                 entry["technical"] = data["technical"]
-        else:
-            entry = {"judge": n, "accuracy": DEFAULT_ACCURACY, "presentation": DEFAULT_PRESENTATION,
-                     "total": DEFAULT_TOTAL, "submitted": False, "noScore": True}
-        entries.append(entry)
-
-    included = entries
-    trimmed: list[int] = []
-    if scoring_method == "trim_high_low" and len(entries) >= 3:
-        ordered = sorted(entries, key=lambda e: e["total"])  # stable, like the panel's JS sort
-        trimmed = [ordered[0]["judge"], ordered[-1]["judge"]]
-        included = [e for e in entries if e["judge"] not in trimmed]
-    for e in entries:
-        if e["judge"] in trimmed:
-            e["trimmed"] = True  # left out otherwise
-
-    count = len(included) or 1
-    avg = lambda key: sum(e[key] for e in included) / count
-    avg_total = avg("total")
-    # One `points` entry, like a kyorugi round: `points` is the round score,
-    # `penalties` the penalty total; accuracy / presentation / total are
-    # the judges' averages (after trimming).
+        judges[str(e["judge"])] = entry
     return {
         "poomsae": poomsae,
-        "points": round(avg_total + restart + penalty, 3),
-        "accuracy": round(avg("accuracy"), 3),
-        "presentation": round(avg("presentation"), 3),
-        "total": round(avg_total, 3),
-        "restart": restart or None,      # pruned when 0
-        "penalties": penalty or None,
-        "judges": {str(e["judge"]): {k: v for k, v in e.items() if k != "judge"} for e in entries},
-        "trimmedJudges": trimmed or None,
-        "totalAllJudges": round(sum(e["total"] for e in entries), 3),
-        "allJudgesSubmitted": bool(entries) and all(e["submitted"] for e in entries),
+        "points": r["points"],
+        "accuracy": r["avgAccuracy"],
+        "presentation": r["avgPresentation"],
+        "total": r["average"],
+        "restart": r["restart"] or None,      # pruned when 0
+        "penalties": r["penalty"] or None,
+        "judges": judges,
+        "trimmedJudges": [e["judge"] for e in r["judges"] if e["trimmed"]] or None,
+        "trimmedAccuracy": [e["judge"] for e in r["judges"] if e["trimAccuracy"] and not e["trimmed"]] or None,
+        "trimmedPresentation": [e["judge"] for e in r["judges"] if e["trimPresentation"] and not e["trimmed"]] or None,
+        "totalAllJudges": r["totalAll"],
+        "allJudgesSubmitted": r["allSubmitted"],
     }
 
 
 def corner_result(corner: dict, registry: dict, round_keys: list[str], scoring_method: str,
-                  poomsae: list[dict], current_round_key: Optional[str]) -> dict:
-    adjustments = normalize_map(corner.get("roundAdjustments"))
-    points = []
-    for i, key in enumerate(round_keys):
-        adj = normalize_map(adjustments.get(key))
-        restart = _num(adj.get("restart"))
-        penalty = _num(adj.get("penalty"))
-        # Live match_data written before roundAdjustments existed only has
-        # the flat per-stage fields — use them for the round on the floor.
-        if not adj and key == current_round_key:
-            restart = _num(corner.get("roundDeduction"))
-            penalty = _num(corner.get("roundPenalty"))
-        entry = round_result(corner, registry, key, scoring_method, restart, penalty,
-                             poomsae[i] if i < len(poomsae) else None)
-        points.append({"round": i + 1, **entry})
-
-    n = len(points) or 1
+                  poomsae: list[dict], current_round_key: Optional[str], mode: str = "solo") -> dict:
+    res = scoring.corner_result(corner, registry, round_keys, scoring_method, mode, current_round_key)
+    points = [
+        {"round": i + 1, **_archive_round(corner, r, poomsae[i] if i < len(poomsae) else None)}
+        for i, r in enumerate(res["rounds"])
+    ]
     return {
         "entryId": corner.get("entryId"),
         "points": points,
-        "finalScore": round(sum(r["points"] for r in points) / n, 3),
-        "presentation": round(sum(r["presentation"] for r in points) / n, 3),
-        "totalAllJudges": round(sum(r["totalAllJudges"] for r in points), 3),
+        "finalScore": res["finalScore"],
+        "presentation": res["presentation"],
+        "totalAllJudges": res["totalAll"],
+        # Disqualified: finalScore is 0 whatever the judges gave.
+        "disqualified": True if res["disqualified"] else None,
+        "rawScore": res["rawScore"] if res["disqualified"] else None,
     }
 
 
-# win_type — how a side-by-side match was decided (kyorugi's win_type
-# slot): PTS higher final score · PRS tie → higher presentation ·
-# ALL tie → higher total of all judges' scores (trimmed included).
-WIN_TYPES = (("finalScore", "PTS"), ("presentation", "PRS"), ("totalAllJudges", "ALL"))
-
-
 def decide_winner(blue: dict, red: Optional[dict]) -> tuple[Optional[str], Optional[str]]:
-    if not red:
-        return None, None
-    for key, win_type in WIN_TYPES:
-        if blue[key] != red[key]:
-            return ("blue" if blue[key] > red[key] else "red"), win_type
-    return None, None
+    """The winner of a side-by-side match — scoring.decide_winner on the
+    saved corner results."""
+    def view(c: dict) -> dict:
+        return {"finalScore": c["finalScore"], "presentation": c["presentation"],
+                "totalAll": c["totalAllJudges"], "disqualified": bool(c.get("disqualified"))}
+    return scoring.decide_winner(view(blue), view(red) if red else None)
 
 
 def build_match_result(live: dict, registry: dict, scoring_method: str, round_count: int,
-                       poomsae: list[dict], current_round_key: Optional[str]) -> dict:
+                       poomsae: list[dict], current_round_key: Optional[str], mode: str = "solo") -> dict:
     corners = live.get("corners") or {}
     round_keys = list(ROUND_KEYS[:max(1, min(2, round_count))])
-    blue = corner_result(corners.get("blue") or {}, registry, round_keys, scoring_method, poomsae, current_round_key)
-    red = corner_result(corners["red"], registry, round_keys, scoring_method, poomsae, current_round_key) \
+    blue = corner_result(corners.get("blue") or {}, registry, round_keys, scoring_method, poomsae, current_round_key, mode)
+    red = corner_result(corners["red"], registry, round_keys, scoring_method, poomsae, current_round_key, mode) \
         if corners.get("red") else None
     winner, win_type = decide_winner(blue, red)
     # Kyorugi writes win_score as the score line, e.g. "12-7".
@@ -193,8 +147,10 @@ def build_match_result(live: dict, registry: dict, scoring_method: str, round_co
         "win": winner,
         "win_score": win_score,
         "win_type": win_type,
-        "tie": bool(red) and winner is None,
-        "allJudgesSubmitted": all(r["allJudgesSubmitted"] for c in (blue, red) if c for r in c["points"]),
+        "tie": bool(red) and winner is None and not (blue.get("disqualified") and red.get("disqualified")),
+        # A disqualified athlete's judges don't matter any more.
+        "allJudgesSubmitted": all(r["allJudgesSubmitted"] for c in (blue, red)
+                                  if c and not c.get("disqualified") for r in c["points"]),
     })
 
 
@@ -220,11 +176,14 @@ def build_match_result(live: dict, registry: dict, scoring_method: str, round_co
 #   sb  judge submitted           p: total
 #   us  judge submission withdrawn / cleared
 #   as  all judges submitted
+#   dq  athlete disqualified
+#   dc  disqualification withdrawn
 EVENT_CODES = {
     "st": "poomsae started", "ts": "timer started", "tp": "timer paused",
     "rs": "restart", "pn": "penalty", "pc": "penalties cleared",
     "a": "judge accuracy", "pr": "judge presentation", "sb": "judge submitted",
     "us": "judge submission withdrawn", "as": "all judges submitted",
+    "dq": "disqualified", "dc": "disqualification withdrawn",
 }
 
 
@@ -379,6 +338,9 @@ def build_performances(match: dict, result: dict, timeline: Optional[Timeline], 
                 "penalties": entry.get("penalties"),
                 "judges": entry.get("judges"),
                 "trimmedJudges": entry.get("trimmedJudges"),
+                "trimmedAccuracy": entry.get("trimmedAccuracy"),
+                "trimmedPresentation": entry.get("trimmedPresentation"),
+                "disqualified": corner_result_.get("disqualified"),
                 "matchFinalScore": corner_result_.get("finalScore"),
                 "won": (result.get("win") == color) if result.get("format") == "duel" and result.get("win") else None,
                 "startedAt": (timeline.rounds.get(round_key) or {}).get("startedAt") if timeline and round_key else None,

@@ -7,11 +7,12 @@
     <title>Poomsae Elimination — Screen</title>
     <style>
         /* Same color tokens as panel.html (visual consistency between
-           operator and audience views). This file is self-contained — it
-           duplicates the small amount of scoring math it needs (judge
-           averaging, trimming, deductions, per-poomsae / final score,
-           winner tie-break) from panel.html / results.py / standings.py.
-           Keep them in sync by hand if that math ever changes.
+           operator and audience views). This page does NO scoring maths:
+           every number (judge rows, trimmed marks, averages, deductions,
+           per-poomsae / final score, winner, disqualification) arrives in
+           /state → "scores", calculated by scoring.py — the same module the
+           operator panel, the saved result, the category ranking and the
+           livestream use.
 
            Views, picked from match_data.stage (see viewFor):
              lineup   — Preparation, poomsae drawn: the poomsae to perform
@@ -401,9 +402,38 @@
             font-style: italic;
         }
 
-        .judge-row-trimmed td {
+        /* The judge's highest / lowest value of that column — not counted. */
+        .judge-table td.trimmed {
             text-decoration: line-through;
             opacity: 0.45;
+        }
+
+        /* Disqualified athlete */
+        .dsq-tag {
+            padding: 0.2em 0.9em;
+            border-radius: 12px;
+            background: #7f1d1d;
+            color: #fecaca;
+            border: 3px solid #ef4444;
+            font-size: var(--idline-size);
+            font-weight: 900;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .score.dsq {
+            color: #fecaca;
+        }
+
+        .rank-num.dsq {
+            border-color: #ef4444;
+            background: #7f1d1d;
+            color: #fecaca;
+            font-size: calc(var(--row-h) * 0.2);
+        }
+
+        .rank-score.dsq {
+            color: #fca5a5;
         }
 
         .result-main,
@@ -940,8 +970,6 @@
         const STAGE_TO_ROUND_KEY = { poomsae_1: "poomsae1", poomsae_2: "poomsae2" };
         const STAGE_RESULTS_ROUND_KEY = { results_1: "poomsae1", results_2: "poomsae2" };
         const STAGE_POOMSAE_INDEX = { poomsae_1: 0, results_1: 0, poomsae_2: 1, results_2: 1 };
-        const ROUND_KEYS = ["poomsae1", "poomsae2"];
-        const DEFAULT = { accuracy: 4.0, presentation: 6.0, total: 10.0 };
 
         // IOC / ISO-3 → ISO-2, for the flag image. A 2-letter code is used
         // as-is; an unknown code still shows as text, just without a flag.
@@ -1037,6 +1065,7 @@
         function render(state) {
             const live = state && state.live;
             const settings = (state && state.settings) || {};
+            const scores = (state && state.scores) || {};
 
             if (!live || !live.matchId) {
                 stopCategory();
@@ -1063,9 +1092,7 @@
             stopCategory();
 
             const ctx = {
-                live, drawn, count,
-                registry: state.judgesRegistry || {},
-                method: settings.scoring_method || "sum_all",
+                live, drawn, count, scores,
                 accLabel: live.isPara || live.scoringMode === "freestyle" ? "Technical" : "Accuracy",
             };
 
@@ -1104,37 +1131,40 @@
             const isSolo = live.isSolo === true;
             const corners = live.corners || {};
             const sides = (isSolo ? ["blue"] : ["blue", "red"]).filter(s => corners[s]);
-
-            let finals = null, winner = null;
-            if (view === "final") {
-                finals = Object.fromEntries(sides.map(s => [s, finalResult(corners[s], ctx)]));
-                if (!isSolo && finals.blue && finals.red) winner = decideWinner(finals.blue, finals.red);
-            }
+            const winner = view === "final" && !isSolo ? ctx.scores.winner : null;
 
             const cards = sides.map(side => {
                 const corner = corners[side];
                 if (view === "perform") return performCorner(corner, side, ctx);
                 if (view === "result") return resultCorner(corner, side, ctx);
-                return finalCorner(corner, side, finals[side], winner, ctx);
+                return finalCorner(corner, side, winner, ctx);
             }).join("");
             return `<div class="corners ${isSolo ? "solo" : "duel"}">${cards}</div>`;
+        }
+
+        // One poomsae of one athlete, as scoring.py calculated it.
+        function roundOf(sc, roundKey) {
+            return sc && roundKey ? (sc.rounds || []).find(r => r.roundKey === roundKey) || null : null;
         }
 
         // Judge numbers on the left go green as they submit.
         function performCorner(corner, side, ctx) {
             const roundKey = STAGE_TO_ROUND_KEY[ctx.live.stage] || null;
-            const { entries } = roundResult(corner, ctx.registry, roundKey, ctx.method, 0, 0);
-            const n = Math.max(entries.length, 1);
+            const sc = ctx.scores[side] || {};
+            const r = roundOf(sc, roundKey);
+            const judges = r ? r.judges : (sc.judgeNumbers || []).map(n => ({ judge: n, submitted: false }));
+            const n = Math.max(judges.length, 1);
             return `
             <div class="corner corner-${side}">
                 <div class="perform">
                     <div class="badges" style="--badge: min(8.5vh, calc(64vh / ${n}))">
-                        ${entries.map(e => `<div class="badge ${e.submitted ? "submitted" : ""}">${e.number}</div>`).join("")}
+                        ${judges.map(e => `<div class="badge ${e.submitted ? "submitted" : ""}">${e.judge}</div>`).join("")}
                     </div>
                     <div class="identity">
                         ${nationHtml(corner)}
                         <div class="big-name">${splitName(corner.name)}</div>
                         ${corner.clubName ? `<div class="club">${esc(corner.clubName)}</div>` : ""}
+                        ${sc.disqualified ? `<div class="dsq-tag">Disqualified</div>` : ""}
                     </div>
                 </div>
             </div>`;
@@ -1143,31 +1173,33 @@
         // Results 1 / 2 — that poomsae's judges, score, averages.
         function resultCorner(corner, side, ctx) {
             const roundKey = ctx.live.resultsRoundKey || STAGE_RESULTS_ROUND_KEY[ctx.live.stage] || null;
-            const r = roundResult(corner, ctx.registry, roundKey, ctx.method,
-                num(corner.roundDeduction), num(corner.roundPenalty));
-            const rows = r.entries.map(e => {
-                const cls = [e.isDefault ? "judge-row-default" : "", r.trimmed.has(e.number) ? "judge-row-trimmed" : ""].filter(Boolean).join(" ");
-                return `<tr class="${cls}">
-                    <td class="judge-num-cell">${e.number}</td>
-                    <td class="judge-acc-cell">${e.accuracy.toFixed(1)}</td>
-                    <td class="judge-pres-cell">${e.presentation.toFixed(1)}</td>
-                </tr>`;
-            }).join("");
+            const sc = ctx.scores[side] || {};
+            const r = roundOf(sc, roundKey);
+            if (!r) return `<div class="corner corner-${side}"><div class="result-main">${idLineHtml(corner)}</div></div>`;
+            const dq = sc.disqualified === true;
+            // Highest / lowest accuracy and presentation are struck through
+            // separately — a judge is never dropped as a whole.
+            const rows = r.judges.map(e => `<tr class="${e.default ? "judge-row-default" : ""}">
+                    <td class="judge-num-cell">${e.judge}</td>
+                    <td class="judge-acc-cell${e.trimAccuracy ? " trimmed" : ""}">${e.accuracy.toFixed(1)}</td>
+                    <td class="judge-pres-cell${e.trimPresentation ? " trimmed" : ""}">${e.presentation.toFixed(1)}</td>
+                </tr>`).join("");
             return `
             <div class="corner corner-${side}">
                 <div class="result">
                     <div class="judge-table-wrap"><table class="judge-table"><tbody>${rows}</tbody></table></div>
                     <div class="result-main">
                         ${idLineHtml(corner)}
-                        <div class="score">${r.points.toFixed(3)}</div>
+                        ${dq ? `<div class="dsq-tag">Disqualified</div>` : ""}
+                        <div class="score${dq ? " dsq" : ""}">${dq ? "DSQ" : r.points.toFixed(3)}</div>
                         <div class="boxes">
                             <div class="box box-accuracy">
                                 <div class="box-label">${ctx.accLabel}</div>
-                                <div class="box-value">${r.avgAcc.toFixed(2)}</div>
+                                <div class="box-value">${r.avgAccuracy.toFixed(2)}</div>
                             </div>
                             <div class="box box-presentation">
                                 <div class="box-label">Presentation</div>
-                                <div class="box-value">${r.avgPres.toFixed(2)}</div>
+                                <div class="box-value">${r.avgPresentation.toFixed(2)}</div>
                             </div>
                         </div>
                         <div class="all-judges"><small>All judges</small>${r.totalAll.toFixed(2)}</div>
@@ -1177,10 +1209,14 @@
             </div>`;
         }
 
-        // Final score + each poomsae's score.
-        function finalCorner(corner, side, fr, winner, ctx) {
+        // Final score + each poomsae's score. `winner` is decided by the
+        // server (score → presentation → all judges; a disqualified athlete
+        // always loses).
+        function finalCorner(corner, side, winner, ctx) {
+            const sc = ctx.scores[side] || {};
+            const dq = sc.disqualified === true;
             const state = !winner ? "" : winner === side ? "winner" : "loser";
-            const boxes = fr.rounds.map((r, i) => `
+            const boxes = dq ? "" : (sc.rounds || []).map((r, i) => `
                 <div class="box box-poomsae">
                     <div class="box-label">${esc(ctx.drawn[i] || `Poomsae ${i + 1}`)}</div>
                     <div class="box-value">${r.points.toFixed(3)}</div>
@@ -1190,7 +1226,8 @@
                 ${state === "winner" ? `<div class="winner-tag">Winner</div>` : ""}
                 <div class="final">
                     ${idLineHtml(corner)}
-                    <div class="score">${fr.finalScore.toFixed(3)}</div>
+                    ${dq ? `<div class="dsq-tag">Disqualified</div>` : ""}
+                    <div class="score${dq ? " dsq" : ""}">${dq ? "DSQ" : (sc.finalScore ?? 0).toFixed(3)}</div>
                     <div class="boxes">${boxes}</div>
                 </div>
             </div>`;
@@ -1364,15 +1401,18 @@
 
         function rankRowHtml(r, system) {
             const pending = r.score == null;
-            const badge = r.medal ? medalSvg(r.medal)
-                : r.rank ? `<div class="rank-num">${r.rank}</div>`
-                    : `<div class="rank-num empty"></div>`;
+            const badge = r.disqualified ? `<div class="rank-num dsq">DSQ</div>`
+                : r.medal ? medalSvg(r.medal)
+                    : r.rank ? `<div class="rank-num">${r.rank}</div>`
+                        : `<div class="rank-num empty"></div>`;
             const rounds = asArray(r.rounds);
-            const score = system === "round_robin"
-                ? `<div class="rank-score"><div class="rank-wl">${r.wins ?? 0}W ${r.losses ?? 0}L</div><small>${pending ? "—" : Number(r.score).toFixed(3)}</small></div>`
-                : `<div class="rank-score">${pending ? "—" : Number(r.score).toFixed(3)}${rounds.length > 1 ? `<small>${rounds.map(v => Number(v).toFixed(3)).join(" · ")}</small>` : ""}</div>`;
+            const score = r.disqualified
+                ? `<div class="rank-score dsq">DSQ</div>`
+                : system === "round_robin"
+                    ? `<div class="rank-score"><div class="rank-wl">${r.wins ?? 0}W ${r.losses ?? 0}L</div><small>${pending ? "—" : Number(r.score).toFixed(3)}</small></div>`
+                    : `<div class="rank-score">${pending ? "—" : Number(r.score).toFixed(3)}${rounds.length > 1 ? `<small>${rounds.map(v => Number(v).toFixed(3)).join(" · ")}</small>` : ""}</div>`;
             return `
-                <div class="rank-row ${r.isCurrent ? "current" : ""} ${pending ? "pending" : ""}">
+                <div class="rank-row ${r.isCurrent ? "current" : ""} ${pending && !r.disqualified ? "pending" : ""}">
                     <div class="rank-badge">${badge}</div>
                     ${rankFlagHtml(countryCode(r))}
                     <div class="rank-who">
@@ -1413,7 +1453,7 @@
                 return `<div class="bout-line bout-${side} ${cls}">
                     ${rankFlagHtml(countryCode(c))}
                     <span class="bout-name">${esc(c.name || "—")}</span>
-                    <span class="bout-score">${fmt(c.score)}</span>
+                    <span class="bout-score">${c.disqualified ? "DSQ" : fmt(c.score)}</span>
                 </div>`;
             };
             const bouts = asArray(cr.matches).map(m => `
@@ -1475,87 +1515,6 @@
             };
             tick();
             countdownTimer = setInterval(tick, 250);
-        }
-
-        // ── Scoring (same rules as panel.html / results.py / standings.py) ─
-        function isValidJudgeNumber(n) {
-            return Number.isFinite(n) && n >= 1 && Number.isInteger(n);
-        }
-
-        function num(v, fallback = 0) {
-            const n = Number(v);
-            return v == null || !Number.isFinite(n) ? fallback : n;
-        }
-
-        const round3 = v => Math.round(v * 1000) / 1000;
-
-        function roundResult(corner, registry, roundKey, method, restart, penalty) {
-            const judgesMap = corner.judges || {};
-            const numbers = [...new Set([
-                ...Object.keys(registry || {}).map(Number),
-                ...Object.keys(judgesMap).map(Number),
-            ])].filter(isValidJudgeNumber).sort((a, b) => a - b);
-
-            const entries = numbers.map(n => {
-                const d = roundKey && judgesMap[n] && judgesMap[n][roundKey];
-                const has = !!d && typeof d === "object";
-                return {
-                    number: n,
-                    accuracy: has ? num(d.accuracy, DEFAULT.accuracy) : DEFAULT.accuracy,
-                    presentation: has ? num(d.presentation, DEFAULT.presentation) : DEFAULT.presentation,
-                    total: has ? num(d.total, DEFAULT.total) : DEFAULT.total,
-                    submitted: has && d.submitted === true,
-                    isDefault: !has,
-                };
-            });
-
-            let included = entries;
-            let trimmed = new Set();
-            if (method === "trim_high_low" && entries.length >= 3) {
-                const sorted = [...entries].sort((a, b) => a.total - b.total);
-                trimmed = new Set([sorted[0].number, sorted[sorted.length - 1].number]);
-                included = entries.filter(e => !trimmed.has(e.number));
-            }
-            const count = included.length || 1;
-            const avg = key => included.reduce((s, e) => s + e[key], 0) / count;
-            const avgTot = avg("total");
-            return {
-                entries, trimmed,
-                avgAcc: avg("accuracy"),
-                avgPres: avg("presentation"),
-                points: round3(avgTot + restart + penalty),
-                totalAll: entries.reduce((s, e) => s + e.total, 0),
-                restart, penalty,
-            };
-        }
-
-        function finalResult(corner, ctx) {
-            const adjustments = corner.roundAdjustments || {};
-            const keys = ROUND_KEYS.slice(0, ctx.count);
-            const rounds = keys.map(key => {
-                const adj = adjustments[key];
-                let restart = num(adj && adj.restart), penalty = num(adj && adj.penalty);
-                if (!adj && key === ctx.live.resultsRoundKey) {
-                    restart = num(corner.roundDeduction);
-                    penalty = num(corner.roundPenalty);
-                }
-                return roundResult(corner, ctx.registry, key, ctx.method, restart, penalty);
-            });
-            const n = rounds.length || 1;
-            return {
-                rounds,
-                finalScore: round3(rounds.reduce((s, r) => s + r.points, 0) / n),
-                presentation: round3(rounds.reduce((s, r) => s + round3(r.avgPres), 0) / n),
-                totalAll: round3(rounds.reduce((s, r) => s + r.totalAll, 0)),
-            };
-        }
-
-        // WT tie-break: final score → presentation → total of all judges.
-        function decideWinner(blue, red) {
-            for (const key of ["finalScore", "presentation", "totalAll"]) {
-                if (blue[key] !== red[key]) return blue[key] > red[key] ? "blue" : "red";
-            }
-            return null;
         }
 
         // ── Pieces ───────────────────────────────────────────────────────

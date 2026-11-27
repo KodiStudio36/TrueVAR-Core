@@ -1,44 +1,39 @@
 """
-Category Results — pure scoring / ranking helpers (no I/O), next to
-plugin.py like results.py.
+Category Results — ranking helpers (no I/O), next to plugin.py like results.py.
 
-Scores are computed from match_data exactly the way the operator panel
-shows them (panel.html buildJudgesTable): every registered judge counts,
-a judge with no data for the round counts as full marks (4.0 / 6.0),
-"trim_high_low" drops the single highest and lowest Total when there are
-3+ judges, then avg Total + restart + penalties. A round where NO judge
-sent anything counts as not performed (None), never as 10.0.
+No scoring maths lives here: a round's / match's score comes from scoring.py
+(the same module the panel, screen, saved result and livestream use). A
+round where NO judge sent anything counts as not performed (score None),
+never as 10.0. A match's score = mean of its performed poomsae (one in a
+cut-off preliminary / semi-final, two in the final).
 
-A match's score = mean of its performed poomsae (one in a cut-off
-preliminary / semi-final, two in the final).
+A disqualified athlete scores 0, is listed after everyone who has a rank
+(never ranked, never qualified, never a medal) and loses a side-by-side match.
 
 Ranking ties (WT order): higher score, then higher presentation, then
 higher sum of ALL judges' totals.
 """
 from typing import Iterable, Optional
 
-FULL_ACCURACY = 4.0
-FULL_PRESENTATION = 6.0
+try:  # registered by plugin.py (see _load_local_module)
+    import poomsae_control_scoring as scoring
+except ImportError:  # loaded on its own (tests): pick up the sibling file
+    import importlib.util
+    import sys
+    from pathlib import Path
+    _spec = importlib.util.spec_from_file_location("poomsae_control_scoring", Path(__file__).with_name("scoring.py"))
+    scoring = importlib.util.module_from_spec(_spec)
+    sys.modules["poomsae_control_scoring"] = scoring
+    _spec.loader.exec_module(scoring)
+
+FULL_ACCURACY = scoring.FULL_ACCURACY
+FULL_PRESENTATION = scoring.FULL_PRESENTATION
 NEXT_CUT_OFF_PHASE = {"PR": "SF", "SF": "F"}
-
-
-def normalize_map(value) -> dict:
-    """RTDB hands back small-integer-keyed nodes as lists — see
-    plugin._normalize_firebase_map."""
-    if isinstance(value, dict):
-        return value
-    if isinstance(value, list):
-        return {str(i): v for i, v in enumerate(value) if v is not None}
-    return {}
+normalize_map = scoring.as_map
 
 
 def _num(value, default: float) -> float:
-    if value is None:
-        return default
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
+    return scoring.num(value, default)
 
 
 def registry_numbers(registry) -> set[int]:
@@ -46,68 +41,41 @@ def registry_numbers(registry) -> set[int]:
 
 
 # ── Scores ──────────────────────────────────────────────────────────────
-def round_score(corner: Optional[dict], round_key: str, judges_registry: Iterable[int], scoring_method: str) -> Optional[dict]:
-    judges = normalize_map((corner or {}).get("judges"))
-    numbers = set(judges_registry)
-    for k in judges:
-        if str(k).isdigit() and int(k) >= 1:
-            numbers.add(int(k))
-    if not numbers:
+def round_score(corner: Optional[dict], round_key: str, judges_registry: Iterable[int], scoring_method: str,
+                mode: str = "solo") -> Optional[dict]:
+    """One poomsae's score, or None when no judge sent anything for it."""
+    r = scoring.round_result(corner, set(judges_registry), round_key, scoring_method, mode)
+    if not r["performed"]:
         return None
-
-    entries = []
-    has_data = False
-    for n in sorted(numbers):
-        data = judges.get(str(n))
-        rd = data.get(round_key) if isinstance(data, dict) else None
-        if isinstance(rd, dict):
-            has_data = True
-            acc = _num(rd.get("accuracy"), FULL_ACCURACY)
-            pres = _num(rd.get("presentation"), FULL_PRESENTATION)
-            tot = _num(rd.get("total"), acc + pres)
-        else:
-            acc, pres, tot = FULL_ACCURACY, FULL_PRESENTATION, FULL_ACCURACY + FULL_PRESENTATION
-        entries.append((n, acc, pres, tot))
-    if not has_data:
-        return None
-
-    included = entries
-    if scoring_method == "trim_high_low" and len(entries) >= 3:
-        ordered = sorted(entries, key=lambda e: e[3])
-        dropped = {ordered[0][0], ordered[-1][0]}
-        included = [e for e in entries if e[0] not in dropped]
-
-    count = len(included) or 1
-    avg_acc = sum(e[1] for e in included) / count
-    avg_pres = sum(e[2] for e in included) / count
-    avg_tot = sum(e[3] for e in included) / count
-
-    adj = normalize_map(normalize_map((corner or {}).get("roundAdjustments")).get(round_key))
-    restart = _num(adj.get("restart"), 0.0)
-    penalty = _num(adj.get("penalty"), 0.0)
     return {
-        "score": round(avg_tot + restart + penalty, 3),
-        "accuracy": round(avg_acc, 3),
-        "presentation": round(avg_pres, 3),
-        "allTotal": round(sum(e[3] for e in entries), 3),
-        "restart": restart,
-        "penalty": penalty,
+        "score": r["points"],
+        "accuracy": r["avgAccuracy"],
+        "presentation": r["avgPresentation"],
+        "allTotal": r["totalAll"],
+        "restart": r["restart"],
+        "penalty": r["penalty"],
     }
 
 
-def match_score(corner: Optional[dict], round_keys: list[str], judges_registry: Iterable[int], scoring_method: str) -> Optional[dict]:
+def match_score(corner: Optional[dict], round_keys: list[str], judges_registry: Iterable[int], scoring_method: str,
+                mode: str = "solo") -> Optional[dict]:
+    """The athlete's score over the performed poomsae in `round_keys`; None
+    when none was performed — unless he is disqualified (score 0)."""
     registry = set(judges_registry)
-    performed = [r for r in (round_score(corner, k, registry, scoring_method) for k in round_keys) if r]
-    if not performed:
+    performed = [r for r in (round_score(corner, k, registry, scoring_method, mode) for k in round_keys) if r]
+    disqualified = scoring.is_disqualified(corner)
+    if not performed and not disqualified:
         return None
-    n = len(performed)
+    n = len(performed) or 1
+    score = round(sum(r["score"] for r in performed) / n, 3)
     return {
-        "score": round(sum(r["score"] for r in performed) / n, 3),
+        "score": 0.0 if disqualified else score,
         "accuracy": round(sum(r["accuracy"] for r in performed) / n, 3),
         "presentation": round(sum(r["presentation"] for r in performed) / n, 3),
         "allTotal": round(sum(r["allTotal"] for r in performed), 3),
         "rounds": [r["score"] for r in performed],
-        "complete": n == len(round_keys),
+        "complete": len(performed) == len(round_keys),
+        "disqualified": True if disqualified else None,
     }
 
 
@@ -116,14 +84,18 @@ def rank_key(row: dict) -> tuple:
 
 
 def duel_winner(blue: Optional[dict], red: Optional[dict]) -> Optional[str]:
-    if not blue or not red or blue.get("score") is None or red.get("score") is None:
+    """Winner of a side-by-side match from two match_score records — the
+    same decision as the saved result (scoring.decide_winner)."""
+    if not blue or not red:
         return None
-    kb, kr = rank_key(blue), rank_key(red)
-    if kb < kr:
-        return "blue"
-    if kr < kb:
-        return "red"
-    return None
+    if not (blue.get("disqualified") or red.get("disqualified")) \
+            and (blue.get("score") is None or red.get("score") is None):
+        return None
+
+    def view(rec: dict) -> dict:
+        return {"finalScore": _num(rec.get("score"), 0.0), "presentation": _num(rec.get("presentation"), 0.0),
+                "totalAll": _num(rec.get("allTotal"), 0.0), "disqualified": rec.get("disqualified") is True}
+    return scoring.decide_winner(view(blue), view(red))[0]
 
 
 def _assign_ranks(rows: list[dict], key) -> None:
@@ -172,17 +144,21 @@ def _cut_off_view(phase, matches, records, current_id, qualify_count) -> dict:
             "presentation": rec.get("presentation"),
             "allTotal": rec.get("allTotal"),
             "rounds": rec.get("rounds"),
+            "disqualified": rec.get("disqualified") is True,
             "isCurrent": m["id"] == current_id,
         })
-    scored = sorted([r for r in rows if r["score"] is not None], key=rank_key)
-    unscored = [r for r in rows if r["score"] is None]
+    # Disqualified athletes are done but never ranked: after everyone with a
+    # rank, before those who still have to perform.
+    disqualified = [r for r in rows if r["disqualified"]]
+    scored = sorted([r for r in rows if r["score"] is not None and not r["disqualified"]], key=rank_key)
+    unscored = [r for r in rows if r["score"] is None and not r["disqualified"]]
     _assign_ranks(scored, rank_key)
     for r in scored:
         r["qualified"] = bool(qualify_count) and r["rank"] <= qualify_count
         r["medal"] = r["rank"] if phase == "F" and r["rank"] <= 3 else None
-    for r in unscored:
+    for r in disqualified + unscored:
         r.update({"rank": None, "qualified": False, "medal": None})
-    ordered = scored + unscored
+    ordered = scored + disqualified + unscored
     # The athlete who just performed starts at the very bottom and rises
     # to their place.
     current = [r["key"] for r in ordered if r["isCurrent"]]
@@ -192,7 +168,7 @@ def _cut_off_view(phase, matches, records, current_id, qualify_count) -> dict:
         "rows": ordered,
         "startOrder": start_order,
         "qualifyCount": qualify_count,
-        "performed": len(scored),
+        "performed": len(scored) + len(disqualified),
         "total": len(rows),
     }
 
@@ -269,7 +245,8 @@ def _single_elimination_view(phase, matches, records, current_id) -> dict:
         for color in ("blue", "red"):
             ident = m.get(color) or {}
             item[color] = {"name": ident.get("name"), "club": ident.get("club"), "country": ident.get("country"),
-                           "score": (corners.get(color) or {}).get("score")}
+                           "score": (corners.get(color) or {}).get("score"),
+                           "disqualified": (corners.get(color) or {}).get("disqualified") is True}
         out.append(item)
     return {
         "system": "single_elimination",

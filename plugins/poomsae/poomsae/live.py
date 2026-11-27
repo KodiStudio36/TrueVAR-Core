@@ -2,7 +2,10 @@
 Live scoreboard maths + the payload the livestream overlay binds to.
 
 Pure helpers, no I/O — loaded by path from plugin.py exactly like
-results.py / standings.py. The control plugin calls shape_live_payload()
+results.py / standings.py. No scoring maths lives here: every score,
+average and trimmed judge comes from scoring.py, the same module the panel,
+the external screen and the saved result use. This file only decides what the
+overlay shows and in what shape. The control plugin calls shape_live_payload()
 with the current match_data and publishes the result on the event bus as
 "poomsae.live_update"; the Poomsae Livestream Extension forwards it to the
 overlay unchanged.
@@ -12,12 +15,25 @@ every judge starts at full marks (accuracy 4.0 + presentation 6.0) and the
 value drops as they deduct. A judge that hasn't sent anything yet counts
 as full marks, so the scoreboard starts at 10.00 and only ever goes down
 during the performance. Restart deduction and penalties are added on top.
+A disqualified athlete shows "DSQ" and scores 0.
 """
 import math
 import re
 
-FULL_ACCURACY = 4.0
-FULL_PRESENTATION = 6.0
+try:  # registered by plugin.py (see _load_local_module)
+    import poomsae_control_scoring as scoring
+except ImportError:  # loaded on its own (tests): pick up the sibling file
+    import importlib.util
+    import sys
+    from pathlib import Path
+    _spec = importlib.util.spec_from_file_location("poomsae_control_scoring", Path(__file__).with_name("scoring.py"))
+    scoring = importlib.util.module_from_spec(_spec)
+    sys.modules["poomsae_control_scoring"] = scoring
+    _spec.loader.exec_module(scoring)
+
+FULL_ACCURACY = scoring.FULL_ACCURACY
+FULL_PRESENTATION = scoring.FULL_PRESENTATION
+DISQUALIFIED_LABEL = "DSQ"
 
 # Stage → which poomsae's scores the scoreboard shows.
 PERFORMING = {"poomsae_1": "poomsae1", "poomsae_2": "poomsae2"}
@@ -33,32 +49,8 @@ except Exception:
         ALPHA3_TO_ALPHA2 = {}
 
 
-def _as_map(value) -> dict:
-    """RTDB can return integer-keyed nodes as lists — see
-    _normalize_firebase_map in plugin.py."""
-    if isinstance(value, dict):
-        return value
-    if isinstance(value, list):
-        return {str(i): v for i, v in enumerate(value) if v is not None}
-    return {}
-
-
-def _num(value):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def combine(values: list[float], method: str) -> float:
-    """Average of the judges' values; "trim_high_low" drops the highest and
-    lowest first (only when there are at least 3 judges)."""
-    if not values:
-        return 0.0
-    vals = sorted(values)
-    if method == "trim_high_low" and len(vals) >= 3:
-        vals = vals[1:-1]
-    return sum(vals) / len(vals)
+_as_map = scoring.as_map
+_num = scoring.num
 
 
 def flags(country) -> tuple[str, str]:
@@ -130,82 +122,47 @@ def _judge_in_presentation(entry: dict) -> bool:
     return pr is not None and abs(pr - FULL_PRESENTATION) > 1e-6
 
 
-def corner_live_score(corner: dict, round_key: str, judge_numbers: list[int], method: str, para: bool = False,
-                      stored_adjustments: bool = False) -> dict:
-    """stored_adjustments=True takes restart / penalty from
-    roundAdjustments/{round_key} (for a poomsae that is over — Final
-    Results); otherwise from roundDeduction / roundPenalty, which always
-    hold the poomsae currently on the floor."""
-    judges = _as_map((corner or {}).get("judges"))
-    numbers = list(judge_numbers) or sorted(int(k) for k in judges if str(k).isdigit()) or [1]
+def corner_live_score(corner: dict, round_key: str, judge_numbers: list[int], method: str, mode: str = "solo",
+                      current_round_key: str | None = None) -> dict:
+    """One athlete's live numbers for one poomsae, all from scoring.round_result.
+    current_round_key = the poomsae on the floor (where a restart / penalty
+    not stored under roundAdjustments is read from)."""
+    corner = corner if isinstance(corner, dict) else {}
+    r = scoring.round_result(corner, judge_numbers, round_key, method, mode, current_round_key)
 
-    accs, pres, totals = [], [], []
-    judge_accuracy: dict[str, float] = {}
-    judge_scores: list[dict] = []
-    started = submitted = presenting = 0
-    for n in numbers:
-        entry = _as_map(judges.get(str(n))).get(round_key)
-        acc = pr = tot = None
-        if isinstance(entry, dict):
-            started += 1
-            if _judge_in_presentation(entry):
-                presenting += 1
-            if entry.get("submitted") is True:
-                submitted += 1
-            acc = _num(entry.get("accuracy"))
-            pr = _num(entry.get("presentation"))
-            tot = _num(entry.get("total"))
-        a = FULL_ACCURACY if acc is None else acc
-        p = FULL_PRESENTATION if pr is None else pr
-        accs.append(a)
-        pres.append(p)
-        judge_accuracy[str(n)] = round(a, 2)
-        judge_scores.append({
-            "judge": n,
-            "accuracy": round(a, 2),
-            "presentation": round(p, 2),
-            "submitted": isinstance(entry, dict) and entry.get("submitted") is True,
-            "trim_accuracy": False,
-            "trim_presentation": False,
-        })
-        # The judge's own total — for para it's the technical sum +
-        # presentation, for freestyle it already has the deductions off.
-        totals.append(tot if tot is not None else a + p)
+    # Presentation screens are a live-only notion (see _judge_in_presentation).
+    judges_map = _as_map(corner.get("judges"))
+    presenting = 0
+    for e in r["judges"]:
+        raw = _as_map(judges_map.get(str(e["judge"]))).get(round_key)
+        if isinstance(raw, dict) and _judge_in_presentation(raw):
+            presenting += 1
 
-    if para:
-        base = combine(totals, method)
-    else:
-        base = combine(accs, method) + combine(pres, method)
-
-    # trim_high_low: mark the highest and lowest value of each component so
-    # the Results widget can grey out what wasn't counted.
-    if method == "trim_high_low" and len(judge_scores) >= 3:
-        for field in ("accuracy", "presentation"):
-            order = sorted(range(len(judge_scores)), key=lambda i: judge_scores[i][field])
-            judge_scores[order[0]][f"trim_{field}"] = True
-            judge_scores[order[-1]][f"trim_{field}"] = True
-
-    if stored_adjustments:
-        adj = _as_map(_as_map(corner.get("roundAdjustments")).get(round_key))
-        deduction = (_num(adj.get("restart")) or 0.0) + (_num(adj.get("penalty")) or 0.0)
-    else:
-        deduction = (_num(corner.get("roundDeduction")) or 0.0) + (_num(corner.get("roundPenalty")) or 0.0)
-    score = max(0.0, base + deduction)
+    deduction = r["restart"] + r["penalty"]
     return {
-        "score": round(score, 3),
-        "score_label": f"{score:.2f}",
-        "accuracy": round(combine(accs, method), 3),
-        "presentation": round(combine(pres, method), 3),
+        "score": r["points"],
+        "score_label": f"{r['points']:.2f}",
+        "accuracy": r["avgAccuracy"],
+        "presentation": r["avgPresentation"],
         "deduction": round(deduction, 2),
         "deduction_label": f"{deduction:.1f}" if deduction else "",
         # Each judge's own live accuracy — the livestream extension uses it
         # to flash a deduction only when most judges made the same call.
-        "judge_accuracy": judge_accuracy,
+        "judge_accuracy": {str(e["judge"]): round(e["accuracy"], 2) for e in r["judges"]},
         # Every judge's marks, in judge order — the Results widget's columns.
-        "judge_scores": judge_scores,
-        "judges": len(numbers),
-        "started": started,
-        "submitted": submitted,
+        # trim_* = left out of that average (accuracy and presentation are
+        # trimmed separately).
+        "judge_scores": [{
+            "judge": e["judge"],
+            "accuracy": round(e["accuracy"], 2),
+            "presentation": round(e["presentation"], 2),
+            "submitted": e["submitted"],
+            "trim_accuracy": e["trimAccuracy"],
+            "trim_presentation": e["trimPresentation"],
+        } for e in r["judges"]],
+        "judges": len(r["judges"]),
+        "started": sum(1 for e in r["judges"] if e["started"]),
+        "submitted": r["submittedCount"],
         "presenting": presenting,
     }
 
@@ -221,30 +178,30 @@ def shape_final(state: dict, corners: dict, is_solo: bool, judge_numbers: list[i
         name = drawn[i].get("name") if i < len(drawn) else None
         columns.append({"key": f"poomsae{i + 1}", "label": f"P{i + 1}", "name": name or f"Poomsae {i + 1}"})
 
-    athletes = []
+    keys = [col["key"] for col in columns]
+    current = state.get("resultsRoundKey")
+    athletes, results = [], {}
     for color in ("blue",) if is_solo else ("blue", "red"):
         c = corners.get(color)
         if not isinstance(c, dict):
             continue
         flag2, flag3 = flags(c.get("country"))
-        scores = [
-            corner_live_score(c, col["key"], judge_numbers, method, para=(mode in ("para", "freestyle")),
-                              stored_adjustments=True)["score"]
-            for col in columns
-        ]
-        total = sum(scores) / len(scores)
+        res = results[color] = scoring.corner_result(c, judge_numbers, keys, method, mode, current)
+        dq = res["disqualified"]
         athletes.append({
             "corner": color, "name": c.get("name") or "", "club": c.get("clubName") or "",
             "flag2": flag2, "flag3": flag3,
-            "poomsae": [round(x, 3) for x in scores],
-            "total": round(total, 3),
+            "poomsae": [0.0 if dq else r["points"] for r in res["rounds"]],
+            "total": res["finalScore"],
+            "disqualified": dq,
         })
 
+    # Same decision as the panel / screen / saved result (WT tie-break incl.).
     leader = None
     if len(athletes) == 1:
         leader = athletes[0]["corner"]
-    elif len(athletes) == 2 and athletes[0]["total"] != athletes[1]["total"]:
-        leader = max(athletes, key=lambda a: a["total"])["corner"]
+    elif len(athletes) == 2:
+        leader = scoring.decide_winner(results.get("blue"), results.get("red"))[0]
     return {"columns": columns, "athletes": athletes, "leader": leader}
 
 
@@ -285,8 +242,14 @@ def _find_rows(view) -> list[dict]:
 
 
 def shape_category(view, current_match_id=None) -> dict:
+    """The ranked list for the overlay. The control plugin already ranked it
+    (standings.py: WT tie-breaks, unperformed and disqualified athletes
+    unranked at the bottom), so rows keep the order and ranks they arrive
+    with. Only a list with no ranks at all is sorted here, by score."""
+    source = _find_rows(view)
+    plugin_ranked = any("rank" in r for r in source)
     rows = []
-    for r in _find_rows(view):
+    for r in source:
         who = r
         if not _first(r, "name", "athleteName", "displayName"):
             who = r.get("athlete") or r.get("blue") or r.get("corner") or {}
@@ -302,22 +265,24 @@ def shape_category(view, current_match_id=None) -> dict:
             "flag2": flag2, "flag3": flag3,
             "score": score,
             "qualified": bool(_first(r, "qualified", "advances", "isQualified", "qualifies")),
+            "disqualified": r.get("disqualified") is True,
             "current": bool(current_match_id) and _first(r, "matchId", "match_id") == current_match_id,
         })
     rows = [r for r in rows if r["name"]]
     if not rows:
         return {"rows": []}
+    if plugin_ranked:
+        return {"rows": rows}
 
-    # Ranked order: by rank when given, else by score (ties share a rank).
-    if all(r["rank"] is not None for r in rows):
-        rows.sort(key=lambda r: r["rank"])
-    else:
-        rows.sort(key=lambda r: -(r["score"] if r["score"] is not None else -1))
-        last, place = None, 0
-        for i, r in enumerate(rows, start=1):
-            if r["score"] != last:
-                place, last = i, r["score"]
-            r["rank"] = place
+    # No ranks given: by score, ties share a rank (disqualified last, unranked).
+    rows.sort(key=lambda r: (r["disqualified"], -(r["score"] if r["score"] is not None else -1)))
+    last, place = None, 0
+    for i, r in enumerate(rows, start=1):
+        if r["disqualified"]:
+            continue
+        if r["score"] != last:
+            place, last = i, r["score"]
+        r["rank"] = place
     return {"rows": rows}
 
 
@@ -345,11 +310,11 @@ def shape_live_payload(state: dict, judge_numbers: list[int], method: str, remai
             "accuracy": FULL_ACCURACY,
             "deduction": 0,
             "deduction_label": "",
+            "disqualified": scoring.is_disqualified(c),
         }
         if round_key:
-            # Para / freestyle: score from the judges' totals (freestyle
-            # totals have the deductions taken off).
-            data.update(corner_live_score(c, round_key, judge_numbers, method, para=(mode in ("para", "freestyle"))))
+            # Para / freestyle: scored from the judges' totals (see scoring.py).
+            data.update(corner_live_score(c, round_key, judge_numbers, method, mode, round_key))
         return data
 
     blue = corner("blue")
@@ -364,6 +329,9 @@ def shape_live_payload(state: dict, judge_numbers: list[int], method: str, remai
         value = c["score"] if (in_results or mode in ("para", "freestyle")) else c["accuracy"]
         c["display_score"] = round(value, 3)
         c["display_label"] = f"{value:.2f}"
+        if c["disqualified"]:
+            # Whatever the judges gave: 0, shown as DSQ.
+            c.update(score=0.0, score_label=DISQUALIFIED_LABEL, display_score=0.0, display_label=DISQUALIFIED_LABEL)
 
     leader = None
     if in_results and blue:

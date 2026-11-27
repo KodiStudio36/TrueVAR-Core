@@ -68,3 +68,29 @@ class ApplicationBootstrapper:
             except ProcessLookupError:
                 pass  # Already dead
             self._process = None
+
+    async def terminate_and_wait(self, timeout: float = 8.0) -> None:
+        """SIGTERM, then wait for the process to really exit (SIGKILL after
+        `timeout`). For apps that must finish work on shutdown (the IVR
+        finalizes its recording) and whose replacement would otherwise race the
+        old instance (same port, same files)."""
+        proc, self._process = self._process, None
+        if proc is None or proc.returncode is not None:
+            return
+        try:
+            proc.terminate()
+        except ProcessLookupError:
+            return
+        try:
+            await asyncio.wait_for(proc.wait(), timeout)
+            self.logger.info(f"Application process exited (code {proc.returncode}).")
+        except asyncio.TimeoutError:
+            self.logger.warning(f"Application process did not exit within {timeout:.0f}s — killing it.")
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                return
+            try:
+                await asyncio.wait_for(proc.wait(), 3.0)
+            except asyncio.TimeoutError:
+                self.logger.error("Application process did not die after SIGKILL.")

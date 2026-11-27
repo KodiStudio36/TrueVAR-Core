@@ -12,6 +12,14 @@ from plugins.core.gstreamer_core.pipeline_manager import PipelineManager
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst
 
+# Raw format written to every camera shm socket (and the scoreboard's). The IVR
+# app's shmsrc carries no caps of its own: the IVR plugin pushes these values so
+# the recorder reads the bytes with exactly this layout. Change them only here.
+SHM_WIDTH = 1280
+SHM_HEIGHT = 720
+SHM_FPS = 30
+SHM_FORMAT = "NV12"
+
 
 class GStreamerCorePlugin(BasePlugin):
     """Owns the physical GStreamer pipeline.
@@ -37,6 +45,12 @@ class GStreamerCorePlugin(BasePlugin):
         tee_srcN    decoded + scaled 720p NV12 frames (sink pad = "processed")
         camN_shmq   queue in front of the IVR shmsink (fill level = back-pressure)
         camN_shm    the shmsink itself (sink pad = frames written to shared memory)
+
+    Bus events emitted around every pipeline stop/start (rebuilds included):
+        gstreamer.pipeline.stopping  — awaited BEFORE the pipeline (and every shm
+                                       socket) goes down; the IVR plugin uses it
+                                       to finalize a running recording first
+        gstreamer.pipeline.started   — new pipeline is PLAYING (sockets are back)
     """
 
     def __init__(self, core_context: dict, logger):
@@ -154,6 +168,10 @@ class GStreamerCorePlugin(BasePlugin):
                 log_hub.push("pipeline", f"Pipeline started #{self.pipeline_generation}: "
                              f"{camera_count} cameras, scoreboard={'on' if settings.is_scoreboard else 'off'}, "
                              f"extensions={list(self._pipeline_manager._extensions.keys()) or 'none'}")
+                bus_ = self.core_context.get("event_bus")
+                if bus_:
+                    await bus_.publish("gstreamer.pipeline.started",
+                                       {"generation": self.pipeline_generation})
         except Exception as exc:
             self.logger.error("Failed to start pipeline", exception=exc)
             log_hub.push("pipeline", f"Failed to build pipeline: {exc}", level="error")
@@ -161,12 +179,19 @@ class GStreamerCorePlugin(BasePlugin):
     async def _stop_pipeline(self) -> None:
         if self.pipeline:
             self.logger.warning("Stopping pipeline...")
+            # Awaited: the IVR plugin finalizes a running recording here, while
+            # the shm sockets are still alive (otherwise its files lose the AVI
+            # index). It resumes on gstreamer.pipeline.started.
+            bus_ = self.core_context.get("event_bus")
+            if bus_:
+                await bus_.publish("gstreamer.pipeline.stopping",
+                                   {"generation": self.pipeline_generation})
             ivr = self.core_context.get("ivr_plugin")
             recording = bool(getattr(ivr, "is_recording", False))
             log_hub.push(
                 "pipeline",
                 "Stopping pipeline: ALL video outputs go down; the IVR shm sockets close"
-                + (" -> the running IVR recording loses its cameras from here!" if recording else ""),
+                + (" -> the IVR is STILL recording, its files end here!" if recording else ""),
                 level="error" if recording else "warning",
             )
             bus = self.pipeline.get_bus()
@@ -192,7 +217,7 @@ class GStreamerCorePlugin(BasePlugin):
 
             parts.append(
                 f"{source} ! jpegdec ! videoconvert ! "
-                f"video/x-raw,width=1280,height=720,framerate=30/1,format=NV12 ! "
+                f"video/x-raw,width={SHM_WIDTH},height={SHM_HEIGHT},framerate={SHM_FPS}/1,format={SHM_FORMAT} ! "
                 f"tee name=tee_src0"
             )
             # Fixed branch: IVR shared memory
@@ -223,7 +248,7 @@ class GStreamerCorePlugin(BasePlugin):
             )
             scaled = (
                 f"vapostproc ! "
-                f"video/x-raw,width=1280,height=720,framerate=30/1,format=NV12 ! "
+                f"video/x-raw,width={SHM_WIDTH},height={SHM_HEIGHT},framerate={SHM_FPS}/1,format={SHM_FORMAT} ! "
                 f"queue ! tee name=tee_src{idx}"
             )
             raw_branches = self._pipeline_manager.get_raw_branches_for_source(idx, settings)
