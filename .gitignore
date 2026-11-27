@@ -4,3 +4,7 @@
 *.log
 data
 config/
+# library build output (pyproject.toml)
+build/
+dist/
+*.egg-info/

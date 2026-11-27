@@ -1,17 +1,31 @@
 import asyncio
 from datetime import datetime, time, timezone
-from typing import Optional
+from typing import Callable, Optional
 from zoneinfo import ZoneInfo
 
 from core.domain.entities import SystemStatus, Tournament
 from core.event_bus import EventBus
-from core.use_cases.plugin_factory import PluginFactory
 from core.use_cases.settings_manager import SettingsManager
 from plugins.base_plugin import PluginState
 from plugins.plugin_registry import PluginRegistry
 
-from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin
-from plugins.core.ivr.plugin import IVRPlugin
+# NOTE: no plugin (GStreamer, IVR, ...) and no PluginFactory is imported at
+# module level: they pull in Linux-only dependencies (gi, xrandr, ...). The
+# orchestrator is used as a library by apps that run only a few plugins
+# (e.g. TrueVAR-TOO on Windows), so those imports happen where they're used.
+
+
+def default_stack_builder(tournament: Tournament) -> list:
+    """The full TrueVAR case stack (Linux): PluginFactory decides."""
+    from core.use_cases.plugin_factory import PluginFactory
+    return PluginFactory.build_stack(
+        tournament.sport,
+        tournament.discipline,
+        tournament.settings["provider"],
+        tournament.settings["mode"],
+        tournament.settings["isStream"],
+        tournament.isRegistrationOpen,
+    )
 
 
 # The calendar day a case lives in, for "scheduled for today" / "chosen
@@ -21,7 +35,12 @@ VENUE_TZ = ZoneInfo("Europe/Bratislava")
 
 
 class SystemOrchestrator:
-    def __init__(self, db_adapter, settings_adapter, network_adapter, root_logger):
+    def __init__(self, db_adapter, settings_adapter, network_adapter, root_logger,
+                 stack_builder: Optional[Callable[[Tournament], list]] = None):
+        """stack_builder(tournament) -> plugin classes to boot for it. Defaults
+        to the full case stack (PluginFactory); an app embedding the core
+        passes its own (and may raise ValueError for unsupported tournaments)."""
+        self.stack_builder = stack_builder or default_stack_builder
         self.db_adapter = db_adapter
         self.settings_adapter = settings_adapter
         self.network_adapter = network_adapter
@@ -341,14 +360,7 @@ class SystemOrchestrator:
             self.system_status.is_offline_mode = False
             self.root_logger.info(f"Booting system for {tournament.title} ({tournament.discipline})")
 
-            plugins_to_load = PluginFactory.build_stack(
-                tournament.sport,
-                tournament.discipline,
-                tournament.settings["provider"],
-                tournament.settings["mode"],
-                tournament.settings["isStream"],
-                tournament.isRegistrationOpen,
-            )
+            plugins_to_load = self.stack_builder(tournament)
 
             shared_context = {
                 "db": self.db_adapter,
@@ -379,6 +391,8 @@ class SystemOrchestrator:
             self.system_status.is_offline_mode = True
             self.root_logger.info("Booting system in OFFLINE mode")
 
+            from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin
+            from plugins.core.ivr.plugin import IVRPlugin
             plugins_to_load = [GStreamerCorePlugin, IVRPlugin]
 
             shared_context = {

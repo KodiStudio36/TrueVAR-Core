@@ -1,5 +1,4 @@
 from core.adapters.local_json_settings_adapter import LocalJSONSettingsAdapter
-from plugins.core.gstreamer_core.plugin import GStreamerCorePlugin
 import uvicorn
 import webbrowser
 import socketio
@@ -16,6 +15,7 @@ from core.adapters.structured_logger_adapter import StructuredLoggerAdapter
 
 # Routers
 from core.infrastructure.routers import api_router, ui_router, plugin_router
+from core.log_hub import get_log_router
 
 # 1. Initialize Adapters
 db_adapter = FirebaseAdapter()
@@ -58,6 +58,7 @@ app = FastAPI(title="TrueVAR Core", lifespan=lifespan)
 app.include_router(ui_router.router)
 app.include_router(api_router.router)
 app.include_router(plugin_router.router)
+app.include_router(get_log_router())   # dashboard log console (/api/system/logs)
 
 combined_app = socketio.ASGIApp(sio, other_asgi_app=app)
 

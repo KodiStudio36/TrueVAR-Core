@@ -7,7 +7,9 @@ structlog.configure(
     processors=[
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
-        structlog.processors.JSONRenderer() if not sys.stdout.isatty() else structlog.dev.ConsoleRenderer()
+        # sys.stdout is None in a windowed (no console) app
+        structlog.dev.ConsoleRenderer() if (sys.stdout is not None and sys.stdout.isatty())
+        else structlog.processors.JSONRenderer()
     ],
     context_class=dict,
     logger_factory=structlog.PrintLoggerFactory(),
