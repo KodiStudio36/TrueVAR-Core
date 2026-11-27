@@ -12,7 +12,10 @@
 <body class="bg-gray-900 text-white h-screen overflow-hidden">
     <div class="h-full flex flex-col px-4 py-3 gap-3">
         <div class="flex justify-between items-center border-b border-gray-700 pb-2 shrink-0">
-            <h1 class="text-2xl font-bold">System Status</h1>
+            <div class="flex items-center gap-4">
+                <h1 class="text-2xl font-bold">System Status</h1>
+                <div id="networkInfo" class="flex flex-wrap items-center gap-2"></div>
+            </div>
             <div id="tournamentInfo" class="text-right"></div>
         </div>
 
@@ -408,7 +411,31 @@
             }).join("");
         }
 
+        async function fetchNetwork() {
+            const el = document.getElementById("networkInfo");
+            try {
+                const res = await fetch("/api/system/network");
+                if (!res.ok) throw new Error(res.status);
+                const { ethernet } = await res.json();
+                if (!ethernet.length) {
+                    el.innerHTML = `<span class="px-3 py-1 rounded-full text-xs bg-gray-700 text-gray-400">No ethernet port</span>`;
+                    return;
+                }
+                el.innerHTML = ethernet.map(n => {
+                    const ip = n.ipv4.length ? n.ipv4.join(", ") : (n.link_up ? "no IP address" : "cable unplugged");
+                    const color = n.ipv4.length ? "bg-gray-700 text-white" : "bg-red-900/60 text-red-200";
+                    return `<span class="px-3 py-1 rounded-full text-xs font-mono ${color}"
+                                  title="Ethernet ${esc(n.interface)}${n.link_up ? " (link up)" : " (no link)"}">
+                                <span class="text-gray-400">${esc(n.interface)}</span> ${esc(ip)}
+                            </span>`;
+                }).join("");
+            } catch (err) {
+                el.innerHTML = `<span class="px-3 py-1 rounded-full text-xs bg-gray-700 text-gray-400">IP unknown</span>`;
+            }
+        }
+
         async function fetchStatus() {
+            fetchNetwork();
             const res = await fetch("/api/plugins/status");
             const data = await res.json();
 

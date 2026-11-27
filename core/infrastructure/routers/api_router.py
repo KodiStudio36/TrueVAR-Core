@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
 
+from core.adapters.system_network_adapter import SystemNetworkAdapter
+
 router = APIRouter(prefix="/api/system", tags=["System API"])
 
 
@@ -77,6 +79,12 @@ async def status(request: Request):
         "active_tournament_id": orchestrator.system_status.active_tournament_id,
         "loaded_plugins": [p.name for p in orchestrator.active_plugins],
     }
+
+
+@router.get("/network")
+async def network():
+    """Wired (ethernet) interfaces and their IPv4 addresses, for the dashboard header."""
+    return {"ethernet": SystemNetworkAdapter.ethernet_interfaces()}
 
 
 @router.get("/tournaments/{tournament_id}/courts")
