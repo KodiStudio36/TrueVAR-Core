@@ -102,13 +102,13 @@ class PluginFactory:
             stack.append(LivestreamCorePlugin)
 
             if discipline == KYORUGI:
-                stack.append(AICameramanKyorugiPlugin)
+                # stack.append(AICameramanKyorugiPlugin)
 
                 if provider == DAEDO:
                     stack.append(TkStrikeLivestreamExtension)
 
             elif discipline == POOMSAE:
-                stack.append(AICameramanPoomsaePlugin)
+                # stack.append(AICameramanPoomsaePlugin)
                 stack.append(PoomsaeLivestreamExtension)
 
             elif provider == BOUT_CNTRL:
