@@ -43,8 +43,10 @@ export class WidgetRegistry {
         defs.forEach((def) => this.register(def));
     }
 
+    /** Accepts the registry id ("next-round") or the DOM id ("widget-next-round"),
+     *  which is what the backend sends in reset_widgets. */
     get(id) {
-        return this.widgets.get(id);
+        return this.widgets.get(id) ?? this.widgets.get(String(id).replace(/^widget-/, ''));
     }
 
     /** Push a fresh data payload into every widget that binds data. */
